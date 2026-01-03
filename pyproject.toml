@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=61.0", "numpy>=1.20", "pybind11>=2.10"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtflib"
+version = "1.5.2"
+authors = [
+    { name="Shashikant Manikonda", email="manikonda@outlook.com" },
+]
+description = "A library for working with Multivariate Taylor Functions."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "jupytext",
+]
+
+[project.optional-dependencies]
+torch = ["torch"]
+test = [
+    "pytest",
+    "matplotlib",
+    "nbconvert",
+    "ipykernel",
+    "jupytext",
+    "pandas",
+    "torch",
+    "ipython",
+    "sympy",
+    "jupyter",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "myst_parser",
+    "sympy",
+    "matplotlib",
+    "pandas",
+    "torch",
+    "ipython",
+    "nbconvert"
+]
+dev = [
+    "pytest",
+    "matplotlib",
+    "nbconvert",
+    "ipykernel",
+    "torch",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "myst_parser",
+    "sympy",
+    "pre-commit",
+    "ruff",
+    "jupytext",
+    "pandas",
+    "ipython",
+    "mypy",
+]
+   
+
+[project.urls]
+"Homepage" = "https://github.com/shashi-manikonda/MTFLibrary"
+"Bug Tracker" = "https://github.com/shashi-manikonda/MTFLibrary/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"mtflib.backends.cpp" = ["*.hpp"]
+"mtflib.backends.c" = ["*.h"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+exclude = ["^docs/.*", "^tests/.*", "^benchmark_MTF/.*", "^demos/.*"]
+disable_error_code = ["var-annotated", "arg-type", "operator", "assignment", "index", "misc", "import-not-found", "import-untyped", "attr-defined"]
+
+[[tool.mypy.overrides]]
+module = ["numpy.*", "pandas.*", "matplotlib.*", "scipy.*", "sympy.*", "tqdm.*"]
+ignore_missing_imports = true
