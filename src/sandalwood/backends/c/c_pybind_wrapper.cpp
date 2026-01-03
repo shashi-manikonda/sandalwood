@@ -58,6 +58,6 @@ py::dict biot_savart_c_from_flat_numpy(
 
 
 PYBIND11_MODULE(mtf_c_backend, m) {
-    m.doc() = "C++ backend (C-style interface) for MTFLibrary operations";
+    m.doc() = "C++ backend (C-style interface) for sandalwood operations";
     m.def("biot_savart_c_from_flat_numpy", &biot_savart_c_from_flat_numpy, "Biot-Savart law with C-style backend");
 }

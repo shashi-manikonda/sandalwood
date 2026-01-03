@@ -3,7 +3,7 @@ import io
 import pstats
 import time
 
-from mtflib import TaylorMap, mtf
+from sandalwood import TaylorMap, mtf
 
 
 def profile_operations():

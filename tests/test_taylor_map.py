@@ -1,12 +1,12 @@
-import mtflib
+import sandalwood
 import numpy as np
 import pytest
-from mtflib import TaylorMap, mtf
+from sandalwood import TaylorMap, mtf
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_mtf_module():
-    """Initializes mtflib globals for the test module."""
+    """Initializes sandalwood globals for the test module."""
     if not mtf.get_mtf_initialized_status():
         mtf.initialize_mtf(max_order=5, max_dimension=3)
 
@@ -343,7 +343,7 @@ def test_inversion():
 
     # The composition should be equal to the identity map up to the working order.
     # A direct equality check is sufficient if both are truncated to the same order.
-    max_order = mtflib.MultivariateTaylorFunction.get_max_order()
+    max_order = sandalwood.MultivariateTaylorFunction.get_max_order()
     truncated_composition = composition.truncate(max_order)
     truncated_identity = identity_map.truncate(max_order)
 

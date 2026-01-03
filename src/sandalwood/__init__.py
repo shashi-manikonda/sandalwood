@@ -1,6 +1,6 @@
-# mtflib/__init__.py
+# sandalwood/__init__.py
 """
-mtflib: A Python Library for Multivariate Taylor Functions
+sandalwood: A Python Library for Multivariate Taylor Functions
 ===========================================================
 
 This library provides a robust framework for working with multivariate
@@ -22,7 +22,7 @@ Core Features:
   act as the derivation operators of the Differential Algebra.
 
 Example:
-    >>> from mtflib import mtf
+    >>> from sandalwood import mtf
     >>>
     >>> # It is crucial to initialize the library's global settings first.
     >>> mtf.initialize_mtf(max_order=4, max_dimension=2)

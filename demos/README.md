@@ -1,12 +1,12 @@
-# mtflib Demonstrations
+# sandalwood Demonstrations
 
-Welcome to the `mtflib` demos! This directory contains a collection of Jupyter notebooks and Python scripts to help you learn and explore the capabilities of the library.
+Welcome to the `sandalwood` demos! This directory contains a collection of Jupyter notebooks and Python scripts to help you learn and explore the capabilities of the library.
 
 ## Demo Structure
 
 The demos are organized into the following categories:
 
-- **`1_beginner/`**: Start here if you are new to `mtflib`. These notebooks cover the basic concepts and functionalities.
+- **`1_beginner/`**: Start here if you are new to `sandalwood`. These notebooks cover the basic concepts and functionalities.
 - **`2_advanced_topics/`**: Once you are comfortable with the basics, explore these notebooks to learn about more advanced features.
 - **`3_performance/`**: This section contains performance benchmarks.
 
@@ -20,4 +20,4 @@ We recommend going through the notebooks in the following order:
 4.  **`2_advanced_topics/3_Taylor_Maps.ipynb`**: A guide to using the `TaylorMap` object.
 5.  **`2_advanced_topics/4_Convergence_and_Accuracy.ipynb`**: A discussion on the convergence and accuracy of Taylor series.
 
-The script in `3_performance/` can be run at any time to see the performance benefits of `mtflib`.
+The script in `3_performance/` can be run at any time to see the performance benefits of `sandalwood`.

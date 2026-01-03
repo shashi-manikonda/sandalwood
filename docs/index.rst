@@ -1,7 +1,7 @@
-Welcome to mtflib's documentation!
+Welcome to sandalwood's documentation!
 ==================================
 
-`mtflib` is a Python library for creating, manipulating, and composing
+`sandalwood` is a Python library for creating, manipulating, and composing
 Multivariate Taylor Functions, with a C++ backend for performance-critical
 applications. It provides a robust framework for working with multivariate
 Taylor series expansions based on the principles of Differential Algebra (DA).
@@ -11,7 +11,7 @@ to perform high-order differentiation, integration, and function composition
 in a computationally efficient manner.
 
 #### Features
-* **High Performance:** `mtflib` utilizes a C++ backend for key operations, ensuring fast, efficient computation.
+* **High Performance:** `sandalwood` utilizes a C++ backend for key operations, ensuring fast, efficient computation.
 * **Backend Flexibility:** Supports both NumPy and PyTorch, automatically switching backends to leverage GPU acceleration when PyTorch tensors are used.
 * **Comprehensive Functionality:** Includes a wide range of elementary functions and core operations like composition, differentiation, and integration.
 

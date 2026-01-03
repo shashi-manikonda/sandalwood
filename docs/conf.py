@@ -14,12 +14,12 @@ sys.path.insert(0, os.path.abspath("../src"))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "mtflib"
+project = "sandalwood"
 copyright = "2025, Shashikant Manikonda"
 author = "Shashikant Manikonda"
 
-version = "1.5.1"
-release = "1.5.1"
+version = "1.5.2"
+release = "1.5.2"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

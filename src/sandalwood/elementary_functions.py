@@ -165,7 +165,7 @@ def _sin_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -212,7 +212,7 @@ def _cos_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=4, max_dimension=1)
     >>> x = mtf.var(1)
@@ -290,7 +290,7 @@ def _tan_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=4, max_dimension=1)
     >>> x = mtf.var(1)
@@ -329,7 +329,7 @@ def _exp_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -381,7 +381,7 @@ def _gaussian_taylor(
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=4, max_dimension=1)
     >>> x = mtf.var(1)
@@ -424,7 +424,7 @@ def _log_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -497,7 +497,7 @@ def _arctan_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorF
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -565,7 +565,7 @@ def _sinh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -612,7 +612,7 @@ def _cosh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=4, max_dimension=1)
     >>> x = mtf.var(1)
@@ -690,7 +690,7 @@ def _tanh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=4, max_dimension=1)
     >>> x = mtf.var(1)
@@ -729,7 +729,7 @@ def _arctanh_taylor(
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -798,7 +798,7 @@ def _arcsin_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorF
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
     >>> x = mtf.var(1)
@@ -840,7 +840,7 @@ def _arccos_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorF
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> import numpy as np
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
@@ -902,7 +902,7 @@ def _integrate(
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=2)
     >>> x, y = mtf.var(1), mtf.var(2)
@@ -1023,7 +1023,7 @@ def _derivative(mtf_instance, deriv_dim):
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction
+    >>> from sandalwood import MultivariateTaylorFunction
     >>> mtf = MultivariateTaylorFunction
     >>> mtf.initialize_mtf(max_order=3, max_dimension=2)
     >>> x, y = mtf.var(1), mtf.var(2)

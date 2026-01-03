@@ -6,8 +6,8 @@ def generate_cpp_header():
     """
     Generates a C++ header file with precomputed coefficients from JSON files.
     """
-    json_dir = "src/mtflib/precomputed_coefficients_data"
-    output_file = "src/mtflib/backends/cpp/precomputed_coefficients.hpp"
+    json_dir = "src/sandalwood/precomputed_coefficients_data"
+    output_file = "src/sandalwood/backends/cpp/precomputed_coefficients.hpp"
 
     coeff_map = {}
     for filename in os.listdir(json_dir):

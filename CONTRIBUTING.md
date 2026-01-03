@@ -1,10 +1,10 @@
-# Contributing to mtflib
+# Contributing to sandalwood
 
-First off, thank you for considering contributing to `mtflib`! Your help is greatly appreciated. This document provides guidelines for contributing to the project.
+First off, thank you for considering contributing to `sandalwood`! Your help is greatly appreciated. This document provides guidelines for contributing to the project.
 
 ## How to Report a Bug
 
-If you find a bug, please open an issue on our [GitHub Issue Tracker](https://github.com/sm-physics/mtflib/issues).
+If you find a bug, please open an issue on our [GitHub Issue Tracker](https://github.com/sm-physics/sandalwood/issues).
 
 When reporting a bug, please include the following:
 
@@ -12,11 +12,11 @@ When reporting a bug, please include the following:
 *   **A detailed description of the bug,** including the steps to reproduce it.
 *   **A code snippet** that demonstrates the bug.
 *   **The expected behavior** and what you observed instead.
-*   **Your system information,** including your Python version and the version of `mtflib` you are using.
+*   **Your system information,** including your Python version and the version of `sandalwood` you are using.
 
 ## How to Suggest a New Feature
 
-We are always open to new ideas! If you have a suggestion for a new feature or an enhancement to an existing one, please open an issue on our [GitHub Issue Tracker](https://github.com/sm-physics/mtflib/issues).
+We are always open to new ideas! If you have a suggestion for a new feature or an enhancement to an existing one, please open an issue on our [GitHub Issue Tracker](https://github.com/sm-physics/sandalwood/issues).
 
 When suggesting a feature, please include:
 
@@ -26,13 +26,13 @@ When suggesting a feature, please include:
 
 ## Setting Up the Development Environment
 
-To contribute code to `mtflib`, you will need to set up a local development environment.
+To contribute code to `sandalwood`, you will need to set up a local development environment.
 
 1.  **Fork and Clone the Repository:**
     First, fork the repository on GitHub. Then, clone your fork to your local machine:
     ```bash
-    git clone https://github.com/YOUR_USERNAME/mtflib.git
-    cd mtflib
+    git clone https://github.com/YOUR_USERNAME/sandalwood.git
+    cd sandalwood
     ```
 
 2.  **Create a Virtual Environment:**

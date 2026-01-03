@@ -1,4 +1,4 @@
-# mtflib/complex_taylor_function.py
+# sandalwood/complex_taylor_function.py
 """
 Extends Taylor series to handle complex coefficients.
 
@@ -35,7 +35,7 @@ class ComplexMultivariateTaylorFunction(MultivariateTaylorFunction):
 
     Examples
     --------
-    >>> from mtflib import ComplexMultivariateTaylorFunction
+    >>> from sandalwood import ComplexMultivariateTaylorFunction
     >>>
     >>> # Initialize global settings
     >>> cmtf.initialize_mtf(max_order=2, max_dimension=1) # doctest: +ELLIPSIS
@@ -98,7 +98,7 @@ class ComplexMultivariateTaylorFunction(MultivariateTaylorFunction):
 
         Examples
         --------
-        >>> from mtflib import ComplexMultivariateTaylorFunction
+        >>> from sandalwood import ComplexMultivariateTaylorFunction
         >>> # Assuming the library is already initialized
         >>> c = ComplexMultivariateTaylorFunction.from_constant(3 + 4j, dimension=1)
         >>> print(c.coeffs[0])

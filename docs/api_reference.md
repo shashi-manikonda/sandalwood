@@ -1,16 +1,16 @@
-# mtflib API Reference
+# sandalwood API Reference
 
-This document provides a detailed API reference for the `mtflib` package.
+This document provides a detailed API reference for the `sandalwood` package.
 
-## `mtflib` Package
+## `sandalwood` Package
 
-The `mtflib` package provides tools for working with multivariate Taylor series expansions.
+The `sandalwood` package provides tools for working with multivariate Taylor series expansions.
 
 ### `mtf`
 
 An alias for the `MultivariateTaylorFunction` class. It is the main entry point for most users.
 
-## `mtflib.taylor_function` Module
+## `sandalwood.taylor_function` Module
 
 This module contains the core `MultivariateTaylorFunction` class.
 
@@ -40,14 +40,14 @@ The fundamental class for representing a function as a DA vector of its Taylor c
 
 | Method | Description | Arguments | Returns |
 |---|---|---|---|
-| `initialize_mtf` | Initializes global settings for the mtflib library. | `max_order` (`int`, optional): The default maximum order for Taylor series expansions.<br>`max_dimension` (`int`, optional): The default maximum number of variables for functions.<br>`implementation` (`{'cpp', 'python'}`, optional): The backend implementation to use. | `None` |
+| `initialize_mtf` | Initializes global settings for the sandalwood library. | `max_order` (`int`, optional): The default maximum order for Taylor series expansions.<br>`max_dimension` (`int`, optional): The default maximum number of variables for functions.<br>`implementation` (`{'cpp', 'python'}`, optional): The backend implementation to use. | `None` |
 | `get_max_coefficient_count` | Calculates max coefficient count for given order/dimension. | `max_order` (`int`, optional): The maximum order.<br>`max_dimension` (`int`, optional): The maximum dimension. | `int`: The maximum number of coefficients. |
 | `get_precomputed_coefficients` | Returns the precomputed Taylor coefficients for elementary functions. | `None` | `dict`: The precomputed coefficients. |
 | `get_mtf_initialized_status` | Returns initialization status of MTF globals. | `None` | `bool`: `True` if initialized, `False` otherwise. |
 | `set_max_order` | Sets the global maximum order for Taylor series. | `order` (`int`): The maximum order. | `None` |
 | `get_max_order` | Returns the global maximum order for Taylor series. | `None` | `int`: The maximum order. |
 | `get_max_dimension` | Returns the global maximum dimension (number of variables). | `None` | `int`: The maximum dimension. |
-| `set_etol` | Sets the global error tolerance (etol) for `mtflib`. | `etol` (`float`): The error tolerance. | `None` |
+| `set_etol` | Sets the global error tolerance (etol) for `sandalwood`. | `etol` (`float`): The error tolerance. | `None` |
 | `get_etol` | Returns the global error tolerance (etol). | `None` | `float`: The error tolerance. |
 | `set_truncate_after_operation` | Sets the global flag to enable or disable automatic coefficient cleanup. | `enable` (`bool`): `True` to enable, `False` to disable. | `None` |
 | `from_constant` | Creates a MultivariateTaylorFunction representing a constant value. | `constant_value` (`float` or `int`): The constant value.<br>`dimension` (`int`, optional): The dimension of the function's domain. | `mtf`: A new MTF instance. |
@@ -78,7 +78,7 @@ The fundamental class for representing a function as a DA vector of its Taylor c
 | `derivative` | Computes the partial derivative of an MTF. | `deriv_dim` (`int`): The 1-based index of the variable to differentiate with respect to. | `mtf`: A new MTF representing the partial derivative. |
 | `integrate` | Performs definite or indefinite integration of an MTF. | `integration_variable_index` (`int`): The 1-based index of the variable to integrate with respect to.<br>`lower_limit` (`float`, optional): The lower limit for definite integration.<br>`upper_limit` (`float`, optional): The upper limit for definite integration. | `mtf`: The integrated MTF. |
 
-## `mtflib.complex_taylor_function` Module
+## `sandalwood.complex_taylor_function` Module
 
 This module provides the `ComplexMultivariateTaylorFunction` for handling complex coefficients.
 
@@ -96,7 +96,7 @@ A subclass of `MultivariateTaylorFunction` for representing Taylor series with c
 | `real_part` | Extracts the real part of the Taylor function. | `None` | `mtf`: A new MTF (with real coefficients) representing the real part. |
 | `imag_part` | Extracts the imaginary part of the Taylor function. | `None` | `mtf`: A new MTF (with real coefficients) representing the imaginary part. |
 
-## `mtflib.taylor_map` Module
+## `sandalwood.taylor_map` Module
 
 This module provides the `TaylorMap` class for representing vector-valued functions.
 

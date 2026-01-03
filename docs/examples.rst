@@ -4,7 +4,7 @@ Examples & Tutorials
 ====================
 
 This section provides a gallery of examples and tutorials to showcase the
-key functionalities of `mtflib`. These are live Jupyter Notebooks that are
+key functionalities of `sandalwood`. These are live Jupyter Notebooks that are
 executed when the documentation is built, so the code and outputs are
 always in sync.
 

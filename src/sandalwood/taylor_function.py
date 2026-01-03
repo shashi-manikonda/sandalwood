@@ -1,4 +1,4 @@
-# mtflib/taylor_function.py
+# sandalwood/taylor_function.py
 """
 Core implementation of the MultivariateTaylorFunction class.
 
@@ -99,7 +99,7 @@ class MultivariateTaylorFunction:
     Examples
     --------
     >>> import numpy as np
-    >>> from mtflib import mtf
+    >>> from sandalwood import mtf
     >>>
     >>> # Initialize global settings for mtf
     >>> mtf.initialize_mtf(max_order=5, max_dimension=2)
@@ -130,7 +130,7 @@ class MultivariateTaylorFunction:
     @classmethod
     def initialize_mtf(cls, max_order=None, max_dimension=None, implementation="cpp"):
         """
-        Initializes global settings for the mtflib library.
+        Initializes global settings for the sandalwood library.
 
         This method must be called once at the beginning of a program before
         creating or manipulating any `MultivariateTaylorFunction` objects. It
@@ -153,7 +153,7 @@ class MultivariateTaylorFunction:
 
         Examples
         --------
-        >>> from mtflib import mtf
+        >>> from sandalwood import mtf
         >>> # Initialize for problems up to order 10 in 5 variables.
         >>> mtf.initialize_mtf(max_order=10, max_dimension=5)
         Initializing mtf globals with: _MAX_ORDER=10, _MAX_DIMENSION=5
@@ -221,7 +221,7 @@ class MultivariateTaylorFunction:
         """Auto-initializes the library with defaults if not already initialized."""
         if not cls._INITIALIZED:
             print(
-                "Warning: MTFLibrary not initialized. Auto-initializing with defaults "
+                "Warning: sandalwood not initialized. Auto-initializing with defaults "
                 "(Order=4, Dimension=3)."
             )
             cls.initialize_mtf(max_order=4, max_dimension=3)
@@ -283,7 +283,7 @@ class MultivariateTaylorFunction:
 
     @classmethod
     def set_etol(cls, etol):
-        """Sets the global error tolerance (etol) for `mtflib`."""
+        """Sets the global error tolerance (etol) for `sandalwood`."""
         if not cls._INITIALIZED:
             cls._auto_initialize()
         if not isinstance(etol, float) or etol <= 0:
@@ -764,7 +764,7 @@ class MultivariateTaylorFunction:
 
         Examples
         --------
-        >>> from mtflib import mtf
+        >>> from sandalwood import mtf
         >>> mtf.initialize_mtf(max_order=2, max_dimension=2)
         >>> x, y = mtf.var(1), mtf.var(2)
         >>> f = 1 + x*y
@@ -1959,7 +1959,7 @@ class MultivariateTaylorFunction:
 
         Examples
         --------
-        >>> from mtflib import mtf
+        >>> from sandalwood import mtf
         >>> mtf.initialize_mtf(max_order=2, max_dimension=2) # doctest: +ELLIPSIS
         ...
         >>> x, y = mtf.var(1), mtf.var(2)
@@ -1993,7 +1993,7 @@ class MultivariateTaylorFunction:
 
         Examples
         --------
-        >>> from mtflib import mtf
+        >>> from sandalwood import mtf
         >>> mtf.initialize_mtf(max_order=2, max_dimension=2) # doctest: +ELLIPSIS
         ...
         >>> x, y = mtf.var(1), mtf.var(2)
