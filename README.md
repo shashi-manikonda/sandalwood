@@ -1,7 +1,7 @@
 # sandalwood: Multivariate Taylor Function Library
 
 [![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), with a C++ backend for performance-critical applications.
 
