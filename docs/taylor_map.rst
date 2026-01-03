@@ -20,7 +20,7 @@ objects. Each function in the list becomes a component of the map.
 
 .. code-block:: python
 
-   from mtflib import MultivariateTaylorFunction, TaylorMap, Var
+   from sandalwood import MultivariateTaylorFunction, TaylorMap, Var
 
    # Initialize for 2 variables, up to order 3
    MultivariateTaylorFunction.initialize_mtf(max_order=3, max_dimension=2)
@@ -132,4 +132,4 @@ covered in the "Advanced Topics" section of the documentation.
 See Also
 --------
 
-- :class:`~mtflib.taylor_function.MultivariateTaylorFunction`
+- :class:`~sandalwood.taylor_function.MultivariateTaylorFunction`

@@ -1,4 +1,4 @@
-# This file is used to build the C++ and C extensions for the mtflib library.
+# This file is used to build the C++ and C extensions for the sandalwood library.
 # It is required by setuptools, which is specified as the build backend in
 # pyproject.toml. For more details on how setuptools handles extensions, see:
 # https://setuptools.pypa.io/en/latest/userguide/ext_modules.html
@@ -21,30 +21,30 @@ else:
 
 extensions = [
     Extension(
-        "mtflib.backends.cpp.mtf_cpp",
+        "sandalwood.backends.cpp.mtf_cpp",
         [
-            "src/mtflib/backends/cpp/mtf_data.cpp",
-            "src/mtflib/backends/cpp/pybind_wrapper.cpp",
+            "src/sandalwood/backends/cpp/mtf_data.cpp",
+            "src/sandalwood/backends/cpp/pybind_wrapper.cpp",
         ],
         include_dirs=[
             pybind11.get_include(),
             numpy.get_include(),
-            "src/mtflib/backends/cpp",
+            "src/sandalwood/backends/cpp",
         ],
         language="c++",
         extra_compile_args=cpp_args,
         extra_link_args=link_args,
     ),
     Extension(
-        "mtflib.backends.c.mtf_c_backend",
+        "sandalwood.backends.c.mtf_c_backend",
         [
-            "src/mtflib/backends/c/c_backend.cpp",
-            "src/mtflib/backends/c/c_pybind_wrapper.cpp",
+            "src/sandalwood/backends/c/c_backend.cpp",
+            "src/sandalwood/backends/c/c_pybind_wrapper.cpp",
         ],
         include_dirs=[
             pybind11.get_include(),
             numpy.get_include(),
-            "src/mtflib/backends/c",
+            "src/sandalwood/backends/c",
         ],
         language="c++",
         extra_compile_args=cpp_args,

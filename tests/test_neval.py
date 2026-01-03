@@ -7,7 +7,7 @@ try:
     _TORCH_AVAILABLE = True
 except ImportError:
     _TORCH_AVAILABLE = False
-from mtflib import mtf
+from sandalwood import mtf
 
 
 # Old eval logic for comparison

@@ -4,7 +4,7 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(mtf_cpp, m) {
-  m.doc() = "C++ backend for MTFLibrary operations";
+  m.doc() = "C++ backend for sandalwood operations";
 
   py::class_<MtfData>(m, "MtfData")
       .def(py::init<>())
@@ -25,7 +25,7 @@ PYBIND11_MODULE(mtf_cpp, m) {
   m.def(
       "switch_backend",
       [](const std::string &backend_name) {
-        py::module_::import("mtflib")
+        py::module_::import("sandalwood")
             .attr("MultivariateTaylorFunction")
             .attr("_IMPLEMENTATION") = backend_name;
       },

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "numpy>=1.20", "pybind11>=2.10"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mtflib"
+name = "sandalwood"
 version = "1.5.2"
 authors = [
     { name="Shashikant Manikonda", email="manikonda@outlook.com" },
@@ -72,15 +72,15 @@ dev = [
    
 
 [project.urls]
-"Homepage" = "https://github.com/shashi-manikonda/MTFLibrary"
-"Bug Tracker" = "https://github.com/shashi-manikonda/MTFLibrary/issues"
+"Homepage" = "https://github.com/shashi-manikonda/sandalwood"
+"Bug Tracker" = "https://github.com/shashi-manikonda/sandalwood/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"mtflib.backends.cpp" = ["*.hpp"]
-"mtflib.backends.c" = ["*.h"]
+"sandalwood.backends.cpp" = ["*.hpp"]
+"sandalwood.backends.c" = ["*.h"]
 
 [tool.ruff]
 line-length = 88

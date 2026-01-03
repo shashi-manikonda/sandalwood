@@ -1,21 +1,21 @@
-# mtflib: Multivariate Taylor Function Library
+# sandalwood: Multivariate Taylor Function Library
 
-[![Documentation Status](https://readthedocs.org/projects/mtflibrary/badge/?version=latest)](https://mtflibrary.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), with a C++ backend for performance-critical applications.
 
 ## Installation
 
-The recommended way to install `mtflib` is from PyPI:
+The recommended way to install `sandalwood` is from PyPI:
 
 ```bash
-uv pip install mtflib
+uv pip install sandalwood
 ```
 
 ### Installation from Source
 
-Alternatively, you can install `mtflib` directly from the source repository using uv (recommended) or pip. Ensure you have a C++17 compliant compiler (e.g., GCC, Clang, MSVC) for building the backend extensions.
+Alternatively, you can install `sandalwood` directly from the source repository using uv (recommended) or pip. Ensure you have a C++17 compliant compiler (e.g., GCC, Clang, MSVC) for building the backend extensions.
 
 ```bash
 uv pip install .
@@ -23,11 +23,11 @@ uv pip install .
 
 ## Quick Start
 
-Here's a simple example to get you started with `mtflib`:
+Here's a simple example to get you started with `sandalwood`:
 
 ```python
 import numpy as np
-from mtflib import mtf
+from sandalwood import mtf
 from IPython.display import display
 
 # 1. Initialize global settings (optional but recommended for non-default values)
@@ -90,7 +90,7 @@ $\displaystyle 0.00833333 x^{5} - 0.166667 x^{3} + 1.0 x + 1.0 y^{2}$
 
 ## JSON Serialization
 
-`mtflib` supports serializing MTF objects to JSON format, preserving all coefficients and properties (including complex values).
+`sandalwood` supports serializing MTF objects to JSON format, preserving all coefficients and properties (including complex values).
 
 ```python
 # Serialize to JSON string

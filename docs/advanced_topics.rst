@@ -6,7 +6,7 @@ Advanced Topics
 Backends and Performance
 ------------------------
 
-`mtflib` is designed for high performance by abstracting key numerical
+`sandalwood` is designed for high performance by abstracting key numerical
 operations to a flexible backend system. This allows the library to leverage
 optimized libraries like NumPy and PyTorch.
 
@@ -25,7 +25,7 @@ C and Fortran libraries, providing excellent performance for CPU-based computati
 
 ### PyTorch Backend
 
-When a PyTorch `Tensor` is passed to `neval`, `mtflib` automatically
+When a PyTorch `Tensor` is passed to `neval`, `sandalwood` automatically
 switches to the PyTorch backend. This provides two key advantages:
 
 * **GPU Acceleration:** PyTorch's native CUDA support allows operations to be
@@ -33,12 +33,12 @@ switches to the PyTorch backend. This provides two key advantages:
     batches of data.
 * **Vector and Matrix Operations:** PyTorch's backend is specifically
     optimized for deep learning, making it exceptionally fast for the types of
-    vectorized operations used in `mtflib`.
+    vectorized operations used in `sandalwood`.
 
 Future Work
 -----------
 
-This section outlines potential future directions for `mtflib`, ranging from
+This section outlines potential future directions for `sandalwood`, ranging from
 incremental improvements to more ambitious features.
 
 ### Performance Benchmarking and Optimization
@@ -68,7 +68,7 @@ incremental improvements to more ambitious features.
 * **Symbolic API:** Develop a more intuitive API for creating and
   manipulating Taylor maps, perhaps with a more "symbolic" feel.
 * **Example Gallery:** Create a "gallery" of examples in the documentation
-  showcasing real-world applications of `mtflib` in physics, engineering,
+  showcasing real-world applications of `sandalwood` in physics, engineering,
   and other fields.
 * **Improved Error Messages:** Add more detailed error messages and warnings
   to help users debug their code.

@@ -35,7 +35,7 @@ class TaylorMap:
 
     Examples
     --------
-    >>> from mtflib import MultivariateTaylorFunction, TaylorMap
+    >>> from sandalwood import MultivariateTaylorFunction, TaylorMap
     >>> mtf.initialize_mtf(max_order=2, max_dimension=2) # doctest: +ELLIPSIS
     Initializing...
     >>>
@@ -495,7 +495,7 @@ class TaylorMap:
 
         Examples
         --------
-        >>> from mtflib import MultivariateTaylorFunction, TaylorMap, mtf
+        >>> from sandalwood import MultivariateTaylorFunction, TaylorMap, mtf
         >>> # The library is already initialized from the class docstring example
         >>> x, y = mtf.var(1), mtf.var(2)
         >>>

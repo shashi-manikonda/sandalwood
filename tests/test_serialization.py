@@ -1,8 +1,8 @@
 import json
 
 import numpy as np
-from mtflib.complex_taylor_function import ComplexMultivariateTaylorFunction
-from mtflib.taylor_function import MultivariateTaylorFunction
+from sandalwood.complex_taylor_function import ComplexMultivariateTaylorFunction
+from sandalwood.taylor_function import MultivariateTaylorFunction
 
 
 def test_json_serialization_real():

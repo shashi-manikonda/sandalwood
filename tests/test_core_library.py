@@ -1,10 +1,10 @@
-# mtflib/test_taylor_functions.py
+# sandalwood/test_taylor_functions.py
 
-import mtflib
+import sandalwood
 import numpy as np
 import pandas as pd
 import pytest
-from mtflib import (
+from sandalwood import (
     ComplexMultivariateTaylorFunction,
     mtf,
 )
@@ -22,7 +22,7 @@ def setup_function():
     global_dim = mtf.get_max_dimension()
     exponent_zero = tuple([0] * global_dim)
     yield global_dim, exponent_zero
-    mtflib.taylor_function.mtf._INITIALIZED = False
+    sandalwood.taylor_function.mtf._INITIALIZED = False
 
 
 # --- Global Settings Tests ---

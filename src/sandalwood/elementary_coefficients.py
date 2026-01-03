@@ -279,7 +279,7 @@ def load_precomputed_coefficients(max_order_config: Optional[int] = None) -> dic
     This function is typically called internally by
     `MultivariateTaylorFunction.initialize_mtf`.
 
-    >>> from mtflib.elementary_coefficients import load_precomputed_coefficients
+    >>> from sandalwood.elementary_coefficients import load_precomputed_coefficients
     >>> # Load coefficients up to order 5
     >>> coeffs = load_precomputed_coefficients(max_order_config=5) # doctest: +ELLIPSIS
     Loading/Precomputing Taylor coefficients up to order 5...

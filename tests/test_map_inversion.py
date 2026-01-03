@@ -1,4 +1,4 @@
-from mtflib import TaylorMap, mtf
+from sandalwood import TaylorMap, mtf
 
 
 def test_map_inversion_from_demo():
@@ -6,7 +6,7 @@ def test_map_inversion_from_demo():
     This test replicates the map inversion demo from taylor_map_demo.ipynb
     to verify if it's broken after recent changes.
     """
-    # 1. Initialize mtflib
+    # 1. Initialize sandalwood
     mtf.initialize_mtf(max_order=4, max_dimension=2)
 
     # 2. Create the invertible map

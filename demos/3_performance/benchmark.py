@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import torch
-from mtflib import mtf
+from sandalwood import mtf
 
 
 def old_eval_loop(mtf_instance, points):

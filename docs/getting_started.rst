@@ -3,13 +3,13 @@
 Getting Started
 ===============
 
-This guide will walk you through installing `mtflib` and running your
+This guide will walk you through installing `sandalwood` and running your
 first example.
 
 Installation
 ------------
 
-You can install `mtflib` using `uv` (recommended) or `pip`. There are two installation options
+You can install `sandalwood` using `uv` (recommended) or `pip`. There are two installation options
 depending on your needs.
 
 Basic Installation
@@ -20,20 +20,20 @@ directly from PyPI:
 
 .. code-block:: bash
 
-   uv pip install mtflib
+   uv pip install sandalwood
 
 Optional: PyTorch Backend for GPU Acceleration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have a CUDA-enabled GPU and want to leverage it for significant
-performance improvements, you can install `mtflib` with the optional
+performance improvements, you can install `sandalwood` with the optional
 PyTorch dependency:
 
 .. code-block:: bash
 
-   uv pip install mtflib[torch]
+   uv pip install sandalwood[torch]
 
-This will install the necessary PyTorch libraries alongside `mtflib`,
+This will install the necessary PyTorch libraries alongside `sandalwood`,
 enabling the GPU-accelerated backend for `neval`.
 
 A Quick-Start Example
@@ -44,7 +44,7 @@ library, creates a two-variable function, and evaluates it at a point.
 
 .. code-block:: python
 
-    from mtflib import mtf
+    from sandalwood import mtf
 
     # 1. Initialize the library's global settings. This is a crucial first step.
     # We'll set a maximum order of 4 and 2 variables (dimensions).

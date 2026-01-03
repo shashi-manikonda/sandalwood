@@ -1,7 +1,7 @@
 """
 Backend abstraction for array operations.
 
-This module provides a simple backend system to allow `mtflib` to work with
+This module provides a simple backend system to allow `sandalwood` to work with
 different array libraries, such as NumPy and PyTorch. The `get_backend`
 function dynamically selects the appropriate backend based on the type of
 the input array. Each backend class (`NumpyBackend`, `TorchBackend`) wraps
@@ -25,7 +25,7 @@ class NumpyBackend:
 
     This class provides a set of static methods that wrap common NumPy
     functions, conforming to the interface expected by the `neval` method
-    and other parts of `mtflib`.
+    and other parts of `sandalwood`.
     """
 
     @staticmethod
