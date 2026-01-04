@@ -100,6 +100,20 @@ json_str = f.to_json()
 f_loaded = mtf.from_json(json_str)
 ```
 
+## Platform Support
+
+`sandalwood` supports Linux, Windows, and macOS.
+
+### C++ Extensions
+The library includes optimized C++ backends which are compiled during installation.
+- **Linux/macOS**: Compiled using GCC or Clang (standard during `pip install`).
+- **Windows**: Compiled using the Microsoft Visual C++ (MSVC) compiler. Ensure you have the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
+
+### COSY Backend
+The COSY Infinity backend is supported across all platforms, but requires manual compilation of the `libcosy` shared library:
+- **Linux**: Use the provided `src/sandalwood/backends/cosy/compile_cosy.sh` script.
+- **Windows**: Requires a Fortran compiler (e.g., `gfortran` from MinGW) to build `libcosy.dll`. The Python side is ready to load `.dll` files automatically if present in the backend directory.
+
 ## Running Tests
 
 The project uses `pytest` for testing. First, install the test dependencies:
