@@ -48,7 +48,7 @@ bind_cosy_func("setup_cosy_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("get_da_coeff_", [POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("create_da_var_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 bind_cosy_func("create_da_const_", [POINTER(c_int), POINTER(c_double)])
-bind_cosy_func("get_da_coeff_by_index_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("get_da_term_decoded_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("cosy_free_", [POINTER(c_int)])
 bind_cosy_func("cosy_set_coeffs_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("eval_da_", [POINTER(c_int), POINTER(c_double), POINTER(c_double)])
@@ -174,7 +174,7 @@ class CosyDA:
         c_exps = (c_int * dim)()
         c_val = c_double()
         for i in range(1, n_coeffs + 1):
-            libcosy.get_da_coeff_by_index_(byref(c_int(self.idx)), byref(c_int(i)), c_exps, byref(c_val))
+            libcosy.get_da_term_decoded_(byref(c_int(self.idx)), byref(c_int(i)), c_exps, byref(c_val))
             val = c_val.value
             if val != 0.0:
                 exps = tuple(c_exps[k] for k in range(dim))
