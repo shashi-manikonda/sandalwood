@@ -4,16 +4,24 @@ from ctypes import CDLL, POINTER, RTLD_GLOBAL, byref, c_double, c_int
 
 import numpy as np
 
-# Path to the shared library
-LIB_PATH = os.path.join(os.path.dirname(__file__), "libcosy.so")
+# Path to the shared library (platform-aware)
+if sys.platform == "win32":
+    LIB_NAME = "libcosy.dll"
+elif sys.platform == "darwin":
+    LIB_NAME = "libcosy.dylib"
+else:
+    LIB_NAME = "libcosy.so"
+
+LIB_PATH = os.path.join(os.path.dirname(__file__), LIB_NAME)
 
 # Load Library
 try:
-    # Use RTLD_GLOBAL to ensure symbols are available for resolution
-    libcosy = CDLL(LIB_PATH, mode=RTLD_GLOBAL)
+    # Use RTLD_GLOBAL to ensure symbols are available for resolution if supported
+    mode = getattr(os, "RTLD_GLOBAL", 0)
+    libcosy = CDLL(LIB_PATH, mode=mode)
 except OSError as e:
     # Build a dummy check if library is missing during development
-    sys.stderr.write(f"Warning: Could not load libcosy.so: {e}\n")
+    sys.stderr.write(f"Warning: Could not load {LIB_NAME}: {e}\n")
 
     class DummyLib:
         def __getattr__(self, name):
