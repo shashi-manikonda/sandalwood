@@ -17,8 +17,19 @@ uv pip install sandalwood
 
 Alternatively, you can install `sandalwood` directly from the source repository using uv (recommended) or pip.
 
+For standard usage:
 ```bash
 uv pip install .
+```
+
+For running demos (includes Jupyter and plotting tools):
+```bash
+uv pip install .[demos]
+```
+
+For developers (includes testing, linting, and documentation tools):
+```bash
+uv pip install .[dev]
 ```
 
 ## Quick Start
@@ -119,6 +130,11 @@ The project uses `pytest` for testing. First, install the test dependencies:
 
 ```bash
 uv pip install -e .[test]
+```
+
+To install all development tools (recommended for contributors):
+```bash
+uv pip install -e .[dev]
 ```
 
 Then, run the test suite from the root of the repository:

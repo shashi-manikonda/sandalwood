@@ -47,6 +47,13 @@ To contribute code to `sandalwood`, you will need to set up a local development 
     ```bash
     uv pip install -e .[dev]
     ```
+    This command installs:
+    - Core dependencies (`numpy`, `pandas`)
+    - Testing tools (`pytest`, `coverage`, etc.)
+    - Documentation tools (`sphinx`, etc.)
+    - Demo requirements (`jupyter`, `matplotlib`)
+    - Linting and packaging tools (`ruff`, `mypy`, `build`, `twine`)
+    ```
     The `-e` flag installs the package in "editable" mode, so any changes you make to the source code will be immediately effective.
 
 4.  **Run Tests:**

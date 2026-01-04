@@ -24,13 +24,20 @@ classifiers = [
 dependencies = [
     "numpy",
     "pandas",
-    "jupytext",
 ]
 
 [project.optional-dependencies]
 torch = ["torch"]
+demos = [
+    "jupyter",
+    "matplotlib",
+    "tqdm",
+    "ipykernel",
+    "jupytext",
+]
 test = [
     "pytest",
+    "pytest-cov",
     "matplotlib",
     "nbconvert",
     "ipykernel",
@@ -54,6 +61,7 @@ docs = [
 ]
 dev = [
     "pytest",
+    "pytest-cov",
     "matplotlib",
     "nbconvert",
     "ipykernel",
@@ -68,6 +76,9 @@ dev = [
     "pandas",
     "ipython",
     "mypy",
+    "build",
+    "twine",
+    "jupyter",
 ]
    
 
