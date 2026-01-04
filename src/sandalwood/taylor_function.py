@@ -1846,22 +1846,29 @@ class MultivariateTaylorFunction:
         from .elementary_functions import _arctan_taylor
         return _arctan_taylor(self)
 
-    @staticmethod
-    def sqrt(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        if mtf_obj._IMPLEMENTATION == "cosy" and mtf_obj.mtf_data is not None:
-            res_data = mtf_obj.mtf_data.sqrt()
-            return type(mtf_obj)(mtf_data=res_data, dimension=mtf_obj.dimension)
-        return _sqrt_taylor(mtf_obj)
+    def sqrt(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            res_data = self.mtf_data.sqrt()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        return _sqrt_taylor(self)
 
-    @staticmethod
-    def isqrt(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
+    def isqrt(self) -> "MultivariateTaylorFunction":
         # COSY has DASQRT but not ISQRT directly maybe?
         # wrapper.f has COMPUTE_DA_ISRT
-        if mtf_obj._IMPLEMENTATION == "cosy" and mtf_obj.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
              # cos_backend.CosyMtfData doesn't have isqrt yet. 
              # I'll add it to CosyMtfData first if needed.
              pass
-        return _isqrt_taylor(mtf_obj)
+        return _isqrt_taylor(self)
+
+    def asin(self):
+        return self.arcsin()
+
+    def acos(self):
+        return self.arccos()
+
+    def atan(self):
+        return self.arctan()
 
     def integrate(self, integration_variable_index, lower_limit=None, upper_limit=None):
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
