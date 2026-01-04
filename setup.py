@@ -46,9 +46,10 @@ class BuildCosy(Command):
             print("Warning: gfortran not found. COSY backend will not be built.")
             return
 
-        # Compilation arguments matching compile_cosy.sh
+        # Compilation arguments matching C++ backend performance levels
         cmd = [
-            gfortran, "-shared", "-fPIC", "-std=legacy", "-g", "-O2",
+            gfortran, "-shared", "-fPIC", "-std=legacy", "-g", "-O3",
+            "-march=native",
             os.path.join(cosy_src, "dafox.f"),
             os.path.join(cosy_src, "foxfit.f"),
             os.path.join(cosy_src, "foxgraf.f"),
