@@ -13,9 +13,7 @@ from typing import Optional
 
 import numpy as np
 
-from . import (
-    elementary_coefficients,
-)
+
 
 # Import the new module with loaded coefficients
 from .complex_taylor_function import ComplexMultivariateTaylorFunction
@@ -105,36 +103,16 @@ def _create_composed_taylor_from_coeffs(
     taylor_dim_1d = 1
     var_index_1d = 0
 
-    max_precomputed_order = min(order, elementary_coefficients.MAX_PRECOMPUTED_ORDER)
-    precomputed_coeffs = elementary_coefficients.precomputed_coefficients.get(coeff_key)
-    if precomputed_coeffs is None:
-        raise ValueError(
-            f"Precomputed coefficients for '{coeff_key}' function not found. "
-            "Ensure coefficients are loaded."
-        )
+    if dynamic_coeff_func is None:
+         raise ValueError(f"Dynamic coefficient function required for {coeff_key}")
 
-    # Use precomputed coefficients up to the available order
-    for n_order in range(max_precomputed_order + 1):
-        if n_order < len(precomputed_coeffs):
-            coeff_val = precomputed_coeffs[n_order]
-            if abs(coeff_val) > 1e-16:  # Only store non-zero coefficients
-                taylor_1d_coeffs[
-                    _generate_exponent(n_order, var_index_1d, taylor_dim_1d)
-                ] = coeff_val
-
-    # Dynamically compute coefficients for higher orders if a function is provided
-    if order > max_precomputed_order and dynamic_coeff_func:
-        print(
-            f"Warning: Requested order {order} exceeds precomputed order "
-            f"{elementary_coefficients.MAX_PRECOMPUTED_ORDER}. "
-            "Calculations may be slower for higher orders."
-        )
-        for n_order in range(max_precomputed_order + 1, order + 1):
-            coeff_val = dynamic_coeff_func(n_order)
-            if abs(coeff_val) > 1e-16:  # Only store non-zero coefficients
-                taylor_1d_coeffs[
-                    _generate_exponent(n_order, var_index_1d, taylor_dim_1d)
-                ] = coeff_val
+    # Dynamically compute coefficients for all orders
+    for n_order in range(order + 1):
+        coeff_val = dynamic_coeff_func(n_order)
+        if abs(coeff_val) > 1e-16:  # Only store non-zero coefficients
+            taylor_1d_coeffs[
+                _generate_exponent(n_order, var_index_1d, taylor_dim_1d)
+            ] = coeff_val
 
     # Create and compose the 1D Taylor series
     taylor_1d_mtf = type(input_mtf)(

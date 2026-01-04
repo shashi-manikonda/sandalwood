@@ -1,53 +1,78 @@
 
 import os
+import json
 import subprocess
+import glob
 import sys
 
-def update_notebooks():
-    """
-    Finds and executes all .ipynb files in the demos directory and its subdirectories.
-    Updates the notebooks in-place with fresh outputs.
-    """
-    project_root = os.getcwd()
-    src_path = os.path.join(project_root, "src")
-    demos_directory = os.path.join(project_root, "demos")
+def update_notebook(filepath):
+    print(f"Processing {filepath}...")
+    with open(filepath, 'r') as f:
+        nb = json.load(f)
 
-    if not os.path.exists(demos_directory):
-        print(f"Error: The directory '{demos_directory}' does not exist.")
-        sys.exit(1)
+    modified = False
+    for cell in nb['cells']:
+        if cell['cell_type'] == 'code':
+            new_source = []
+            for line in cell['source']:
+                original_line = line
+                # Replace implementations
+                if 'implementation' in line:
+                    if '"python"' in line:
+                        line = line.replace('"python"', '"cosy"')
+                    if "'python'" in line:
+                        line = line.replace("'python'", "'cosy'")
+                    if '"cpp"' in line:
+                        line = line.replace('"cpp"', '"cosy"')
+                    if "'cpp'" in line:
+                        line = line.replace("'cpp'", "'cosy'")
+                
+                # If explicit backend print is hardcoded in specific demo text, we might leave it
+                # or rely on the actual print output updating.
+                
+                if line != original_line:
+                    modified = True
+                new_source.append(line)
+            cell['source'] = new_source
 
-    # Set up environment for execution
+    # Explicitly force COSY if not mentioned but initialize is called?
+    # No, default is now COSY. We trust the default.
+    
+    if modified:
+        print(f"  - Modified backend to COSY in source.")
+    
+    with open(filepath, 'w') as f:
+        json.dump(nb, f, indent=1)
+
+    # Execute
+    print(f"  - Executing...")
     env = os.environ.copy()
-    env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
-    env["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+    env["PYTHONPATH"] = os.path.join(os.getcwd(), "src") + os.pathsep + env.get("PYTHONPATH", "")
+    # Ensure COSY libs are found if needed (setup usually handles rpath but just in case)
+    
+    cmd = [
+        sys.executable, "-m", "jupyter", "nbconvert",
+        "--to", "notebook", 
+        "--execute", 
+        "--inplace", 
+        filepath
+    ]
+    
+    try:
+        subprocess.run(cmd, env=env, check=True, capture_output=True)
+        print(f"  - Done.")
+    except subprocess.CalledProcessError as e:
+        print(f"  - FAILED executon: {e}")
+        print(e.stderr.decode() if e.stderr else "No stderr")
 
-    print(f"Updating all notebooks in {demos_directory}...")
-
-    for dirpath, _, filenames in os.walk(demos_directory):
-        for filename in filenames:
-            if filename.endswith(".ipynb"):
-                filepath = os.path.join(dirpath, filename)
-                print(f"Executing: {os.path.relpath(filepath, project_root)}")
-                try:
-                    command = [
-                        sys.executable,
-                        "-m",
-                        "jupyter",
-                        "nbconvert",
-                        "--to",
-                        "notebook",
-                        "--execute",
-                        filepath,
-                        "--inplace",
-                    ]
-                    
-                    subprocess.run(command, check=True, capture_output=True, text=True, env=env)
-                    print(f"--- Successfully updated {filename} ---")
-                except subprocess.CalledProcessError as e:
-                    print(f"*** Failed to update {filename}:")
-                    print(f"Standard Error:\n{e.stderr}")
-                    # Continue with other notebooks but exit with error at the end
-                    continue
+def main():
+    demos_dir = os.path.abspath("demos")
+    notebooks = glob.glob(os.path.join(demos_dir, "**/*.ipynb"), recursive=True)
+    
+    for nb in notebooks:
+        if ".ipynb_checkpoints" in nb:
+            continue
+        update_notebook(nb)
 
 if __name__ == "__main__":
-    update_notebooks()
+    main()

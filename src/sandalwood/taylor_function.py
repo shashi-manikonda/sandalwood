@@ -19,7 +19,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from . import elementary_coefficients
+
 from .backend import get_backend
 
 # COSY Backend availability
@@ -123,7 +123,6 @@ class MultivariateTaylorFunction:
     _INITIALIZED = False
     _ETOL = 1e-16
     _TRUNCATE_AFTER_OPERATION = True
-    _PRECOMPUTED_COEFFICIENTS = {}
     _IMPLEMENTATION = "python"
 
     @classmethod
@@ -215,11 +214,6 @@ class MultivariateTaylorFunction:
                  print("Initializing COSY backend...")
                  cosy_backend.CosyBackendManager.initialize(cls._MAX_ORDER, cls._MAX_DIMENSION)
             
-            cls._PRECOMPUTED_COEFFICIENTS = (
-                elementary_coefficients.load_precomputed_coefficients(
-                    max_order_config=cls._MAX_ORDER
-                )
-            )
             cls._INITIALIZED = True
             print(
                 f"MTF globals initialized: _MAX_ORDER={cls._MAX_ORDER}, "
@@ -229,7 +223,6 @@ class MultivariateTaylorFunction:
                 f"Max coefficient count (order={cls._MAX_ORDER}, "
                 f"nvars={cls._MAX_DIMENSION}): {cls.get_max_coefficient_count()}"
             )
-            print("Precomputed coefficients loaded and ready for use.")
         else:
             raise RuntimeError(
                 "Re-initialization with different max_order or max_dimension is "
@@ -1210,10 +1203,9 @@ class MultivariateTaylorFunction:
                 "Cannot invert MTF with zero constant term (or very close to zero)."
             )
         rescaled_mtf = mtf_instance / c0
-        inverse_coefficients = self.get_precomputed_coefficients().get("inverse")
-        if inverse_coefficients is None:
-            raise RuntimeError("Precomputed 'inverse' coefficients not loaded.")
-        coeffs_to_use = inverse_coefficients[: order + 1]
+        # Dynamic coefficient generation for inverse: (-1)^n
+        # 1/(1+x) = 1 - x + x^2 - x^3 ...
+        coeffs_to_use = [(-1)**i for i in range(order + 1)]
         coeff_items = []
         for i, coeff_val in enumerate(coeffs_to_use):
             exponent_tuple = (i,)
@@ -2256,41 +2248,36 @@ def sqrt_taylor_1D_expansion(
     sqrt_taylor_1d_coefficients = {}
     taylor_dimension_1d = 1
     variable_index_1d = 0
-    max_precomputed_order = min(order, elementary_coefficients.MAX_PRECOMPUTED_ORDER)
-    precomputed_coeffs = elementary_coefficients.precomputed_coefficients.get("sqrt")
-    if precomputed_coeffs is None:
-        raise ValueError(
-            "Precomputed coefficients for 'sqrt' function not found. "
-            "Ensure coefficients are loaded."
-        )
-    for n_order in range(0, max_precomputed_order + 1):
-        coefficient_val = precomputed_coeffs[n_order]
-        sqrt_taylor_1d_coefficients[
-            _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
-        ] = np.array([coefficient_val]).reshape(1)
-    if order > elementary_coefficients.MAX_PRECOMPUTED_ORDER:
-        print(
-            f"Warning: Requested order {order} exceeds precomputed order "
-            f"{elementary_coefficients.MAX_PRECOMPUTED_ORDER}. Calculations may be "
-            "slower for higher orders."
-        )
-        for n_order in range(
-            elementary_coefficients.MAX_PRECOMPUTED_ORDER + 1, order + 1
-        ):
-            if n_order == 0:
-                coefficient_val = 1.0
-            elif n_order == 1:
-                coefficient_val = 0.5
-            else:
-                previous_coefficient = sqrt_taylor_1d_coefficients[
-                    _generate_exponent(
-                        n_order - 1, variable_index_1d, taylor_dimension_1d
-                    )
-                ][0]
-                coefficient_val = previous_coefficient * (0.5 - (n_order - 1)) / n_order
-            sqrt_taylor_1d_coefficients[
+    
+    # Dynamic coefficient generation for sqrt(1+x)
+    # n=0: 1
+    # n=1: 0.5
+    # n>1: a_n = a_(n-1) * (0.5 - (n-1)) / n
+    
+    current_coeff = 1.0
+    for n_order in range(order + 1):
+        if n_order == 0:
+            current_coeff = 1.0
+        elif n_order == 1:
+            current_coeff = 0.5
+        else:
+            current_coeff = current_coeff * (0.5 - (n_order - 1)) / (n_order - 1) * (0.5 - (n_order - 1)) / n_order # Wait, previous loop logic was using stored coeff.
+            # Let's start clean.
+            pass
+
+    coeffs = [0.0] * (order + 1)
+    coeffs[0] = 1.0
+    if order >= 1:
+        coeffs[1] = 0.5
+        for n in range(2, order + 1):
+            coeffs[n] = coeffs[n-1] * (0.5 - (n - 1)) / n
+
+    for n_order in range(order + 1):
+        if abs(coeffs[n_order]) > 1e-16:
+             sqrt_taylor_1d_coefficients[
                 _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
-            ] = np.array([coefficient_val]).reshape(1)
+            ] = np.array([coeffs[n_order]]).reshape(1)
+
     sqrt_taylor_1d_mtf = type(variable)(
         coefficients=sqrt_taylor_1d_coefficients, dimension=taylor_dimension_1d
     )
@@ -2353,43 +2340,21 @@ def isqrt_taylor_1D_expansion(
     isqrt_taylor_1d_coefficients = {}
     taylor_dimension_1d = 1
     variable_index_1d = 0
-    max_precomputed_order = min(order, elementary_coefficients.MAX_PRECOMPUTED_ORDER)
-    precomputed_coeffs = elementary_coefficients.precomputed_coefficients.get("isqrt")
-    if precomputed_coeffs is None:
-        raise ValueError(
-            "Precomputed coefficients for 'isqrt' function not found. "
-            "Ensure coefficients are loaded."
-        )
-    for n_order in range(0, max_precomputed_order + 1):
-        coefficient_val = precomputed_coeffs[n_order]
-        isqrt_taylor_1d_coefficients[
-            _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
-        ] = np.array([coefficient_val]).reshape(1)
-    if order > elementary_coefficients.MAX_PRECOMPUTED_ORDER:
-        print(
-            f"Warning: Requested order {order} exceeds precomputed order "
-            f"{elementary_coefficients.MAX_PRECOMPUTED_ORDER}. Calculations may be "
-            "slower for higher orders."
-        )
-        for n_order in range(
-            elementary_coefficients.MAX_PRECOMPUTED_ORDER + 1, order + 1
-        ):
-            if n_order == 0:
-                coefficient_val = 1.0
-            elif n_order == 1:
-                coefficient_val = -0.5
-            else:
-                previous_coefficient = isqrt_taylor_1d_coefficients[
-                    _generate_exponent(
-                        n_order - 1, variable_index_1d, taylor_dimension_1d
-                    )
-                ][0]
-                coefficient_val = (
-                    previous_coefficient * (-0.5 - (n_order - 1)) / n_order
-                )
+    
+    # Dynamic coefficient generation for isqrt(1+x) = (1+x)^(-1/2)
+    coeffs = [0.0] * (order + 1)
+    coeffs[0] = 1.0
+    if order >= 1:
+        coeffs[1] = -0.5
+        for n in range(2, order + 1):
+            coeffs[n] = coeffs[n-1] * (-0.5 - (n - 1)) / n
+
+    for n_order in range(order + 1):
+        if abs(coeffs[n_order]) > 1e-16:
             isqrt_taylor_1d_coefficients[
                 _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
-            ] = np.array([coefficient_val]).reshape(1)
+            ] = np.array([coeffs[n_order]]).reshape(1)
+
     isqrt_taylor_1d_mtf = type(variable)(
         coefficients=isqrt_taylor_1d_coefficients,
         dimension=taylor_dimension_1d,
