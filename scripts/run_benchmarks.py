@@ -27,7 +27,11 @@ def run_test(op, backend, dims=4, order=5, iters=1000):
         return float('inf')
 
 def main():
-    ops = ["add", "mul", "sin", "cos", "exp"]
+    ops = [
+        "add", "sub", "mul", "div", "pow", "exp", "log", "sqrt",
+        "sin", "cos", "tan", "asin", "acos", "atan",
+        "sinh", "cosh", "tanh", "derivative", "integrate", "eval"
+    ]
     dims = 6 
     orders = [6, 12, 16]
     iters = 100
