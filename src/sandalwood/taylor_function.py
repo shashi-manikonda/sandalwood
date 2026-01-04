@@ -1083,6 +1083,9 @@ class MultivariateTaylorFunction:
         return type(self)((self.exponents.copy(), -self.coeffs), self.dimension)
 
     def __truediv__(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+            return self * (1.0 / other)
+
         if not isinstance(other, MultivariateTaylorFunction):
             try:
                 other = self.to_mtf(other, self.dimension)
@@ -1820,31 +1823,29 @@ class MultivariateTaylorFunction:
         MultivariateTaylorFunction constants.
         """
         UNARY_UFUNC_MAP = {
-            np.sin: self.sin,
-            np.cos: self.cos,
-            np.tan: self.tan,
-            np.exp: self.exp,
-            np.sqrt: self.sqrt,
-            np.log: self.log,
-            np.arctan: self.arctan,
-            np.sinh: self.sinh,
-            np.cosh: self.cosh,
-            np.tanh: self.tanh,
-            np.arcsin: self.arcsin,
-            np.arccos: self.arccos,
-            np.arctanh: self.arctanh,
-            np.reciprocal: self._inv_mtf_internal,
-            np.negative: self.__neg__,
-            np.positive: lambda x: x,
-            np.square: lambda x: x * x,
+            np.sin: "sin",
+            np.cos: "cos",
+            np.tan: "tan",
+            np.exp: "exp",
+            np.sqrt: "sqrt",
+            np.log: "log",
+            np.arctan: "arctan",
+            np.sinh: "sinh",
+            np.cosh: "cosh",
+            np.tanh: "tanh",
+            np.arcsin: "arcsin",
+            np.arccos: "arccos",
+            # np.arctanh: "arctanh",
+            np.reciprocal: "_inv_mtf_internal",
+            np.negative: "__neg__",
         }
 
         BINARY_UFUNC_MAP = {
-            np.add: self.__add__,
-            np.subtract: self.__sub__,
-            np.multiply: self.__mul__,
-            np.divide: self.__truediv__,
-            np.true_divide: self.__truediv__,
+            np.add: "__add__",
+            np.subtract: "__sub__",
+            np.multiply: "__mul__",
+            np.divide: "__truediv__",
+            np.true_divide: "__truediv__",
         }
 
         if method == "__call__":
@@ -1864,15 +1865,29 @@ class MultivariateTaylorFunction:
 
             if ufunc in UNARY_UFUNC_MAP:
                 if len(mtf_inputs) == 1:
-                    return UNARY_UFUNC_MAP[ufunc](mtf_inputs[0])
+                    method_name = UNARY_UFUNC_MAP[ufunc]
+                    if method_name == "_inv_mtf_internal":
+                         # Special case for reciprocal which takes an argument in internal impl
+                         # But _inv_mtf_internal(self, mtf_instance) ... wait
+                         # self._inv_mtf_internal(mtf_inputs[0])?
+                         # It seems _inv_mtf_internal is an instance method that uses `self` as a factory?
+                         # Let's check definition.
+                         return mtf_inputs[0]._inv_mtf_internal(mtf_inputs[0])
+                    op = getattr(mtf_inputs[0], method_name)
+                    return op()
                 else:
                     return NotImplemented
+
+            if ufunc == np.positive:
+                return mtf_inputs[0]
+            if ufunc == np.square:
+                return mtf_inputs[0] * mtf_inputs[0]
 
             if ufunc in BINARY_UFUNC_MAP:
                 if len(mtf_inputs) == 2:
                     # We need to call the method on the first object.
                     # e.g., mtf_inputs[0].__add__(mtf_inputs[1])
-                    method_name = BINARY_UFUNC_MAP[ufunc].__name__
+                    method_name = BINARY_UFUNC_MAP[ufunc]
                     op = getattr(mtf_inputs[0], method_name)
                     return op(mtf_inputs[1])
                 else:
