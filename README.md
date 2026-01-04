@@ -110,9 +110,13 @@ The library includes optimized C++ backends which are compiled during installati
 - **Windows**: Compiled using the Microsoft Visual C++ (MSVC) compiler. Ensure you have the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
 
 ### COSY Backend
-The COSY Infinity backend is supported across all platforms, but requires manual compilation of the `libcosy` shared library:
-- **Linux**: Use the provided `src/sandalwood/backends/cosy/compile_cosy.sh` script.
-- **Windows**: Requires a Fortran compiler (e.g., `gfortran` from MinGW) to build `libcosy.dll`. The Python side is ready to load `.dll` files automatically if present in the backend directory.
+The COSY Infinity backend is supported across all platforms and is **automatically compiled** during the standard installation process (`uv pip install -e .`). 
+
+- **Prerequisites**: A Fortran compiler (specifically `gfortran`) must be available on your system.
+- **Manual Rebuild**: If you modify the Fortran source code, you can trigger a rebuild of the COSY shared library without re-installing the entire package:
+  ```bash
+  python setup.py build_cosy
+  ```
 
 ## Running Tests
 
