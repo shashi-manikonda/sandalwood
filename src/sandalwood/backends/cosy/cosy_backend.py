@@ -117,6 +117,7 @@ bind_cosy_func("get_cda_coeff_by_index_", [POINTER(c_int), POINTER(c_int), POINT
 bind_cosy_func("get_mem_state_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("set_mem_state_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("get_all_coeffs_flat_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("eval_da_batch_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 
 # Control flags
 _USE_OMP = bool(os.environ.get("COSY_USE_OMP", "0"))
@@ -572,11 +573,81 @@ class CosyMtfData:
         data["coeffs"] = coeffs
         return data
 
-    def eval(self, point):
-        c_point = (c_double * len(point))(*point)
-        res = c_double()
-        libcosy.eval_da_(byref(c_int(self.da.idx)), c_point, byref(res))
-        return res.value
+    def eval(self, points):
+        points = np.asarray(points, dtype=np.float64)
+        
+        # Check if single point (1D) or batch (2D)
+        if points.ndim == 1:
+            # Single point case
+            if len(points) != self.dimension: # Check logical dim
+                 # Ideally check physical dim if needed, but wrapper handles padding/truncation? 
+                 # Actually wrapper expects points of size NVMAX usually or assumes correct length.
+                 pass
+            c_point = (c_double * len(points))(*points)
+            res = c_double()
+            libcosy.eval_da_(byref(c_int(self.da.idx)), c_point, byref(res))
+            return res.value
+        elif points.ndim == 2:
+            # Batch case
+            n_points, dim = points.shape
+            # We must flatten the points array row by row (C-style)
+            # COSY wrapper expects [p1_x, p1_y, ..., p2_x, ...]
+            
+            # Optimization: If dim < physical_dimension, we might need to pad?
+            # The current EVAL_DA implementation in wrapper assumes POINTS has length NVMAX 
+            # or accesses up to NVMAX.
+            # However, my new EVAL_DA_BATCH accesses (PT_IDX-1)*NVMAX + K.
+            # So the input array MUST be strided by NVMAX.
+            
+            phys_dim = CosyBackend._dim
+            if dim != phys_dim:
+                 # We need to pad or check
+                 if dim < phys_dim:
+                     # Copy to padded array
+                     padded = np.zeros((n_points, phys_dim), dtype=np.float64)
+                     padded[:, :dim] = points
+                     points_flat = padded.flatten() # defaults to C order
+                 elif dim > phys_dim:
+                     raise ValueError(f"Input dimension {dim} > Backend dimension {phys_dim}")
+                 else:
+                     points_flat = points.flatten()
+            else:
+                 points_flat = points.flatten()
+
+            c_points = (c_double * len(points_flat)).from_buffer_copy(points_flat)
+            c_n_points = c_int(n_points)
+            
+            # Prepare result array
+            vals = np.zeros(n_points, dtype=np.float64)
+            c_vals = (c_double * len(vals)).from_buffer(vals) # Share memory? from_buffer works for Mutable
+            
+            # workspace for exponent caching
+            # LEA = 100000 in COSY default. MAX_TERMS should slightly exceed expected terms.
+            # Using 100,000 is safe and matches COSY's static limit LEA.
+            max_terms = 100000 
+            c_max_terms = c_int(max_terms)
+            
+            # Allocating workspace arrays
+            # TEMP_EXPS: (MAX_TERMS, 40) integers
+            # TEMP_COEFFS: (MAX_TERMS) doubles
+            nvmax = 40 # Standard COSY limit
+            temp_exps = np.zeros(max_terms * nvmax, dtype=np.int32)
+            temp_coeffs = np.zeros(max_terms, dtype=np.float64)
+            
+            c_temp_exps = (c_int * len(temp_exps)).from_buffer(temp_exps)
+            c_temp_coeffs = (c_double * len(temp_coeffs)).from_buffer(temp_coeffs)
+            
+            libcosy.eval_da_batch_(byref(c_int(self.da.idx)), 
+                                   c_points, 
+                                   byref(c_n_points), 
+                                   c_vals,
+                                   c_temp_exps,
+                                   c_temp_coeffs,
+                                   byref(c_max_terms))
+                                   
+            return vals
+        else:
+            raise ValueError(f"Invalid input shape {points.shape}")
 
     def add(self, other):
         res = CosyMtfData(self.dimension)
