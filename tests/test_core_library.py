@@ -15,13 +15,10 @@ MAX_DIMENSION = 3
 ETOL = 1e-10
 
 
-@pytest.fixture(scope="function", autouse=True, params=["python", "cosy"])
-def setup_function(request):
-    implementation = request.param
-    # Skip if COSY is not available (though we expect it to be)
-    if implementation == "cosy" and not sandalwood.taylor_function._COSY_BACKEND_AVAILABLE:
-        pytest.skip("COSY backend not available")
-        
+@pytest.fixture(scope="function", autouse=True)
+def setup_function(backend_implementation):
+    implementation = backend_implementation
+    
     mtf.initialize_mtf(max_order=MAX_ORDER, max_dimension=MAX_DIMENSION, implementation=implementation)
     mtf.set_etol(ETOL)
     global_dim = mtf.get_max_dimension()

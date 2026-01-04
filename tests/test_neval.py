@@ -26,12 +26,10 @@ def reset_mtf():
     mtf._INITIALIZED = False
 
 
-@pytest.fixture(params=["python", "cosy"])
-def sample_mtf(request):
+@pytest.fixture
+def sample_mtf(backend_implementation):
     """A sample MTF for testing."""
-    implementation = request.param
-    if implementation == "cosy" and not sandalwood.taylor_function._COSY_BACKEND_AVAILABLE:
-        pytest.skip("COSY backend not available")
+    implementation = backend_implementation
 
     mtf.initialize_mtf(max_order=2, max_dimension=2, implementation=implementation)
     x = mtf.var(1, 2)
