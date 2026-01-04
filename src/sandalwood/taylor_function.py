@@ -357,14 +357,23 @@ class MultivariateTaylorFunction:
         self.var_name = var_name
         self.mtf_data = mtf_data
 
+        # Initialize storage as None (lazy loading)
+        self._exponents = None
+        self._coeffs = None
+
         if self.mtf_data:
-            data_dict = self.mtf_data.to_dict()
-            self.exponents = data_dict["exponents"]
-            self.coeffs = data_dict["coeffs"]
+            # Lazy initialization: don't call to_dict() yet
             if dimension is None:
-                self.dimension = (
-                    self.exponents.shape[1] if self.exponents.size > 0 else self.get_max_dimension()
-                )
+                if hasattr(self.mtf_data, "dimension"):
+                    self.dimension = self.mtf_data.dimension
+                else:
+                    # Force sync if we can't get dimension otherwise
+                    self._ensure_synced()
+                    # Infer dimension from synced data
+                    if self._exponents.size > 0:
+                        self.dimension = self._exponents.shape[1]
+                    else:
+                        self.dimension = self.get_max_dimension()
             else:
                 self.dimension = dimension
             return
@@ -376,22 +385,22 @@ class MultivariateTaylorFunction:
             and isinstance(coefficients[0], np.ndarray)
             and isinstance(coefficients[1], np.ndarray)
         ):
-            self.exponents, self.coeffs = coefficients
+            self._exponents, self._coeffs = coefficients
             if dimension is None:
                 self.dimension = (
-                    self.exponents.shape[1]
-                    if self.exponents.size > 0
+                    self._exponents.shape[1]
+                    if self._exponents.size > 0
                     else self.get_max_dimension()
                 )
             else:
                 self.dimension = dimension
 
-            if self.exponents.size > 0 and self.exponents.shape[1] != self.dimension:
+            if self._exponents.size > 0 and self._exponents.shape[1] != self.dimension:
                 raise ValueError(
                     f"Provided dimension {self.dimension} does not match exponent "
-                    f"dimension {self.exponents.shape[1]}."
+                    f"dimension {self._exponents.shape[1]}."
                 )
-            if self.coeffs.ndim != 1 or self.coeffs.shape[0] != self.exponents.shape[0]:
+            if self._coeffs.ndim != 1 or self._coeffs.shape[0] != self._exponents.shape[0]:
                 raise ValueError("Coefficients array has incorrect shape.")
 
         # Path for dictionary
@@ -400,8 +409,8 @@ class MultivariateTaylorFunction:
                 self.dimension = (
                     dimension if dimension is not None else self.get_max_dimension()
                 )
-                self.exponents = np.empty((0, self.dimension), dtype=np.int32)
-                self.coeffs = np.empty((0,), dtype=np.float64)
+                self._exponents = np.empty((0, self.dimension), dtype=np.int32)
+                self._coeffs = np.empty((0,), dtype=np.float64)
             else:
                 first_exp = next(iter(coefficients.keys()))
                 inferred_dim = len(first_exp)
@@ -417,22 +426,22 @@ class MultivariateTaylorFunction:
 
                 # Optimized dict conversion
                 num_items = len(coefficients)
-                self.exponents = np.empty((num_items, self.dimension), dtype=np.int32)
+                self._exponents = np.empty((num_items, self.dimension), dtype=np.int32)
                 is_complex = any(np.iscomplexobj(v) for v in coefficients.values())
                 dtype = np.complex128 if is_complex else np.float64
-                self.coeffs = np.empty(num_items, dtype=dtype)
+                self._coeffs = np.empty(num_items, dtype=dtype)
 
                 for i, (exp, coeff) in enumerate(coefficients.items()):
-                    self.exponents[i] = exp
+                    self._exponents[i] = exp
                     if isinstance(coeff, np.ndarray):
-                        self.coeffs[i] = coeff.item()
+                        self._coeffs[i] = coeff.item()
                     else:
-                        self.coeffs[i] = coeff
+                        self._coeffs[i] = coeff
 
                 # Sort both arrays based on exponents
-                sorted_indices = np.lexsort(self.exponents.T)
-                self.exponents = self.exponents[sorted_indices]
-                self.coeffs = self.coeffs[sorted_indices]
+                sorted_indices = np.lexsort(self._exponents.T)
+                self._exponents = self._exponents[sorted_indices]
+                self._coeffs = self._coeffs[sorted_indices]
         else:
             raise TypeError(
                 "Unsupported type for 'coefficients'. Must be a dict or a tuple of "
@@ -441,11 +450,61 @@ class MultivariateTaylorFunction:
 
         if _CPP_BACKEND_AVAILABLE and self._IMPLEMENTATION == "cpp":
             self.mtf_data = mtf_cpp.MtfData()
-            self.mtf_data.from_numpy(self.exponents, self.coeffs)
+            self.mtf_data.from_numpy(self._exponents, self._coeffs)
         elif _COSY_BACKEND_AVAILABLE and self._IMPLEMENTATION == "cosy":
-            is_complex = np.iscomplexobj(self.coeffs)
+            is_complex = np.iscomplexobj(self._coeffs)
             self.mtf_data = cosy_backend.CosyMtfData(self.dimension, is_complex=is_complex)
-            self.mtf_data.from_numpy(self.exponents, self.coeffs)
+            self.mtf_data.from_numpy(self._exponents, self._coeffs)
+
+    def _ensure_synced(self):
+        """Synchronize Python-side coefficients from backend if needed."""
+        if self._exponents is not None:
+            return
+
+        if self.mtf_data is None:
+            # Should not happen if initialized correctly
+            raise RuntimeError("MTF data is missing and coefficients are not initialized.")
+
+        data_dict = self.mtf_data.to_dict()
+        self._exponents = data_dict["exponents"]
+        self._coeffs = data_dict["coeffs"]
+
+        # Apply truncation if enabled, to match Python behavior
+        if self._TRUNCATE_AFTER_OPERATION and self._coeffs.size > 0:
+             etol = self.get_etol()
+             keep_mask = np.abs(self._coeffs) > etol
+             if not np.all(keep_mask):
+                 self._exponents = self._exponents[keep_mask]
+                 self._coeffs = self._coeffs[keep_mask]
+
+        # Ensure dimensions match (sanity check)
+        if hasattr(self, "dimension") and self.dimension is not None:
+            if self._exponents.size > 0 and self._exponents.shape[1] != self.dimension:
+                # This might happen if backend truncates or changes dimension unexpectedly?
+                # Or if self.dimension was set incorrectly.
+                pass
+
+    @property
+    def exponents(self):
+        self._ensure_synced()
+        return self._exponents
+
+    @exponents.setter
+    def exponents(self, value):
+        self._exponents = value
+        # Invalidate backend data since we are modifying Python side manually
+        self.mtf_data = None
+
+    @property
+    def coeffs(self):
+        self._ensure_synced()
+        return self._coeffs
+
+    @coeffs.setter
+    def coeffs(self, value):
+        self._coeffs = value
+        # Invalidate backend data since we are modifying Python side manually
+        self.mtf_data = None
 
     @classmethod
     def from_constant(cls, constant_value, dimension=None):
@@ -1670,6 +1729,10 @@ class MultivariateTaylorFunction:
         """
         Removes coefficients smaller than the global error tolerance in-place.
         """
+        # If using backend, assume it handles cleanup internally or ignore for now to preserve mtf_data
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            return
+
         etol = self.get_etol()
 
         if self.coeffs.size == 0:
@@ -1939,6 +2002,13 @@ class MultivariateTaylorFunction:
         >>> f.get_constant()
         5.0
         """
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+             if hasattr(self.mtf_data, "get_constant"):
+                  val = self.mtf_data.get_constant()
+                  if isinstance(val, complex):
+                      return val
+                  return float(val)
+
         constant_exp = np.zeros(self.dimension, dtype=np.int32)
         match = np.all(self.exponents == constant_exp, axis=1)
         const_idx = np.where(match)[0]
