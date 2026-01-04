@@ -1787,77 +1787,77 @@ class MultivariateTaylorFunction:
         return not self.__eq__(other)
 
     def sin(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.sin()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _sin_taylor
         return _sin_taylor(self)
 
     def cos(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.cos()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _cos_taylor
         return _cos_taylor(self)
 
     def tan(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.tan()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _tan_taylor
         return _tan_taylor(self)
 
     def exp(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.exp()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _exp_taylor
         return _exp_taylor(self)
 
     def log(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.log()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _log_taylor
         return _log_taylor(self)
 
     def sinh(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.sinh()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _sinh_taylor
         return _sinh_taylor(self)
 
     def cosh(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.cosh()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _cosh_taylor
         return _cosh_taylor(self)
 
     def tanh(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.tanh()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _tanh_taylor
         return _tanh_taylor(self)
 
     def arcsin(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.asin()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _arcsin_taylor
         return _arcsin_taylor(self)
 
     def arccos(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.acos()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _arccos_taylor
         return _arccos_taylor(self)
 
     def arctan(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             res_data = self.mtf_data.atan()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _arctan_taylor

@@ -87,7 +87,13 @@ if _TORCH_AVAILABLE:
 
         @staticmethod
         def dot(a, b):
-            """Wraps `torch.matmul` for dot product."""
+            """Wraps `torch.matmul` for dot product with type handling."""
+            # Handle potential type mismatch (e.g., real points * complex coeffs)
+            if a.dtype != b.dtype:
+                if b.is_complex() and not a.is_complex():
+                    a = a.to(b.dtype)
+                elif a.is_complex() and not b.is_complex():
+                    b = b.to(a.dtype)
             return torch.matmul(a, b)
 
         @staticmethod
