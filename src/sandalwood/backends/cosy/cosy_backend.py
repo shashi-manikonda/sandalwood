@@ -506,6 +506,9 @@ class CosyMtfData:
             c_coeffs = (c_double * len(flat_coeffs))(*flat_coeffs)
             libcosy.cosy_set_coeffs_(byref(c_int(self.da.idx)), c_coeffs, c_exps, byref(c_int(len(coeffs))))
 
+    def get_constant(self):
+        return self.da.get_constant()
+
     def to_dict(self):
         terms = self.da.get_all_terms()
         data = {}
