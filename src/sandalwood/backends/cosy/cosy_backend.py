@@ -151,7 +151,9 @@ class CosyDA:
         elif var_id is not None:
             self.owned = True
             res_idx = c_int(0)
-            libcosy.create_da_var_(byref(res_idx), byref(c_double(1.0)), byref(c_int(var_id)))
+            # Use 0.0 as default value for variables (Monomial x_i)
+            # Convert 0-based Python index to 1-based COSY index
+            libcosy.create_da_var_(byref(res_idx), byref(c_double(0.0)), byref(c_int(var_id + 1)))
             self.idx = res_idx.value
         else:
             raise ValueError("Must provide idx, create_new=True, or var_id")
@@ -182,18 +184,26 @@ class CosyDA:
         return coeffs
 
     def get_constant(self):
+        # Assuming maximum number of variables is < 1000
+        # Exponents array size should be at least NVMAX
+        # Since we don't track NVMAX here, use a safe upper bound
         c_exponents = (c_int * 1000)()
         c_val = c_double()
         libcosy.get_da_coeff_(byref(c_int(self.idx)), c_exponents, byref(c_val))
         return c_val.value
+
+    @classmethod
+    def from_const(cls, val):
+        res_idx = c_int(0)
+        libcosy.create_da_const_(byref(res_idx), byref(c_double(float(val))))
+        return cls(idx=res_idx.value, owned=True)
 
     def __add__(self, other):
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
             libcosy.compute_da_add_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         else:
-            con = CosyDA(create_new=True)
-            libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(float(other))))
+            con = CosyDA.from_const(other)
             libcosy.compute_da_add_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
@@ -205,22 +215,19 @@ class CosyDA:
         if isinstance(other, CosyDA):
             libcosy.compute_da_sub_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         else:
-            con = CosyDA(create_new=True)
-            libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(float(other))))
+            con = CosyDA.from_const(other)
             libcosy.compute_da_sub_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __rsub__(self, other):
         res_idx = c_int(0)
-        con = CosyDA(create_new=True)
-        libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(float(other))))
+        con = CosyDA.from_const(other)
         libcosy.compute_da_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __neg__(self):
         res_idx = c_int(0)
-        con = CosyDA(create_new=True)
-        libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(0.0)))
+        con = CosyDA.from_const(0.0)
         libcosy.compute_da_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
@@ -234,8 +241,7 @@ class CosyDA:
         if isinstance(other, CosyDA):
             libcosy.compute_da_mul_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, (int, float, np.number)):
-            con = CosyDA(create_new=True)
-            libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(float(other))))
+            con = CosyDA.from_const(other)
             libcosy.compute_da_mul_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx) )
         elif isinstance(other, complex):
             return self.to_complex() * other
@@ -251,15 +257,13 @@ class CosyDA:
         if isinstance(other, CosyDA):
             libcosy.compute_da_div_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         else:
-            con = CosyDA(create_new=True)
-            libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(float(other))))
+            con = CosyDA.from_const(other)
             libcosy.compute_da_div_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __rtruediv__(self, other):
         res_idx = c_int(0)
-        con = CosyDA(create_new=True)
-        libcosy.create_da_const_(byref(c_int(con.idx)), byref(c_double(float(other))))
+        con = CosyDA.from_const(other)
         libcosy.compute_da_div_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
