@@ -11,7 +11,7 @@ OUTPUT="$DIR/$LIB_NAME"
 
 echo "Compiling COSY sources from $COSY_SRC and wrapper.f..."
 
-gfortran -shared -fPIC -std=legacy -O2 \
+gfortran -shared -fPIC -std=legacy -g -O2 \
     "$COSY_SRC/dafox.f" \
     "$COSY_SRC/foxfit.f" \
     "$COSY_SRC/foxgraf.f" \

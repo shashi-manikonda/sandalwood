@@ -443,7 +443,8 @@ class MultivariateTaylorFunction:
             self.mtf_data = mtf_cpp.MtfData()
             self.mtf_data.from_numpy(self.exponents, self.coeffs)
         elif _COSY_BACKEND_AVAILABLE and self._IMPLEMENTATION == "cosy":
-            self.mtf_data = cosy_backend.CosyMtfData(self.dimension)
+            is_complex = np.iscomplexobj(self.coeffs)
+            self.mtf_data = cosy_backend.CosyMtfData(self.dimension, is_complex=is_complex)
             self.mtf_data.from_numpy(self.exponents, self.coeffs)
 
     @classmethod
@@ -743,9 +744,19 @@ class MultivariateTaylorFunction:
         evaluation_point = np.array(evaluation_point)
         
         # Optimized backend evaluation
+        # Optimized backend evaluation
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
              # Ensure point is correct shape/type for backend
              # COSY expects list or array of floats.
+             if evaluation_point.ndim == 1:
+                 if evaluation_point.shape[0] != self.dimension:
+                      raise ValueError(f"Evaluation point dimension must match MTF dimension ({self.dimension}).")
+             elif evaluation_point.ndim == 2:
+                 if not (evaluation_point.shape[0] == 1 and evaluation_point.shape[1] == self.dimension):
+                      raise ValueError("For 2D input, eval() supports only a single evaluation point with shape (1, dimension).")
+             else:
+                 raise ValueError("Evaluation point must be a 1D or 2D array.")
+                 
              return np.array([self.mtf_data.eval(evaluation_point.flatten())])
 
         if evaluation_point.ndim == 1:

@@ -56,7 +56,7 @@ class ComplexMultivariateTaylorFunction(MultivariateTaylorFunction):
     1...0.0...j...
     """
 
-    def __init__(self, coefficients, dimension=None, var_name=None, mtf_data=None):
+    def __init__(self, coefficients=None, dimension=None, var_name=None, mtf_data=None):
         """
         Initializes a ComplexMultivariateTaylorFunction.
 
