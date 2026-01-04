@@ -1281,7 +1281,10 @@ class MultivariateTaylorFunction:
 
         # Use a dictionary to group and sum coefficients, as bincount does not
         # support complex numbers
-        summed_coeffs_dict = defaultdict(complex)
+        is_result_complex = np.iscomplexobj(new_coeffs) or np.iscomplexobj(value)
+        summed_coeffs_dict = (
+            defaultdict(complex) if is_result_complex else defaultdict(float)
+        )
         for i, exp in enumerate(new_exponents):
             summed_coeffs_dict[tuple(exp)] += new_coeffs[i]
 
