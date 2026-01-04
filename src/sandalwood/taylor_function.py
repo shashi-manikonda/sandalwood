@@ -29,6 +29,17 @@ try:
     _CPP_BACKEND_AVAILABLE = True
 except ImportError:
     _CPP_BACKEND_AVAILABLE = False
+    
+try:
+    print("DEBUG: Attempting to import COSY backend module...")
+    from .backends.cosy import cosy_backend
+    print("DEBUG: COSY backend module imported successfully.")
+    _COSY_BACKEND_AVAILABLE = True
+except Exception as e:
+    print(f"DEBUG: Failed to import COSY backend: {e} ({type(e)})")
+    import traceback
+    traceback.print_exc()
+    _COSY_BACKEND_AVAILABLE = False
 
 
 def _generate_exponent(order, var_index, dimension):
@@ -188,6 +199,9 @@ class MultivariateTaylorFunction:
 
             if implementation == "cpp" and not _CPP_BACKEND_AVAILABLE:
                 cls._IMPLEMENTATION = "python"
+            elif implementation == "cosy" and not _COSY_BACKEND_AVAILABLE:
+                print("Warning: COSY backend not available. Falling back to Python.")
+                cls._IMPLEMENTATION = "python"
             else:
                 cls._IMPLEMENTATION = implementation
 
@@ -195,6 +209,11 @@ class MultivariateTaylorFunction:
                 f"Initializing MTF globals with: _MAX_ORDER={cls._MAX_ORDER}, "
                 f"_MAX_DIMENSION={cls._MAX_DIMENSION}"
             )
+            
+            if cls._IMPLEMENTATION == "cosy":
+                 print("Initializing COSY backend...")
+                 cosy_backend.CosyBackendManager.initialize(cls._MAX_ORDER, cls._MAX_DIMENSION)
+            
             cls._PRECOMPUTED_COEFFICIENTS = (
                 elementary_coefficients.load_precomputed_coefficients(
                     max_order_config=cls._MAX_ORDER
@@ -306,7 +325,7 @@ class MultivariateTaylorFunction:
             raise ValueError("Input 'enable' must be a boolean value (True or False).")
         cls._TRUNCATE_AFTER_OPERATION = enable
 
-    def __init__(self, coefficients, dimension=None, var_name=None, mtf_data=None):
+    def __init__(self, coefficients=None, dimension=None, var_name=None, mtf_data=None):
         """
         Initializes a MultivariateTaylorFunction object.
 
@@ -342,9 +361,12 @@ class MultivariateTaylorFunction:
             data_dict = self.mtf_data.to_dict()
             self.exponents = data_dict["exponents"]
             self.coeffs = data_dict["coeffs"]
-            self.dimension = (
-                self.exponents.shape[1] if self.exponents.size > 0 else dimension
-            )
+            if dimension is None:
+                self.dimension = (
+                    self.exponents.shape[1] if self.exponents.size > 0 else self.get_max_dimension()
+                )
+            else:
+                self.dimension = dimension
             return
 
         # Fast path for tuple of (exponents, coeffs)
@@ -419,6 +441,9 @@ class MultivariateTaylorFunction:
 
         if _CPP_BACKEND_AVAILABLE and self._IMPLEMENTATION == "cpp":
             self.mtf_data = mtf_cpp.MtfData()
+            self.mtf_data.from_numpy(self.exponents, self.coeffs)
+        elif _COSY_BACKEND_AVAILABLE and self._IMPLEMENTATION == "cosy":
+            self.mtf_data = cosy_backend.CosyMtfData(self.dimension)
             self.mtf_data.from_numpy(self.exponents, self.coeffs)
 
     @classmethod
@@ -716,6 +741,13 @@ class MultivariateTaylorFunction:
             If the `evaluation_point` has an incorrect shape or dimension.
         """
         evaluation_point = np.array(evaluation_point)
+        
+        # Optimized backend evaluation
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             # Ensure point is correct shape/type for backend
+             # COSY expects list or array of floats.
+             return np.array([self.mtf_data.eval(evaluation_point.flatten())])
+
         if evaluation_point.ndim == 1:
             if evaluation_point.shape[0] != self.dimension:
                 raise ValueError(
@@ -818,25 +850,6 @@ class MultivariateTaylorFunction:
         return results
 
     def __add__(self, other):
-        """
-        Adds two MultivariateTaylorFunction objects or an MTF and a scalar.
-
-        Parameters
-        ----------
-        other : MultivariateTaylorFunction or numeric
-            The object to add to the current MTF. If it's a scalar, it is
-            first converted to a constant MTF.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            A new MTF representing the sum.
-
-        Raises
-        ------
-        ValueError
-            If the dimensions of two MTF objects do not match.
-        """
         if not isinstance(other, MultivariateTaylorFunction):
             try:
                 other = self.to_mtf(other, self.dimension)
@@ -845,6 +858,14 @@ class MultivariateTaylorFunction:
 
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for addition.")
+
+        # Backend routing
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.add(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
 
         # Python Implementation (Optimized with dictionary)
         is_complex = np.iscomplexobj(self.coeffs) or np.iscomplexobj(other.coeffs)
@@ -899,68 +920,31 @@ class MultivariateTaylorFunction:
         ValueError
             If the dimensions of two MTF objects do not match.
         """
-        if isinstance(other, (int, float, complex, np.number)):
-            return self + (-other)
-
         if not isinstance(other, MultivariateTaylorFunction):
-            return NotImplemented
+            try:
+                other = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
 
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for subtraction.")
 
-        # Python Implementation (Optimized with dictionary)
-        is_complex = np.iscomplexobj(self.coeffs) or np.iscomplexobj(other.coeffs)
-        summed_coeffs_dict = defaultdict(complex) if is_complex else defaultdict(float)
+        # Backend routing
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.subtract(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
 
-        for i in range(self.coeffs.shape[0]):
-            exp_tuple = tuple(self.exponents[i])
-            summed_coeffs_dict[exp_tuple] += self.coeffs[i]
-
-        for i in range(other.coeffs.shape[0]):
-            exp_tuple = tuple(other.exponents[i])
-            summed_coeffs_dict[exp_tuple] -= other.coeffs[i]
-
-        if not summed_coeffs_dict:
-            unique_exponents = np.empty((0, self.dimension), dtype=np.int32)
-            summed_coeffs = np.empty(
-                (0,), dtype=np.complex128 if is_complex else np.float64
-            )
-        else:
-            unique_exponents = np.array(list(summed_coeffs_dict.keys()), dtype=np.int32)
-            summed_coeffs = np.array(
-                list(summed_coeffs_dict.values()),
-                dtype=np.complex128 if is_complex else np.float64,
-            )
-
-        result_mtf = type(self)((unique_exponents, summed_coeffs), self.dimension)
-        if self._TRUNCATE_AFTER_OPERATION:
-            result_mtf._cleanup_after_operation()
-        return result_mtf
+        # Python Implementation
+        return self + (-other)
 
     def __rsub__(self, other):
         """Defines reverse subtraction for non-commutative property."""
         return -(self - other)
 
     def __mul__(self, other):
-        """
-        Multiplies two MTF objects or an MTF by a scalar.
-
-        Parameters
-        ----------
-        other : MultivariateTaylorFunction or numeric
-            The object to multiply by. If it's a scalar, each coefficient
-            of the MTF is multiplied by it.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            A new MTF representing the product.
-
-        Raises
-        ------
-        ValueError
-            If the dimensions of two MTF objects do not match.
-        """
         if isinstance(other, (int, float, complex, np.number)):
             # Scalar multiplication
             if self.coeffs.size == 0:
@@ -974,6 +958,14 @@ class MultivariateTaylorFunction:
 
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for multiplication.")
+
+        # Backend routing
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.multiply(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
 
         if self.coeffs.size == 0 or other.coeffs.size == 0:
             dtype = np.result_type(self.coeffs.dtype, other.coeffs.dtype)
@@ -1085,61 +1077,54 @@ class MultivariateTaylorFunction:
         MultivariateTaylorFunction
             A new MTF with all coefficients negated.
         """
-        return type(self)((self.exponents.copy(), -self.coeffs.copy()), self.dimension)
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.negate()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        return type(self)((self.exponents.copy(), -self.coeffs), self.dimension)
 
     def __truediv__(self, other):
-        """
-        Divides the MTF by another MTF or a scalar.
+        if not isinstance(other, MultivariateTaylorFunction):
+            try:
+                other = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
 
-        If `other` is an MTF, this is equivalent to `self * (1/other)`.
+        if self.dimension != other.dimension:
+            raise ValueError("MTF dimensions must match for division.")
 
-        Parameters
-        ----------
-        other : MultivariateTaylorFunction or numeric
-            The divisor.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            A new MTF representing the result of the division.
-
-        Raises
-        ------
-        ValueError
-            If division by an MTF with a zero constant term is attempted.
-        """
-        if isinstance(other, MultivariateTaylorFunction):
-            inverse_other_mtf = self._inv_mtf_internal(other)
-            return self * inverse_other_mtf
-        elif isinstance(other, (int, float, complex, np.number)):
-            result_mtf = type(self)(
-                (self.exponents.copy(), self.coeffs / other), self.dimension
-            )
+        # Backend routing
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.divide(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
                 result_mtf._cleanup_after_operation()
             return result_mtf
-        else:
-            return NotImplemented
+
+        # Default Python implementation
+        inverse_other_mtf = self._inv_mtf_internal(other)
+        return self * inverse_other_mtf
 
     def __rtruediv__(self, other):
-        """
-        Defines reverse division (scalar / MTF).
-
-        Parameters
-        ----------
-        other : numeric
-            The numerator.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            A new MTF representing the result of `other / self`.
-        """
-        if isinstance(other, (int, float, np.number)):
-            inverse_self_mtf = self._inv_mtf_internal(self)
-            return inverse_self_mtf * other
+        if not isinstance(other, MultivariateTaylorFunction):
+            try:
+                # Convert scalar to MTF to use backend division
+                other_mtf = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
         else:
-            return NotImplemented
+            other_mtf = other
+
+        # Backend routing
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = other_mtf.mtf_data.divide(self.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
+
+        # Default Python implementation
+        inverse_self_mtf = self._inv_mtf_internal(self)
+        return inverse_self_mtf * other
 
     def _inv_mtf_internal(self, mtf_instance, order=None):
         """Internal method to calculate Taylor expansion of 1/mtf_instance."""
@@ -1716,155 +1701,116 @@ class MultivariateTaylorFunction:
         """Defines inequality (!=) for MultivariateTaylorFunction objects."""
         return not self.__eq__(other)
 
-    @staticmethod
-    def sin(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of sin(mtf_obj)."""
+    def sin(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.sin()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _sin_taylor
+        return _sin_taylor(self)
 
-        return _sin_taylor(mtf_obj)
-
-    @staticmethod
-    def cos(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of cos(mtf_obj)."""
+    def cos(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.cos()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _cos_taylor
+        return _cos_taylor(self)
 
-        return _cos_taylor(mtf_obj)
-
-    @staticmethod
-    def tan(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of tan(mtf_obj)."""
+    def tan(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.tan()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _tan_taylor
+        return _tan_taylor(self)
 
-        return _tan_taylor(mtf_obj)
-
-    @staticmethod
-    def exp(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of exp(mtf_obj)."""
+    def exp(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.exp()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _exp_taylor
+        return _exp_taylor(self)
 
-        return _exp_taylor(mtf_obj)
-
-    @staticmethod
-    def gaussian(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of a Gaussian function, exp(-mtf_obj^2)."""
-        from .elementary_functions import _gaussian_taylor
-
-        return _gaussian_taylor(mtf_obj)
-
-    @staticmethod
-    def log(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of log(mtf_obj)."""
+    def log(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.log()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _log_taylor
+        return _log_taylor(self)
 
-        return _log_taylor(mtf_obj)
-
-    @staticmethod
-    def arctan(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of arctan(mtf_obj)."""
-        from .elementary_functions import _arctan_taylor
-
-        return _arctan_taylor(mtf_obj)
-
-    @staticmethod
-    def sinh(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of sinh(mtf_obj)."""
+    def sinh(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.sinh()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _sinh_taylor
+        return _sinh_taylor(self)
 
-        return _sinh_taylor(mtf_obj)
-
-    @staticmethod
-    def cosh(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of cosh(mtf_obj)."""
+    def cosh(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.cosh()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _cosh_taylor
+        return _cosh_taylor(self)
 
-        return _cosh_taylor(mtf_obj)
-
-    @staticmethod
-    def tanh(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of tanh(mtf_obj)."""
+    def tanh(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.tanh()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _tanh_taylor
+        return _tanh_taylor(self)
 
-        return _tanh_taylor(mtf_obj)
-
-    @staticmethod
-    def arcsin(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of arcsin(mtf_obj)."""
+    def arcsin(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.asin()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _arcsin_taylor
+        return _arcsin_taylor(self)
 
-        return _arcsin_taylor(mtf_obj)
-
-    @staticmethod
-    def arccos(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of arccos(mtf_obj)."""
+    def arccos(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.acos()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _arccos_taylor
+        return _arccos_taylor(self)
 
-        return _arccos_taylor(mtf_obj)
-
-    @staticmethod
-    def arctanh(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of arctanh(mtf_obj)."""
-        from .elementary_functions import _arctanh_taylor
-
-        return _arctanh_taylor(mtf_obj)
+    def arctan(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.atan()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        from .elementary_functions import _arctan_taylor
+        return _arctan_taylor(self)
 
     @staticmethod
     def sqrt(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of sqrt(mtf_obj)."""
+        if mtf_obj._IMPLEMENTATION in ("cpp", "cosy") and mtf_obj.mtf_data is not None:
+            res_data = mtf_obj.mtf_data.sqrt()
+            return type(mtf_obj)(mtf_data=res_data, dimension=mtf_obj.dimension)
         return _sqrt_taylor(mtf_obj)
 
     @staticmethod
     def isqrt(mtf_obj: "MultivariateTaylorFunction") -> "MultivariateTaylorFunction":
-        """Computes the Taylor expansion of 1/sqrt(mtf_obj)."""
+        # COSY has DASQRT but not ISQRT directly maybe?
+        # wrapper.f has COMPUTE_DA_ISRT
+        if mtf_obj._IMPLEMENTATION in ("cpp", "cosy") and mtf_obj.mtf_data is not None:
+             # cos_backend.CosyMtfData doesn't have isqrt yet. 
+             # I'll add it to CosyMtfData first if needed.
+             pass
         return _isqrt_taylor(mtf_obj)
 
     def integrate(self, integration_variable_index, lower_limit=None, upper_limit=None):
-        r"""
-        Performs definite or indefinite integration of an MTF.
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            # definite integral not directly in backend yet for COSY?
+            if lower_limit is None and upper_limit is None:
+                res_data = self.mtf_data.integrate(integration_variable_index)
+                return type(self)(mtf_data=res_data, dimension=self.dimension)
 
-        This function corresponds to the inverse derivation operator
-        :math:`\partial_{\bigcirc}^{-1}` of the Differential Algebra. It integrates
-        the Taylor series with respect to one of its variables.
-
-        Parameters
-        ----------
-        integration_variable_index : int
-            The 1-based index of the variable to integrate with respect to.
-        lower_limit : float, optional
-            The lower limit for definite integration.
-        upper_limit : float, optional
-            The upper limit for definite integration.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            If an indefinite integral, a new MTF representing the integral.
-            If a definite integral, a new MTF representing the result after
-            integrating and substituting the bounds.
-        """
         from .elementary_functions import _integrate
 
         return _integrate(self, integration_variable_index, lower_limit, upper_limit)
 
     def derivative(self, deriv_dim):
-        r"""
-        Computes the partial derivative of an MTF.
-
-        This function corresponds to the derivation operator
-        :math:`\partial_{\bigcirc}` of the Differential Algebra. It differentiates
-        the Taylor series with respect to one of its variables.
-
-        Parameters
-        ----------
-        deriv_dim : int
-            The 1-based index of the variable to differentiate with respect to.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            A new MTF representing the partial derivative.
-        """
+        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+            res_data = self.mtf_data.partial_derivative(deriv_dim)
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
         from .elementary_functions import _derivative
-
         return _derivative(self, deriv_dim)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):

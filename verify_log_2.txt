@@ -1,0 +1,23 @@
+DEBUG: Attempting to import COSY backend module...
+DEBUG: COSY backend module imported successfully.
+File: /home/mls/work/sandalwood/src/sandalwood/taylor_function.py
+COSY Available: True
+Initializing MTF with COSY backend...
+Initializing MTF globals with: _MAX_ORDER=2, _MAX_DIMENSION=2
+Initializing COSY backend...
+Loading/Precomputing Taylor coefficients up to order 2
+Global precomputed coefficients loading/generation complete.
+Size of precomputed_coefficients dictionary in memory: 464 bytes, 0.45 KB, 0.00 MB
+MTF globals initialized: _MAX_ORDER=2, _MAX_DIMENSION=2, _INITIALIZED=True
+Max coefficient count (order=2, nvars=2): 6
+Precomputed coefficients loaded and ready for use.
+Creating variables...
+Performing arithmetic...
+Result of x + y:
+[[1 0]
+ [0 1]]
+[1. 1.]
+Result of x * y:
+COSY backend verification complete.
+ $$$ ERROR IN DAINI, NO OR NV < 1
+ *** FOXSTL CALLED (Error in COSY Backend) ***
