@@ -439,24 +439,72 @@ class CosyBackendManager:
         return True
 
 
+
 class CosyMtfData:
-    def __init__(self, dimension: int = None):
+    def __init__(self, dimension: int = None, is_complex: bool = False):
         CosyBackendManager.check_init()
-        self.da = CosyDA(create_new=True)
-        self.dimension = CosyBackend._dim
+        if is_complex:
+            self.da = CosyCDA(create_new=True)
+        else:
+            self.da = CosyDA(create_new=True)
+        
+        # Physical dimension is fixed by backend
+        self.physical_dimension = CosyBackend._dim
+        # Logical dimension can be smaller
+        if dimension is not None:
+             if dimension > self.physical_dimension:
+                 raise ValueError(f"Requested dimension {dimension} > COSY backend dimension {self.physical_dimension}")
+             self.dimension = dimension
+        else:
+             self.dimension = self.physical_dimension
 
     def copy(self):
-        new_obj = CosyMtfData(self.dimension)
+        # Determine if complex by checking type of self.da
+        is_complex = isinstance(self.da, CosyCDA)
+        new_obj = CosyMtfData(self.dimension, is_complex=is_complex)
         new_obj.da = self.da + 0.0
         return new_obj
 
     def from_numpy(self, exponents: np.ndarray, coeffs: np.ndarray):
         if len(coeffs) == 0: return
-        flat_coeffs = coeffs.astype(np.float64)
-        c_coeffs = (c_double * len(flat_coeffs))(*flat_coeffs)
-        flat_exps = exponents.flatten().astype(np.int32)
+        
+        current_dim = exponents.shape[1]
+        
+        # Pad exponents if necessary to match global COSY dimension
+        global_dim = self.physical_dimension
+        
+        if current_dim < global_dim:
+            padded_exponents = np.zeros((exponents.shape[0], global_dim), dtype=np.int32)
+            padded_exponents[:, :current_dim] = exponents
+            flat_exps = padded_exponents.flatten()
+        elif current_dim > global_dim:
+            raise ValueError(f"Exponents dimension {current_dim} exceeds COSY global dimension {global_dim}")
+        else:
+            flat_exps = exponents.flatten().astype(np.int32)
+            
         c_exps = (c_int * len(flat_exps))(*flat_exps)
-        libcosy.cosy_set_coeffs_(byref(c_int(self.da.idx)), c_coeffs, c_exps, byref(c_int(len(coeffs))))
+
+        if isinstance(self.da, CosyCDA) or np.iscomplexobj(coeffs):
+            # Ensure we have complex DA
+            if not isinstance(self.da, CosyCDA):
+                 old_idx = self.da.idx
+                 self.da = CosyCDA(create_mode="new") 
+            
+            flat_coeffs = coeffs.astype(np.complex128).flatten()
+            flat_re = flat_coeffs.real.astype(np.float64)
+            flat_im = flat_coeffs.imag.astype(np.float64)
+            
+            c_re = (c_double * len(flat_re))(*flat_re)
+            c_im = (c_double * len(flat_im))(*flat_im)
+            
+            if not hasattr(libcosy, 'cosy_set_cd_coeffs_'):
+                 bind_cosy_func("cosy_set_cd_coeffs_", [POINTER(c_int), POINTER(c_double), POINTER(c_double), POINTER(c_int), POINTER(c_int)])
+            
+            libcosy.cosy_set_cd_coeffs_(byref(c_int(self.da.idx)), c_re, c_im, c_exps, byref(c_int(len(coeffs))))
+        else:
+            flat_coeffs = coeffs.astype(np.float64)
+            c_coeffs = (c_double * len(flat_coeffs))(*flat_coeffs)
+            libcosy.cosy_set_coeffs_(byref(c_int(self.da.idx)), c_coeffs, c_exps, byref(c_int(len(coeffs))))
 
     def to_dict(self):
         terms = self.da.get_all_terms()
@@ -465,8 +513,18 @@ class CosyMtfData:
             data["exponents"] = np.empty((0, self.dimension), dtype=int)
             data["coeffs"] = np.array([])
             return data
-        data["exponents"] = np.array([t[0] for t in terms])
-        data["coeffs"] = np.array([t[1] for t in terms])
+        
+        # terms contain exponents of length physical_dimension
+        all_exponents = np.array([t[0] for t in terms])
+        coeffs = np.array([t[1] for t in terms])
+        
+        # Truncate exponents to logical dimension
+        if self.dimension < self.physical_dimension:
+             data["exponents"] = all_exponents[:, :self.dimension]
+        else:
+             data["exponents"] = all_exponents
+             
+        data["coeffs"] = coeffs
         return data
 
     def eval(self, point):

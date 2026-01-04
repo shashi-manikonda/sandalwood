@@ -108,17 +108,42 @@
 
       SUBROUTINE EVAL_DA(IDX, POINTS, VAL)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX, IC(1)
+      INTEGER IDX
       DOUBLE PRECISION POINTS(*), VAL
+      INTEGER I, K, NM, JJ(40)
+      DOUBLE PRECISION TERM, COEFF
       PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
       INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
-      CALL FOXALL(IC, 1, 1)
-      CALL DAFUN(IDX, POINTS, IC(1))
-      VAL = CC(NBEG(IC(1)))
-      CALL FOXDAL(IC, 1)
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      
+      VAL = 0.0D0
+      IF (NEND(IDX) .LT. NBEG(IDX)) RETURN
+      
+      DO 100 I = NBEG(IDX), NEND(IDX)
+         COEFF = CC(I)
+         IF (ABS(COEFF) .GT. 0.0D0) THEN
+             NM = NC(I)
+             IF (NM .EQ. 0) THEN
+                 TERM = 1.0D0
+             ELSE
+                 CALL DAENC(IE1(NM), IE2(NM), JJ)
+                 TERM = 1.0D0
+                 DO 50 K = 1, NVMAX
+                     IF (JJ(K) .GT. 0) THEN
+                         TERM = TERM * (POINTS(K)**JJ(K))
+                     ENDIF
+ 50              CONTINUE
+             ENDIF
+             VAL = VAL + COEFF * TERM
+         ENDIF
+ 100  CONTINUE
       RETURN
       END
 
@@ -155,6 +180,50 @@
              ENDIF
           ENDIF
  100  CONTINUE
+      RETURN
+      END
+
+      SUBROUTINE COSY_SET_CD_COEFFS(IDX, RE_VALS, IM_VALS, EXPS, N)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IDX, N, EXPS(*), I, J, NM, K
+      DOUBLE PRECISION RE_VALS(N), IM_VALS(N)
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      PARAMETER(LEA=100000,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:1400000),IA2(0:1400000),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      INTEGER JJ(LNV)
+      INTEGER IC(3), ITRE, ITIM
+      
+      ! Initialize to zero (Complex)
+      CALL FOXALL(IC, 2, NMMAX)
+      CALL DACON(IC(1), 0.0D0)
+      CALL DACON(IC(2), 0.0D0)
+      CALL SET_CD_PARTS(IDX, IC(1), IC(2))
+      CALL FOXDAL(IC, 2)
+      
+      DO 200 I = 1, N
+          DO 20 K = 1, NVMAX
+              JJ(K) = EXPS((I-1)*NVMAX + K)
+ 20       CONTINUE
+          CALL DAENE(JJ, NM)
+          IF (NM .GT. 0) THEN
+             J = NBEG(IDX) + (I - 1) * 2
+             IF ((J+1) .LE. NMAX(IDX)) THEN
+                CC(J)   = RE_VALS(I)
+                CC(J+1) = IM_VALS(I)
+                NC(J)   = NM
+                NC(J+1) = NM
+                NEND(IDX) = MAX(NEND(IDX), J+1)
+             ENDIF
+          ENDIF
+ 200  CONTINUE
       RETURN
       END
 
@@ -647,7 +716,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      CALL FOXALL(IC, 1, 2*NMMAX)
       IDX = IC(1)
       CALL RECD(VARID, IDX)
       RETURN
@@ -662,7 +731,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 3, NMMAX)
+      CALL FOXALL(IC, 3, 2*NMMAX)
       IDX = IC(1)
       ITRE = IC(2)
       ITIM = IC(3)

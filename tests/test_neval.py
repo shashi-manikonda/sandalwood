@@ -8,6 +8,7 @@ try:
 except ImportError:
     _TORCH_AVAILABLE = False
 from sandalwood import mtf
+import sandalwood.taylor_function
 
 
 # Old eval logic for comparison
@@ -25,10 +26,14 @@ def reset_mtf():
     mtf._INITIALIZED = False
 
 
-@pytest.fixture
-def sample_mtf():
+@pytest.fixture(params=["python", "cosy"])
+def sample_mtf(request):
     """A sample MTF for testing."""
-    mtf.initialize_mtf(max_order=2, max_dimension=2)
+    implementation = request.param
+    if implementation == "cosy" and not sandalwood.taylor_function._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
+
+    mtf.initialize_mtf(max_order=2, max_dimension=2, implementation=implementation)
     x = mtf.var(1, 2)
     y = mtf.var(2, 2)
     return x**2 + 2 * x * y + y**2 + 1
