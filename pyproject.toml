@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "numpy>=1.20", "pybind11>=2.10"]
+requires = ["setuptools>=61.0", "numpy>=1.20"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: C++",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Software Development :: Libraries",
 ]
@@ -80,8 +79,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"sandalwood.backends.cpp" = ["*.hpp"]
-"sandalwood.backends.c" = ["*.h"]
+"sandalwood.backends.cosy" = ["libcosy.*"]
 
 [tool.ruff]
 line-length = 88

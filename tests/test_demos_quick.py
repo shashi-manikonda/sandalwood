@@ -18,14 +18,33 @@ def find_demos():
                 demos.append(os.path.join(root, f))
     return demos
 
+@pytest.mark.parametrize("backend", ["python", "cosy"])
 @pytest.mark.parametrize("demo_path", find_demos())
-def test_demo_quick(demo_path):
+def test_demo_quick(demo_path, backend):
     """
-    Fast verification of a demo file.
+    Fast verification of a demo file with a specific backend.
     Runs the code in a subprocess to ensure isolation and speed.
     """
+    if backend == "cosy":
+        try:
+            from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
+            if not _COSY_BACKEND_AVAILABLE:
+                pytest.skip("COSY backend not available")
+        except ImportError:
+            pytest.skip("Could not check COSY availability")
+
     fname = os.path.basename(demo_path)
     
+    def patch_line(line, backend):
+        if "mtf.initialize_mtf(max_order=" in line:
+            if "implementation=" in line:
+                line = line.replace('implementation="cosy"', f'implementation="{backend}"')
+                line = line.replace('implementation="python"', f'implementation="{backend}"')
+                line = line.replace('implementation="cpp"', f'implementation="{backend}"')
+            else:
+                line = line.replace(")", f', implementation="{backend}")')
+        return line
+
     with tempfile.TemporaryDirectory() as temp_dir:
         exec_path = os.path.join(temp_dir, "run_demo.py")
         
@@ -39,9 +58,10 @@ def test_demo_quick(demo_path):
                 if cell.get("cell_type") == "code":
                     source = cell.get("source", [])
                     if isinstance(source, str):
-                        code_lines.append(source)
+                        code_lines.append(patch_line(source, backend))
                     else:
-                        code_lines.extend(source)
+                        for line in source:
+                            code_lines.append(patch_line(line, backend))
                     code_lines.append("\n")
             
             with open(exec_path, "w", encoding="utf-8") as f:
@@ -51,12 +71,13 @@ def test_demo_quick(demo_path):
         else:
             # For .py files, we can just run them directly (or wrap to disable GUI)
             with open(demo_path, "r", encoding="utf-8") as f:
-                content = f.read()
+                lines = f.readlines()
             
             with open(exec_path, "w", encoding="utf-8") as f:
                 f.write("import matplotlib\n")
                 f.write("matplotlib.use('Agg')\n")
-                f.write(content)
+                for line in lines:
+                    f.write(patch_line(line, backend))
 
         # Run in subprocess
         env = os.environ.copy()

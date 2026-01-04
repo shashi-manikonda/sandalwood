@@ -3,7 +3,7 @@
 [![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
 
 
-A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), with a C++ backend for performance-critical applications.
+A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), with performance acceleration via the COSY Infinity backend.
 
 ## Installation
 
@@ -15,7 +15,7 @@ uv pip install sandalwood
 
 ### Installation from Source
 
-Alternatively, you can install `sandalwood` directly from the source repository using uv (recommended) or pip. Ensure you have a C++17 compliant compiler (e.g., GCC, Clang, MSVC) for building the backend extensions.
+Alternatively, you can install `sandalwood` directly from the source repository using uv (recommended) or pip.
 
 ```bash
 uv pip install .
@@ -103,11 +103,6 @@ f_loaded = mtf.from_json(json_str)
 ## Platform Support
 
 `sandalwood` supports Linux, Windows, and macOS.
-
-### C++ Extensions
-The library includes optimized C++ backends which are compiled during installation.
-- **Linux/macOS**: Compiled using GCC or Clang (standard during `pip install`).
-- **Windows**: Compiled using the Microsoft Visual C++ (MSVC) compiler. Ensure you have the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) installed.
 
 ### COSY Backend
 The COSY Infinity backend is supported across all platforms and is **automatically compiled** during the standard installation process (`uv pip install -e .`). 
