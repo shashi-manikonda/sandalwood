@@ -104,3 +104,10 @@ disable_error_code = ["var-annotated", "arg-type", "operator", "assignment", "in
 [[tool.mypy.overrides]]
 module = ["numpy.*", "pandas.*", "matplotlib.*", "scipy.*", "sympy.*", "tqdm.*"]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "demo: marks tests as demo-based (slow, skipped by default)",
+]
+addopts = "-m \"not demo\""
