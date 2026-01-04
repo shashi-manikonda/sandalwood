@@ -1732,8 +1732,13 @@ class MultivariateTaylorFunction:
         """
         Removes coefficients smaller than the global error tolerance in-place.
         """
-        # If using backend, assume it handles cleanup internally or ignore for now to preserve mtf_data
-        if self._IMPLEMENTATION in ("cpp", "cosy") and self.mtf_data is not None:
+        # If using backend and Python data is not yet synchronized, assume backend
+        # handles cleanup internally or ignore to preserve mtf_data.
+        if (
+            self._IMPLEMENTATION in ("cpp", "cosy")
+            and self.mtf_data is not None
+            and self._exponents is None
+        ):
             return
 
         etol = self.get_etol()
