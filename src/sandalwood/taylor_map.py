@@ -8,6 +8,7 @@ the output vector is a Taylor series. This class provides methods for
 vector arithmetic, composition, and inversion of such maps.
 """
 
+import json
 import warnings
 
 import numpy as np
@@ -444,6 +445,49 @@ class TaylorMap:
                 f"input_dim={self.components[0].dimension})"
             )
         return "TaylorMap(map_dim=0, input_dim=N/A)"
+
+    def __reduce__(self):
+        """
+        Defines how to pickle a TaylorMap object.
+        """
+        return (self.__class__, (list(self.components),))
+
+    def to_json(self):
+        """
+        Serializes the TaylorMap object to a JSON string.
+
+        Returns
+        -------
+        str
+            A JSON string representation of the TaylorMap object.
+        """
+        component_jsons = [c.to_json() for c in self.components]
+        data = {
+            "map_dim": self.map_dim,
+            "components": component_jsons,
+        }
+        return json.dumps(data)
+
+    @classmethod
+    def from_json(cls, json_str):
+        """
+        Creates a TaylorMap object from a JSON string.
+
+        Parameters
+        ----------
+        json_str : str
+            A JSON string representation of a TaylorMap object.
+
+        Returns
+        -------
+        TaylorMap
+            The reconstructed TaylorMap object.
+        """
+        data = json.loads(json_str)
+        components = [
+            MultivariateTaylorFunction.from_json(c_json) for c_json in data["components"]
+        ]
+        return cls(components)
 
     def __str__(self):
         """
