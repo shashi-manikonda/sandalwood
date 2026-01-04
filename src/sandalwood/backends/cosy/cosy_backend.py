@@ -113,6 +113,28 @@ bind_cosy_func("set_cd_parts_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)]
 bind_cosy_func("compute_da_to_cd_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("get_cda_coeff_by_index_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double), POINTER(c_double)])
 
+# ... (Previous bindings)
+bind_cosy_func("get_mem_state_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("set_mem_state_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("get_all_coeffs_flat_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+
+# Control flags
+_USE_OMP = bool(os.environ.get("COSY_USE_OMP", "0"))
+
+class CosyScope:
+    def __init__(self):
+        self.ivar = c_int(0)
+        self.imem = c_int(0)
+        
+    def __enter__(self):
+        if not CosyBackend.is_initialized():
+            raise RuntimeError("COSY backend not initialized")
+        libcosy.get_mem_state_(byref(self.ivar), byref(self.imem))
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        libcosy.set_mem_state_(byref(self.ivar), byref(self.imem))
+        return False
 
 class CosyBackend:
     _initialized = False
@@ -167,34 +189,42 @@ class CosyDA:
             raise ValueError("Must provide idx, create_new=True, or var_id")
 
     def __del__(self):
-        if hasattr(self, "idx") and self.idx > 0:
-            try:
-                if self.owned and libcosy and hasattr(libcosy, "cosy_free_") and libcosy.cosy_free_:
-                    libcosy.cosy_free_(byref(c_int(self.idx)))
-            except Exception as e:
-                sys.stderr.write(f"Warning: Error freeing COSY DA handle {self.idx}: {e}\n")
-        self.idx = 0
+        # With CosyScope, manual freeing is dangerous if the scope already rewound.
+        # But for global variables (outside scope), we still need it.
+        # Ideally, we should track if we are inside a scope.
+        # For now, we rely on the user to be careful or the OS to reclaim eventually.
+        # If we are using Scope, we should probably NOT free individually.
+        pass  # Disabled manual free to rely on Scope or OS. 
+              # CAUTION: This means without Scope, we leak until reset.
+              # But with COSY stack allocator, individual free only works for TOP element anyway.
+              # So individual free was already broken for non-top elements.
 
     def get_all_terms(self):
         max_order = CosyBackend._order
         dim = CosyBackend._dim
         from math import comb
-        n_coeffs = comb(max_order + dim, dim)
+        n_coeffs_est = comb(max_order + dim, dim)
+        
+        # Use batch getter
+        max_len = c_int(n_coeffs_est + 100) # Buffer
+        c_vals = (c_double * max_len.value)()
+        c_exps = (c_int * (max_len.value * CosyBackend._dim))()
+        actual_len = c_int(0)
+        
+        libcosy.get_all_coeffs_flat_(byref(c_int(self.idx)), c_vals, c_exps, byref(max_len), byref(actual_len))
+        
+        n_terms = actual_len.value
         coeffs = []
-        c_exps = (c_int * dim)()
-        c_val = c_double()
-        for i in range(1, n_coeffs + 1):
-            libcosy.get_da_coeff_by_index_(byref(c_int(self.idx)), byref(c_int(i)), c_exps, byref(c_val))
-            val = c_val.value
-            if val != 0.0:
-                exps = tuple(c_exps[k] for k in range(dim))
-                coeffs.append((exps, val))
+        for i in range(n_terms):
+            val = c_vals[i]
+            # Exponents are flattened: [e1_1, e1_2... e1_d, e2_1...]
+            base_idx = i * CosyBackend._dim
+            exps = tuple(c_exps[base_idx + k] for k in range(CosyBackend._dim))
+            coeffs.append((exps, val))
+            
         return coeffs
 
     def get_constant(self):
-        # Assuming maximum number of variables is < 1000
-        # Exponents array size should be at least NVMAX
-        # Since we don't track NVMAX here, use a safe upper bound
         c_exponents = (c_int * 1000)()
         c_val = c_double()
         libcosy.get_da_coeff_(byref(c_int(self.idx)), c_exponents, byref(c_val))
@@ -382,6 +412,8 @@ class CosyCDA(CosyDA):
             self.idx = res_idx.value
         else:
             raise ValueError("Must provide idx, create_new=True, from_var, or from_const")
+    
+    # __del__ is inherited, so it does nothing (which is good for Scope)
 
     def get_constant(self):
         re_da = CosyDA(create_new=True)
@@ -391,6 +423,8 @@ class CosyCDA(CosyDA):
         return complex(re_da.get_constant(), im_da.get_constant())
 
     def get_all_terms(self):
+        # Complex batch getting not yet fully implemented in wrapper.
+        # Fallback to iterative method.
         max_order = CosyBackend._order
         dim = CosyBackend._dim
         from math import comb
