@@ -18,19 +18,19 @@ def test_beginner_demos_backend(backend):
         except ImportError:
             pytest.skip("Could not check COSY availability")
 
-    demo_dirs = [
-        os.path.abspath("demos/1_beginner"),
-        os.path.abspath("demos/2_advanced_topics")
-    ]
+    demo_root = os.path.abspath("demos")
     
     notebooks_to_test = []
-    for d in demo_dirs:
-        for f in os.listdir(d):
+    for root, _, files in os.walk(demo_root):
+        # Skip checkpoints
+        if ".ipynb_checkpoints" in root:
+            continue
+        for f in files:
             if f.endswith(".ipynb"):
-                notebooks_to_test.append(os.path.join(d, f))
+                notebooks_to_test.append(os.path.join(root, f))
     
     if not notebooks_to_test:
-        pytest.fail("No notebooks found in demos/")
+        pytest.fail(f"No notebooks found in {demo_root}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Patch and run each notebook
