@@ -4,16 +4,13 @@ import pytest
 from sandalwood import TaylorMap, mtf
 
 
-@pytest.fixture(scope="function", autouse=True, params=["python", "cosy"])
-def setup_mtf_module(request):
+@pytest.fixture(scope="function", autouse=True)
+def setup_mtf_module(backend_implementation):
     """Initializes sandalwood globals for the test module."""
-    implementation = request.param
+    implementation = backend_implementation
     # Reset to allow re-initialization per test/param
     mtf._INITIALIZED = False 
     
-    if implementation == "cosy" and not sandalwood.taylor_function._COSY_BACKEND_AVAILABLE:
-        pytest.skip("COSY backend not available")
-        
     mtf.initialize_mtf(max_order=5, max_dimension=3, implementation=implementation)
 
 

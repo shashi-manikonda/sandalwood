@@ -4,14 +4,12 @@ from sandalwood import TaylorMap, mtf
 import pytest
 import sandalwood.taylor_function
 
-@pytest.mark.parametrize("implementation", ["python", "cosy"])
-def test_map_inversion_from_demo(implementation):
+def test_map_inversion_from_demo(backend_implementation):
     """
     This test replicates the map inversion demo from taylor_map_demo.ipynb
     to verify if it's broken after recent changes.
     """
-    if implementation == "cosy" and not sandalwood.taylor_function._COSY_BACKEND_AVAILABLE:
-        pytest.skip("COSY backend not available")
+    implementation = backend_implementation
 
     # 1. Initialize sandalwood
     mtf._INITIALIZED = False
