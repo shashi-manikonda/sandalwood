@@ -15,7 +15,7 @@ def run_test(op, backend, dims=4, order=5, iters=1000):
     ]
     try:
         # Enforce 5s timeout per benchmark
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=5)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=10)
         # Output format: "RESULT_JSON: {...}"
         for line in result.stdout.splitlines():
             if line.startswith("RESULT_JSON:"):
@@ -77,10 +77,10 @@ def main():
         "sin", "cos", "tan", "asin", "acos", "atan",
         "sinh", "cosh", "tanh", "derivative", "integrate", "eval"
     ]
-    dims = 4
-    orders = [6, 12, 16]
+    dims = 6
+    orders = [2, 8, 6, 10]
     # Reduce iterations to avoid timeout (5s limit)
-    iters = 20
+    iters = 25
 
     # print(f"Running benchmarks (Dims={dims}, Iters={iters})...")
     

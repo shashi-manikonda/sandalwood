@@ -213,3 +213,4 @@ DAO.DAT
 DAS.DAT
 *.log
 *.txt
+scripts/benchmark_archived/

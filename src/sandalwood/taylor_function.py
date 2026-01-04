@@ -127,7 +127,7 @@ class MultivariateTaylorFunction:
     _IMPLEMENTATION = "python"
 
     @classmethod
-    def initialize_mtf(cls, max_order=None, max_dimension=None, implementation="cpp"):
+    def initialize_mtf(cls, max_order=None, max_dimension=None, implementation="cosy"):
         """
         Initializes global settings for the sandalwood library.
 
@@ -148,7 +148,7 @@ class MultivariateTaylorFunction:
             The default maximum number of variables for functions.
         implementation : {'python', 'cosy'}, optional
             The backend implementation to use for core operations. Defaults
-            to 'python'.
+            to 'cosy' if available, otherwise falls back to 'python'.
 
         Examples
         --------
@@ -185,15 +185,30 @@ class MultivariateTaylorFunction:
                     raise ValueError("max_dimension must be a positive integer.")
                 cls._MAX_DIMENSION = max_dimension
 
-            if implementation == "cosy" and not _COSY_BACKEND_AVAILABLE:
-                print("Warning: COSY backend not available. Falling back to Python.")
+            # Default to proposed implementation, but handle "auto" behavior if needed
+            # User passed 'cosy' explicitly or implicit default?
+            # The signature says default="cpp" (wait, actually default was "python" in previous).
+            # We want default="cosy".
+            
+            # Logic:
+            # 1. If implementation is explicitly "python", use python.
+            # 2. If implementation is "cosy" (default), try cosy. 
+            #    If not available, warn and fallback to python.
+            
+            if implementation == "python":
                 cls._IMPLEMENTATION = "python"
             else:
-                cls._IMPLEMENTATION = implementation
+                # Default is now COSY or user asked for COSY
+                if _COSY_BACKEND_AVAILABLE:
+                    cls._IMPLEMENTATION = "cosy"
+                else:
+                    if implementation == "cosy":
+                         print("Warning: COSY backend requested but not available. Falling back to Python.")
+                    cls._IMPLEMENTATION = "python"
 
             print(
                 f"Initializing MTF globals with: _MAX_ORDER={cls._MAX_ORDER}, "
-                f"_MAX_DIMENSION={cls._MAX_DIMENSION}"
+                f"_MAX_DIMENSION={cls._MAX_DIMENSION} using {cls._IMPLEMENTATION} backend"
             )
             
             if cls._IMPLEMENTATION == "cosy":
