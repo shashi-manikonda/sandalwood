@@ -14,13 +14,13 @@ PYBIND11_MODULE(mtf_cpp, m) {
       .def("from_numpy", &MtfData::from_numpy,
            "Initializes MtfData from numpy arrays.")
       .def("add", &MtfData::add, "Adds another MtfData object.")
-      .def("add_inplace", &MtfData::add_inplace,
-           "Adds another MtfData object in-place.")
-      .def("multiply", &MtfData::multiply,
-           "Multiplies by another MtfData object.")
-      .def("multiply_inplace", &MtfData::multiply_inplace,
-           "Multiplies by another MtfData object in-place.")
-      .def("negate", &MtfData::negate, "Negates the MtfData object.");
+      .def("add_inplace", &MtfData::add_inplace)
+      .def("subtract", &MtfData::subtract)
+      .def("subtract_inplace", &MtfData::subtract_inplace)
+      .def("multiply", &MtfData::multiply)
+      .def("multiply_inplace", &MtfData::multiply_inplace)
+      .def("power_inplace", &MtfData::power_inplace)
+      .def("negate", &MtfData::negate);
 
   m.def(
       "switch_backend",
