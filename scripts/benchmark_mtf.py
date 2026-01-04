@@ -3,6 +3,7 @@ import os
 import time
 import argparse
 import numpy as np
+import json
 
 # Ensure we can import sandalwood
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
@@ -26,63 +27,87 @@ def run_benchmark(backend, operation, dims, order, iterations):
             poly1 = poly1 + vars[i]
             poly2 = poly2 - vars[i]
             
-        # Start timing
-        start_time = time.time()
+        # Batching for statistics
+        num_batches = 5
+        batch_size = max(1, iterations // num_batches)
         
-        for _ in range(iterations):
-            if operation == "add":
-                res = poly1 + poly2
-            elif operation == "sub":
-                res = poly1 - poly2
-            elif operation == "div":
-                res = poly1 / (poly2 + 10.0) # Avoid division by zero
-            elif operation == "mul":
-                res = poly1 * poly2
-            elif operation == "pow":
-                # Create dense polynomial by high power
-                # Power that fits within max_order: e.g. (order - 1)
-                p = max(1, order - 1)
-                res = poly1 ** p
-            elif operation == "eval":
-                res = poly1.eval([0.5] * dims)
-            elif operation == "sin":
-                res = poly1.sin()
-            elif operation == "cos":
-                res = poly1.cos()
-            elif operation == "tan":
-                res = poly1.tan()
-            elif operation == "exp":
-                res = poly1.exp()
-            elif operation == "log":
-                res = (poly1 + 10.0).log()
-            elif operation == "sqrt":
-                res = (poly1 + 10.0).sqrt()
-            elif operation == "asin":
-                res = (poly1 * 0.1).asin()
-            elif operation == "acos":
-                res = (poly1 * 0.1).acos()
-            elif operation == "atan":
-                res = poly1.atan()
-            elif operation == "sinh":
-                res = poly1.sinh()
-            elif operation == "cosh":
-                res = poly1.cosh()
-            elif operation == "tanh":
-                res = poly1.tanh()
-            elif operation == "derivative":
-                res = poly1.derivative(1)
-            elif operation == "integrate":
-                res = poly1.integrate(1)
-                
-        end_time = time.time()
-        avg_time = (end_time - start_time) / iterations
-        print(f"RESULT: {backend}: {avg_time:.6f} s/iter")
+        times = []
+
+        for _ in range(num_batches):
+            # Start timing
+            start_time = time.perf_counter()
+
+            for _ in range(batch_size):
+                if operation == "add":
+                    res = poly1 + poly2
+                elif operation == "sub":
+                    res = poly1 - poly2
+                elif operation == "div":
+                    res = poly1 / (poly2 + 10.0) # Avoid division by zero
+                elif operation == "mul":
+                    res = poly1 * poly2
+                elif operation == "pow":
+                    # Create dense polynomial by high power
+                    # Power that fits within max_order: e.g. (order - 1)
+                    p = max(1, order - 1)
+                    res = poly1 ** p
+                elif operation == "eval":
+                    res = poly1.eval([0.5] * dims)
+                elif operation == "sin":
+                    res = poly1.sin()
+                elif operation == "cos":
+                    res = poly1.cos()
+                elif operation == "tan":
+                    res = poly1.tan()
+                elif operation == "exp":
+                    res = poly1.exp()
+                elif operation == "log":
+                    res = (poly1 + 10.0).log()
+                elif operation == "sqrt":
+                    res = (poly1 + 10.0).sqrt()
+                elif operation == "asin":
+                    res = (poly1 * 0.1).asin()
+                elif operation == "acos":
+                    res = (poly1 * 0.1).acos()
+                elif operation == "atan":
+                    res = poly1.atan()
+                elif operation == "sinh":
+                    res = poly1.sinh()
+                elif operation == "cosh":
+                    res = poly1.cosh()
+                elif operation == "tanh":
+                    res = poly1.tanh()
+                elif operation == "derivative":
+                    res = poly1.derivative(1)
+                elif operation == "integrate":
+                    res = poly1.integrate(1)
+
+            end_time = time.perf_counter()
+            times.append((end_time - start_time) / batch_size)
+
+        avg_time = np.mean(times)
+        std_time = np.std(times)
+        min_time = np.min(times)
+        max_time = np.max(times)
+
+        result = {
+            "backend": backend,
+            "mean": avg_time,
+            "std": std_time,
+            "min": min_time,
+            "max": max_time,
+            "iterations": iterations,
+            "batch_size": batch_size
+        }
+
+        print(f"RESULT_JSON: {json.dumps(result)}")
         
     except Exception as e:
-        print(f"Error: {e}")
-        # traceback
+        # If it's the specific COSY error, just exit with code 1, caller handles it.
+        # But we print something to stderr for debugging
+        sys.stderr.write(f"Error in benchmark_mtf: {e}\n")
         import traceback
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
