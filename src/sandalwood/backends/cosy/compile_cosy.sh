@@ -16,6 +16,7 @@ gfortran -shared -fPIC -std=legacy -g -O2 \
     "$COSY_SRC/foxfit.f" \
     "$COSY_SRC/foxgraf.f" \
     "$DIR/wrapper.f" \
+    -fopenmp \
     -o "$OUTPUT"
 
 echo "Compilation successful: $OUTPUT"

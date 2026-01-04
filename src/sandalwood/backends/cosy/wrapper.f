@@ -976,3 +976,92 @@
       NM = IA1(IC1) + IA2(IC2)
       RETURN
       END
+
+
+
+      SUBROUTINE EVAL_DA_BATCH(IDX, POINTS_FLAT, N_POINTS, VALS,
+     *                         TEMP_EXPS, TEMP_COEFFS, MAX_TERMS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IDX, N_POINTS, MAX_TERMS
+      DOUBLE PRECISION POINTS_FLAT(*), VALS(N_POINTS)
+      
+      INTEGER TEMP_EXPS(MAX_TERMS, 40)
+      DOUBLE PRECISION TEMP_COEFFS(MAX_TERMS) 
+      
+      INTEGER I, K, NM, J, N_TERMS, PT_IDX, BASE_IDX
+      DOUBLE PRECISION TERM
+      
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC,TMT,TMS,EPSM,TOLTMR
+      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      INTEGER JJ(LNV)
+
+      N_TERMS = 0
+      IF (NEND(IDX) .LT. NBEG(IDX)) GOTO 500 
+      
+      DO 100 I = NBEG(IDX), NEND(IDX)
+         IF (ABS(CC(I)) .GT. 0.0D0) THEN
+             NM = NC(I)
+             N_TERMS = N_TERMS + 1
+             IF (N_TERMS .GT. MAX_TERMS) THEN
+                 N_TERMS = MAX_TERMS
+                 GOTO 110
+             ENDIF
+             
+             TEMP_COEFFS(N_TERMS) = CC(I)
+             
+             IF (NM .EQ. 0) THEN
+                 DO 10 K = 1, NVMAX
+                     TEMP_EXPS(N_TERMS, K) = 0
+ 10              CONTINUE
+             ELSE
+                 CALL DAENC(IE1(NM), IE2(NM), JJ)
+                 DO 20 K = 1, NVMAX
+                     TEMP_EXPS(N_TERMS, K) = JJ(K)
+ 20              CONTINUE
+             ENDIF
+         ENDIF
+ 100  CONTINUE
+ 110  CONTINUE
+ 
+!$OMP PARALLEL DO PRIVATE(PT_IDX, BASE_IDX, I, TERM, K, J) 
+!$OMP& SHARED(VALS, POINTS_FLAT, N_POINTS, N_TERMS, TEMP_COEFFS, 
+!$OMP&        TEMP_EXPS, NVMAX)
+      DO 300 PT_IDX = 1, N_POINTS
+          BASE_IDX = (PT_IDX - 1) * NVMAX
+          VALS(PT_IDX) = 0.0D0
+          
+          DO 200 I = 1, N_TERMS
+              TERM = 1.0D0
+              DO 150 K = 1, NVMAX
+                  J = TEMP_EXPS(I, K)
+                  IF (J .GT. 0) THEN
+                      TERM = TERM * (POINTS_FLAT(BASE_IDX + K)**J)
+                  ENDIF
+ 150          CONTINUE
+              VALS(PT_IDX) = VALS(PT_IDX) + TEMP_COEFFS(I) * TERM
+ 200      CONTINUE
+ 300  CONTINUE
+!$OMP END PARALLEL DO
+
+      RETURN
+      
+ 500  CONTINUE
+      ! Empty DA case
+!$OMP PARALLEL DO PRIVATE(PT_IDX) SHARED(VALS, N_POINTS)
+      DO 400 PT_IDX = 1, N_POINTS
+          VALS(PT_IDX) = 0.0D0
+ 400  CONTINUE
+!$OMP END PARALLEL DO
+      RETURN
+      END
