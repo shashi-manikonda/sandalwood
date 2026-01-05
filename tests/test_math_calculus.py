@@ -33,6 +33,7 @@ def test_integration_simple():
     x = taylor.MultivariateTaylorFunction.var(1)
     
     f = x
+    int_f = f.integrate(1)
     
     # Expect x^2/2
     val = int_f.eval([2.0, 0.0])[0]
@@ -78,4 +79,4 @@ def test_mixed_derivative():
     # df/dx should be y
     # Eval at (x=2, y=3) -> expected 3
     val = df_dx.eval([2.0, 3.0])[0]
-    # assert np.isclose(val, 3.0), f"Expected 3.0, got {val}"
+    assert np.isclose(val, 3.0), f"Expected 3.0, got {val}"
