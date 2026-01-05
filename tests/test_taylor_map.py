@@ -12,6 +12,8 @@ def setup_mtf_module(backend_implementation):
     mtf._INITIALIZED = False 
     
     mtf.initialize_mtf(max_order=5, max_dimension=3, implementation=implementation)
+    yield
+    mtf._INITIALIZED = False
 
 
 @pytest.fixture

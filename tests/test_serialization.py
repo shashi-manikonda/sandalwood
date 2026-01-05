@@ -11,7 +11,10 @@ from sandalwood import mtf, TaylorMap
 @pytest.fixture(autouse=True)
 def setup_mtf(backend_implementation):
     """Initializes MTF for serialization tests."""
+    mtf._INITIALIZED = False
     mtf.initialize_mtf(max_order=2, max_dimension=2, implementation=backend_implementation)
+    yield
+    mtf._INITIALIZED = False
 
 
 def test_json_serialization_real(backend_implementation):
