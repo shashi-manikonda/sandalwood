@@ -7,6 +7,7 @@
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
       INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
@@ -161,6 +162,8 @@
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       PARAMETER(LEA=100000,LNV=40)
       INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:1400000),IA2(0:1400000),
      *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
@@ -171,6 +174,7 @@
       
       CALL DACON(IDX, 0.0D0)
       
+      ! Ensure NTYP is set using GLOBAL NDA
       DO 100 I = 1, N
           DO 10 K = 1, NVMAX
               JJ(K) = EXPS((I-1)*NVMAX + K)
@@ -185,6 +189,7 @@
              ENDIF
           ENDIF
  100  CONTINUE
+      NTYP(IDX) = NDA
       RETURN
       END
 
@@ -427,13 +432,25 @@
       SUBROUTINE COMPUTE_DA_SIN(IDX_IN, IDX_RES)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER IDX_IN, IDX_RES, IC(1)
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       PARAMETER(LEA=100000)
       COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      IF (NMMAX .GT. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+      ELSE
+         CALL FOXALL(IC, 1, 50000)
+      ENDIF
       IDX_RES = IC(1)
+      NTYP(IDX_RES) = NDA
       CALL DASINE(IDX_IN, IDX_RES)
       RETURN
       END
@@ -1084,6 +1101,7 @@
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
 
       PARAMETER(LEA=100000)
@@ -1130,6 +1148,7 @@
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
 
       PARAMETER(LEA=100000)
@@ -1144,9 +1163,15 @@
       NTYP(IVAR_DA) = NRE
       CC(NBEG(IVAR_DA)) = DBLE(IIV)
 
-*     Alloc Result
-      CALL FOXALL(IC, 1, NMMAX)
-      INC = IC(1)
+*     Alloc Result (Avoid orphaning)
+      IF (INC .LE. 0) THEN
+         IF (NMMAX .GT. 0) THEN
+            CALL FOXALL(IC, 1, NMMAX)
+         ELSE
+            CALL FOXALL(IC, 1, 50000)
+         ENDIF
+         INC = IC(1)
+      ENDIF
       NTYP(INC) = NDA
       NEND(INC) = NBEG(INC) - 1
       CC(NBEG(INC)) = 0.0D0
@@ -1167,17 +1192,18 @@
       SUBROUTINE DA_POISSON(INA, INB, INC)
 *     ************************************
 *     WRAPPER FOR DAPOI: INC = [INA, INB] (Poisson Bracket)
-*     MANUAL IMPLEMENTATION TO FIX INDEX TYPE MISMATCH IN DAPOI2
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER INA, INB, INC, ND, I, I1, I2, IVAR_DA, DAQ, DBP, DAP, DBQ
-      INTEGER IT1, ISUM
-      INTEGER IS(7), IC(1), IS_INC(1)
+      INTEGER IT1, IT2, ISUM
+      INTEGER IS(8), IC(1), IS_INC(1)
       
       PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
       INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       
       PARAMETER(LEA=100000)
@@ -1188,14 +1214,11 @@
 
       INTEGER NV_VAL
       
-      ! Get NVMAX from shared memory via helper
       CALL DAGETNVMAX(NV_VAL)
       ND = NV_VAL / 2
       
-      PRINT *, 'DBG: DA_POISSON Start. NV_VAL=', NV_VAL, ' ND=', ND
-      
-      ! Alloc temps with safe size (NMMAX issue)
-      CALL FOXALL(IS, 7, 50000)
+      ! Alloc temps (8 to avoid clashing)
+      CALL FOXALL(IS, 8, 50000)
       IVAR_DA = IS(1)
       ISUM = IS(2)
       DAQ = IS(3)
@@ -1203,27 +1226,45 @@
       DAP = IS(5)
       DBQ = IS(6)
       IT1 = IS(7)
+      IT2 = IS(8)
       
-      ! Init SUM as 0.0
       CALL DACON(ISUM, 0.D0)
       
       DO I=1, ND
          I1 = 2*I - 1
          I2 = 2*I
-         
-         ! Setup IVAR_DA as q_I (type NRE, value I1)
          NTYP(IVAR_DA) = NRE
          IPO = NBEG(IVAR_DA)
          CC(IPO) = DBLE(I1)
+         NEND(IVAR_DA) = IPO
          
+         CALL DADER(IVAR_DA, INA, DAQ)
+         CALL DADER(IVAR_DA, INB, DBQ)
+         
+         CC(IPO) = DBLE(I2)
+         NEND(IVAR_DA) = IPO
+         
+         CALL DADER(IVAR_DA, INA, DAP)
+         CALL DADER(IVAR_DA, INB, DBP)
+         
+         ! Sum += DAQ*DBP - DAP*DBQ
+         CALL DAMDA(DAQ, DBP, IT1)
+         CALL DAADA(ISUM, IT1, IT2)
+         CALL DACOP(IT2, ISUM)
+         CALL DAMDA(DAP, DBQ, IT1)
+         CALL DASDA(ISUM, IT1, IT2)
+         CALL DACOP(IT2, ISUM)
       ENDDO
       
-      ! Allocate and Copy result to output
-      CALL FOXALL(IS_INC, 1, 50000)
-      INC = IS_INC(1)
+      ! Output (Avoid orphaning)
+      IF (INC .LE. 0) THEN
+         CALL FOXALL(IS_INC, 1, 50000)
+         INC = IS_INC(1)
+      ENDIF
+      NTYP(INC) = NDA
       CALL DACOP(ISUM, INC)
       
-      CALL FOXDAL(IS, 7)
+      CALL FOXDAL(IS, 8)
       RETURN
       END
 
@@ -1287,6 +1328,7 @@
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
 
       PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
@@ -1337,6 +1379,7 @@
      *        NC(LMEM),NDIM(LDIM)
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
 
       PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
