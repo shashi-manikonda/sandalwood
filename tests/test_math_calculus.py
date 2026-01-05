@@ -46,6 +46,10 @@ def test_integration_simple(implementation):
 def test_poisson_bracket(implementation):
     """Test [q, p] = 1 where q=x1, p=x2"""
     safe_initialize(implementation)
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
+
     q = taylor.MultivariateTaylorFunction.var(1)
     p = taylor.MultivariateTaylorFunction.var(2)
     

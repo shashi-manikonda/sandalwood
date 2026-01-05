@@ -7,6 +7,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyMtfData, CosyDA
+from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
 
 @pytest.mark.skipif(sys.platform == 'win32', reason="Batch eval optimization primarily for Linux/OpenMP")
 def test_batch_eval_correctness():
@@ -14,6 +15,9 @@ def test_batch_eval_correctness():
     Verifies that the batch evaluation (EVAL_DA_BATCH) produces identical results
     to the single-point evaluation loop.
     """
+    if not _COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
+
     try:
         CosyBackend.initialize(order=5, dim=2)
     except RuntimeError:

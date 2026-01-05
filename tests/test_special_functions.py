@@ -42,6 +42,10 @@ def test_inv_cbrt(implementation):
 def test_inv_pow_3_2(implementation):
     """Test inv_pow_3_2(x) = 1/x^1.5"""
     safe_initialize(implementation)
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
+
     x = 4.0 + taylor.MultivariateTaylorFunction.var(1)
     
     if implementation == "python":
@@ -65,6 +69,9 @@ def test_inv_pow_3_2(implementation):
 def test_erf(implementation):
     """Test erf(x)"""
     safe_initialize(implementation)
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
     
     x = 0.0 + taylor.MultivariateTaylorFunction.var(1)
     
@@ -90,6 +97,9 @@ def test_erf(implementation):
 def test_coth(implementation):
     """Test coth(x)"""
     safe_initialize(implementation)
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
     
     # coth(x) = 1/tanh(x). Need non-zero constant for tanh? 
     # No, coth(x) blows up at x=0. Use x = 1 + delta
@@ -111,6 +121,9 @@ def test_coth(implementation):
 def test_estimate_stability(implementation):
     """Test estimate_stability"""
     safe_initialize(implementation)
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
     
     x = taylor.MultivariateTaylorFunction.var(1)
     f = x * x
