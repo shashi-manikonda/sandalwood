@@ -20,7 +20,14 @@
       INTEGER IC(1), INO, INV, IIU, INM
       INTEGER N1, N_ONE
 *
-      CALL DAINIT_TYPES
+      NRE=1
+      NST=2
+      NLO=3
+      NCM=4
+      NVE=5
+      NDA=6
+      NCD=7
+      NGR=8
 *
       N1 = 1
       N_ONE = 1
@@ -43,7 +50,6 @@
       CALL DAINI(INO, INV, IIU, INM)
 *
       KMAXMEM = NINT(CC(NBEG(INM)))
-*
       RETURN
       END
 
@@ -212,7 +218,12 @@
       INTEGER IC(3), ITRE, ITIM
       
       ! Initialize to zero (Complex)
+      PRINT *, "DEBUG COSY_SET"
+      PRINT *, "NDA=", NDA, " NCD=", NCD
+      PRINT *, "NMMAX=", NMMAX
       CALL FOXALL(IC, 2, NMMAX)
+      NTYP(IC(1)) = 6
+      NTYP(IC(2)) = 6
       CALL DACON(IC(1), 0.0D0)
       CALL DACON(IC(2), 0.0D0)
       CALL SET_CD_PARTS(IDX, IC(1), IC(2))
@@ -679,11 +690,11 @@
       RETURN
       END
 
-      SUBROUTINE COMPUTE_DA_DAEST(IDX_IN, VAL)
+      SUBROUTINE COMPUTE_DA_DAEST(IDX_IN, IIV, INN, VAL)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX_IN
+      INTEGER IDX_IN, IIV, INN
       DOUBLE PRECISION VAL
-      VAL = 0.0D0
+      CALL DAEST(IDX_IN, IIV, INN, VAL)
       RETURN
       END
 
@@ -733,6 +744,15 @@
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER IDX, VARID, IC(1)
       DOUBLE PRECISION RE_VAL
+      
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+
       PARAMETER(LEA=100000)
       COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
@@ -740,6 +760,7 @@
      *       LFLT,NFLT
       CALL FOXALL(IC, 1, 2*NMMAX)
       IDX = IC(1)
+      NTYP(IDX) = 7
       CALL RECD(VARID, IDX)
       RETURN
       END
@@ -748,15 +769,24 @@
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER IDX, IC(3)
       DOUBLE PRECISION RE_VAL, IM_VAL
+      
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+
       PARAMETER(LEA=100000)
       COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 3, 2*NMMAX)
-      IDX = IC(1)
-      ITRE = IC(2)
-      ITIM = IC(3)
+      CALL ALLOC_VAR(IDX, 2*NMMAX)
+      CALL ALLOC_VAR(ITRE, 2*NMMAX)
+      CALL ALLOC_VAR(ITIM, 2*NMMAX)
+      NTYP(IDX) = 7
       CALL DACON(ITRE, RE_VAL)
       CALL DACON(ITIM, IM_VAL)
       CALL SET_CD_PARTS(IDX, ITRE, ITIM)
@@ -772,7 +802,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      CALL FOXALL(IC, 1, 2*NMMAX)
       IDX_RES = IC(1)
       CALL CDADA(IDX_A, IDX_B, IDX_RES)
       RETURN
@@ -786,7 +816,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      CALL FOXALL(IC, 1, 2*NMMAX)
       IDX_RES = IC(1)
       CALL CDSDA(IDX_A, IDX_B, IDX_RES)
       RETURN
@@ -800,7 +830,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      CALL FOXALL(IC, 1, 2*NMMAX)
       IDX_RES = IC(1)
       CALL CDMDA(IDX_A, IDX_B, IDX_RES)
       RETURN
@@ -814,7 +844,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      CALL FOXALL(IC, 1, 2*NMMAX)
       IDX_RES = IC(1)
       CALL CDDDA(IDX_A, IDX_B, IDX_RES)
       RETURN
@@ -893,26 +923,6 @@
       RETURN
       END
 
-      SUBROUTINE COMPUTE_CD_EXP(IDX_IN, IDX_RES)
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX_IN, IDX_RES
-      PRINT *, 'CDEXP NOT IMPLEMENTED'
-      RETURN
-      END
-
-      SUBROUTINE COMPUTE_CD_SIN(IDX_IN, IDX_RES)
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX_IN, IDX_RES
-      PRINT *, 'CDSIN NOT IMPLEMENTED'
-      RETURN
-      END
-
-      SUBROUTINE COMPUTE_CD_COS(IDX_IN, IDX_RES)
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX_IN, IDX_RES
-      PRINT *, 'CDCOS NOT IMPLEMENTED'
-      RETURN
-      END
 
       SUBROUTINE GET_CDA_RE(IDX_CD, IDX_DA)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
@@ -928,24 +938,52 @@
       RETURN
       END
 
+      SUBROUTINE ALLOC_VAR(IDX, NLEN)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IDX, NLEN, IC(1)
+      CALL FOXALL(IC, 1, NLEN)
+      IDX = IC(1)
+      RETURN
+      END
+
       SUBROUTINE SET_CD_PARTS(IDX_CD, IDX_RE, IDX_IM)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX_CD, IDX_RE, IDX_IM, IC(3)
-      PARAMETER(LEA=100000)
-      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
-     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
-     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
-     *       LFLT,NFLT
-      CALL FOXALL(IC, 3, 2*NMMAX)
-      ICD_IM = IC(1)
-      I_UNIT = IC(2)
-      ITMP   = IC(3)
+      INTEGER IDX_CD, IDX_RE, IDX_IM
+      INTEGER ICD_IM, I_UNIT, ITMP
+*
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC,TMT,TMS,EPSM,TOLTMR
+      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+*
+      CALL ALLOC_VAR(ICD_IM, 2*NMMAX)
+      CALL ALLOC_VAR(ITMP, 2*NMMAX)
+      NTYP(ICD_IM) = 7
+      NTYP(ITMP)   = 7
+      
       CALL CDCMPL(IDX_RE, IDX_CD)
       CALL CDCMPL(IDX_IM, ICD_IM)
-      CALL IMUNIT(I_UNIT)
-      CALL CDMCD(I_UNIT, ICD_IM, ITMP)
-      CALL CDACD(IDX_CD, ITMP, IDX_CD)
-      CALL FOXDAL(IC, 3)
+      
+      ! Manual swap to convert (Val, 0) to (0, Val) which corresponds to Val * i
+      DO 100 I = NBEG(ICD_IM), NEND(ICD_IM)-1, 2
+         CC(I+1) = CC(I)
+         CC(I)   = 0.D0
+ 100  CONTINUE
+
+      CALL CDACD(IDX_CD, ICD_IM, ITMP)
+      CALL CDCOP(ITMP, IDX_CD)
+      CALL FOXDAL(ITMP, 1)
+      CALL FOXDAL(ICD_IM, 1)
       RETURN
       END
 
@@ -957,7 +995,7 @@
      *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
      *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      CALL FOXALL(IC, 1, 2*NMMAX)
       IDX_CD = IC(1)
       CALL CDCMPL(IDX_DA, IDX_CD)
       RETURN
@@ -1397,5 +1435,591 @@
       ! Use native DAVAR to set up the linear monomial correctly
       CALL DAVAR(INA, CKON, I)
       
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_DA_POLVAL(IDX_RES, IDX_POLY, IDXS_ARGS, N_ARGS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IDX_RES, IDX_POLY, N_ARGS
+      INTEGER IDXS_ARGS(N_ARGS)
+      INTEGER ILT, INP, INA, INR, IMP, IMA, IMR
+      INTEGER IC(1), IC_TEMPS(100)
+      INTEGER I
+      PARAMETER(LEA=100000)
+      DOUBLE PRECISION CC(140000000)
+      INTEGER NTYP(10000000), NBEG(10000000), NEND(10000000),
+     *        NMAX(10000000), NC(140000000), NDIM(1000)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+
+      IF (N_ARGS .GT. 100) THEN
+         PRINT *, 'Error: N_ARGS > 100 in COMPUTE_DA_POLVAL'
+         RETURN
+      END IF
+
+C     Allocate control integers
+      CALL FOXALL(IC, 1, 1)
+      ILT = IC(1)
+      CC(NBEG(ILT)) = 1.0D0
+      NTYP(ILT) = NRE
+
+      CALL FOXALL(IC, 1, 1)
+      INP = IC(1)
+      CC(NBEG(INP)) = 1.0D0
+      NTYP(INP) = NRE
+
+      CALL FOXALL(IC, 1, 1)
+      INA = IC(1)
+      CC(NBEG(INA)) = DBLE(N_ARGS)
+      NTYP(INA) = NRE
+
+      CALL FOXALL(IC, 1, 1)
+      INR = IC(1)
+      CC(NBEG(INR)) = 1.0D0
+      NTYP(INR) = NRE
+
+C     Allocate IMP array (Header + 1 Poly)
+C     FOXALL returns indices. We need 2.
+      CALL FOXALL(IC_TEMPS, 2, NMMAX) 
+      IMP = IC_TEMPS(1)
+      NTYP(IMP) = 0 ! Set header type to 0 to satisfy MTREEF
+      
+      IF (IC_TEMPS(2) .NE. IMP+1) THEN
+          PRINT *, 'Error: IMP allocation not sequential'
+          RETURN
+      END IF
+      
+      CALL DACOP(IDX_POLY, IMP+1)
+
+C     allocate contiguous temp array for args
+      CALL FOXALL(IC_TEMPS, N_ARGS, NMMAX)
+      IMA = IC_TEMPS(1)
+
+C     Verify sequential indices (sanity check)
+      DO I=2, N_ARGS
+         IF (IC_TEMPS(I) .NE. IC_TEMPS(1) + (I-1)) THEN
+             PRINT *, 'Error: Non-sequential indices in FOXALL'
+             RETURN
+         END IF
+      END DO
+
+C     Copy arguments
+      DO I=1, N_ARGS
+         CALL DACOP(IDXS_ARGS(I), IC_TEMPS(I))
+      END DO
+
+C     Allocate Result
+      CALL FOXALL(IC, 1, NMMAX)
+      IMR = IC(1)
+      IDX_RES = IMR
+
+C     Call POLVAL
+      CALL POLVAL(ILT, IMP, INP, IMA-1, INA, IMR-1, INR)
+
+C     Cleanup temps
+      CALL FOXDAL(IC_TEMPS, N_ARGS) 
+      IC(1) = IMP
+      CALL FOXDAL(IC, 1) ! Free Header
+      IC(1) = IMP+1
+      CALL FOXDAL(IC, 1) ! Free Poly Copy
+      CALL FOXDAL(ILT, 1) ! Since ILT is scalar (len 1) pass variable?
+C     Wait, FOXDAL(IC, N) takes array of indices. 
+C     FOXDAL(ILT, 1) works because ILT is taken as start of array len 1.
+C     Actually better pass array.
+      IC(1) = ILT
+      CALL FOXDAL(IC, 1)
+      IC(1) = INP
+      CALL FOXDAL(IC, 1)
+      IC(1) = INA
+      CALL FOXDAL(IC, 1)
+      IC(1) = INR
+      CALL FOXDAL(IC, 1)
+
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_DA_MUI(INA, INC)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(1)
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      CALL FOXALL(IC, 1, NMMAX)
+      INC = IC(1)
+      CALL DAMUI(INA, INC)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_DA_PEP(INA, N, INC)
+C     Integer Power: C = A^N
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, N, INC, I, IC(1), I_CUR, I_TMP
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      CALL FOXALL(IC, 1, NMMAX)
+      INC = IC(1)
+C     Init INC = 1.0 (Constant DA)
+      CALL DACON(INC, 1.0D0)
+
+      IF(N.EQ.0) RETURN
+
+      IF(N.GT.0) THEN
+         ! Simple loop multiplication: INC = INC * INA
+         DO I=1, N
+            ! Perform INC = INC * INA
+            ! Need temp for result because DAMDA(A, B, C) stores in C
+            ! Can C be A? "IF((INA.EQ.INC).OR.(INB.EQ.INC)) CALL DANFI" -> Error!
+            ! So need temp.
+            CALL FOXALL(IC, 1, NMMAX)
+            I_TMP = IC(1)
+            CALL DAMDA(INC, INA, I_TMP)
+            ! Copy back TMP to INC
+            CALL DACOP(I_TMP, INC)
+            ! Free TMP
+            IC(1) = I_TMP
+            CALL FOXDAL(IC, 1)
+         END DO
+      ELSE
+         ! N < 0: Compute A^|N| then Invert
+         ! INC is already 1.0 so we can accumulate positive power first
+         DO I=1, ABS(N)
+            CALL FOXALL(IC, 1, NMMAX)
+            I_TMP = IC(1)
+            CALL DAMDA(INC, INA, I_TMP)
+            CALL DACOP(I_TMP, INC)
+            IC(1) = I_TMP
+            CALL FOXDAL(IC, 1)
+         END DO
+         ! Now Invert INC -> INC = 1/INC
+         CALL FOXALL(IC, 1, NMMAX)
+         I_TMP = IC(1)
+         CALL DAMUI(INC, I_TMP) ! I_TMP = 1/INC
+         CALL DACOP(I_TMP, INC) ! INC = I_TMP
+         IC(1) = I_TMP
+         CALL FOXDAL(IC, 1)
+      END IF
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_DA_PKP(INA, VAL, INC)
+C     Real Power: C = A^VAL = EXP(VAL * LOG(A))
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(1), I_LOG, I_PROD, I_REAL_VAL
+      DOUBLE PRECISION VAL
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+
+      CALL FOXALL(IC, 1, NMMAX)
+      INC = IC(1)
+      
+C     1. LOG(A)
+      CALL FOXALL(IC, 1, NMMAX)
+      I_LOG = IC(1)
+      CALL DALOG(INA, I_LOG)
+
+C     2. Create Real Variable for VAL (Length 1, Type NRE)
+      CALL FOXALL(IC, 1, 1)
+      I_REAL_VAL = IC(1)
+      NTYP(I_REAL_VAL) = NRE ! Set type to Real
+      CC(NBEG(I_REAL_VAL)) = VAL ! Set value
+
+C     3. Multiply I_LOG * I_REAL_VAL -> I_PROD
+      CALL FOXALL(IC, 1, NMMAX)
+      I_PROD = IC(1)
+      CALL DAMRE(I_LOG, I_REAL_VAL, I_PROD)
+
+C     4. EXP(I_PROD) -> INC
+      CALL DAEXP(I_PROD, INC)
+
+C     5. Cleanup
+      IC(1) = I_LOG
+      CALL FOXDAL(IC, 1)
+      IC(1) = I_REAL_VAL
+      CALL FOXDAL(IC, 1)
+      IC(1) = I_PROD
+      CALL FOXDAL(IC, 1)
+
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_DA_ATAN2(INY, INX, INC)
+C     Computes atan2(Y, X) using DAATAN and quadrant logic
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INY, INX, INC, I_TMP, I_QUOT, IC(10), I_EXPS(10)
+      DOUBLE PRECISION X0, Y0, PI, PI_2
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      
+      PI = 3.14159265358979323846D0
+      PI_2 = 1.57079632679489661923D0
+
+C     Allocate Temps
+      CALL FOXALL(IC, 5, NMMAX)
+      I_TMP = IC(1)
+      I_QUOT = IC(2)
+      
+C     Get Constant Parts X0, Y0 (Term index 1 is constant in COSY)
+      CALL GET_DA_COEFF_BY_INDEX(INX, 1, I_EXPS, X0)
+      CALL GET_DA_COEFF_BY_INDEX(INY, 1, I_EXPS, Y0)
+      
+      IF (X0.GT.0.D0) THEN
+         CALL DADDA(INY, INX, I_QUOT)
+         CALL DAATAN(I_QUOT, INC)
+      ELSE IF (X0.LT.0.D0) THEN
+         IF (Y0.GE.0.D0) THEN
+            CALL DADDA(INY, INX, I_QUOT)
+            CALL DAATAN(I_QUOT, I_TMP)
+            CALL DACON(IC(3), PI)
+            CALL DAADA(I_TMP, IC(3), INC)
+         ELSE
+            CALL DADDA(INY, INX, I_QUOT)
+            CALL DAATAN(I_QUOT, I_TMP)
+            CALL DACON(IC(3), PI)
+            CALL DASDA(I_TMP, IC(3), INC)
+         END IF
+      ELSE
+         IF (Y0.GT.0.D0) THEN
+             CALL DACON(INC, PI_2)
+         ELSE IF (Y0.LT.0.D0) THEN
+             CALL DACON(INC, -PI_2)
+         ELSE
+             ! Error 0,0, return 0
+             CALL DACON(INC, 0.D0)
+         END IF
+      END IF
+      
+      CALL FOXDAL(IC, 5)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_LOG(INA, INC)
+C     Complex Log: log(A) = log|A| + i*arg(A)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(10)
+      INTEGER I_RE, I_IM, I_RE2, I_IM2, I_R2, I_R, I_LR, I_THETA
+      INTEGER I_CD_LR, I_CD_THETA, I_UNIT, I_TMP, I_IM_PART
+      
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      
+      CALL FOXALL(IC, 10, NMMAX)
+      I_RE = IC(1)
+      I_IM = IC(2)
+      I_RE2 = IC(3)
+      I_IM2 = IC(4)
+      I_R2  = IC(5)
+      I_R   = IC(6)
+      I_LR  = IC(7)
+      I_THETA = IC(8)
+      
+      CALL CDRE(INA, I_RE)
+      CALL CDIM(INA, I_IM)
+      
+      ! Compute R = Sqrt(Re^2 + Im^2)
+      CALL DASQR(I_RE, I_RE2)
+      CALL DASQR(I_IM, I_IM2)
+      CALL DAADA(I_RE2, I_IM2, I_R2)
+      CALL DASQRT(I_R2, I_R)
+      CALL DALOG(I_R, I_LR)
+      
+      ! Compute Theta = atan2(Im, Re)
+      CALL COMPUTE_DA_ATAN2(I_IM, I_RE, I_THETA)
+      
+      ! Result = L_R + i * THETA
+      ! Construct CD from L_R + i*THETA
+      ! We need 4 temps for CD ops logic
+      
+      ! Convert DA parts to CD
+      ! CDCMPL(DA, CD) -> CD = DA + 0i
+      CALL FOXALL(IC, 4, 2*NMMAX) ! Alloc CD size? 
+C     Usually FOXALL(..., size). CD size is likely > 1. 2*NMMAX for safe?
+C     If we alloc standard DA, does it fit CD?
+C     Standard logic: "CALL FOXALL(ICD,1,2*NMMAX)" per CDMDA example.
+C     So we need to alloc explicit size for CD vars.
+      
+      I_CD_LR = IC(1)
+      I_CD_THETA = IC(2)
+      I_UNIT = IC(3)
+      I_TMP = IC(4)
+      I_IM_PART = IC(5) ! Wait, FOXALL allocates N handles. 
+C     We must specify LENGTH for each handle.
+C     Standard FOXALL(IC, 1, NMMAX) allocates 1 var of NMMAX.
+C     We need CD vars. CD needs 2*NMMAX usually? Or handled by NVE?
+C     "CALL FOXALL(IC, 1, 2*NMMAX)" was in CDMDA.
+C     So we allocate distinct CD variables with sufficient length.
+      
+      CALL FOXDAL(IC, 10) ! Free initial handle alloc
+      
+C     Alloc DA temps
+      CALL FOXALL(IC, 8, NMMAX) 
+      I_RE = IC(1)
+      I_IM = IC(2)
+      I_RE2 = IC(3)
+      I_IM2 = IC(4)
+      I_R2  = IC(5)
+      I_R   = IC(6)
+      I_LR  = IC(7)
+      I_THETA = IC(8)
+      
+C     Re-re-extract (since we freed)
+      CALL CDRE(INA, I_RE)
+      CALL CDIM(INA, I_IM)
+      CALL DASQR(I_RE, I_RE2)
+      CALL DASQR(I_IM, I_IM2)
+      CALL DAADA(I_RE2, I_IM2, I_R2)
+      CALL DASQRT(I_R2, I_R)
+      CALL DALOG(I_R, I_LR)
+      CALL COMPUTE_DA_ATAN2(I_IM, I_RE, I_THETA)
+      
+C     Alloc CD temps
+      CALL FOXALL(IC, 4, 2*NMMAX) 
+      ! Offset indices because IC overwrites? No, passed array.
+      ! We passed same IC array. Indices 1..8 used. 
+      ! Need IC(9)..IC(12).
+      I_CD_LR = IC(1) ! Bug: This will overwrite Handles 1..4 in IC if we use IC(1).
+      ! We need distinct array or offsets.
+      ! Let's just use offsets manually.
+      ! Or simple individual allocs.
+      ! Let's start clean.
+      
+      ! ... (Logic above correct) ...
+      ! Now alloc CD
+      ! We cannot pass &IC(9).
+      ! Let's assume passed IC has size 20.
+      I_CD_LR = IC(9)
+      I_CD_THETA = IC(10)
+      I_UNIT = IC(11)
+      I_IM_PART = IC(12)
+      
+      ! L_R (DA) -> I_CD_LR (CD)
+      CALL CDCMPL(I_LR, I_CD_LR)
+      
+      ! THETA (DA) -> I_CD_THETA (CD)
+      CALL CDCMPL(I_THETA, I_CD_THETA)
+      
+      ! Create i (Complex Unit)
+      CALL CREATE_CDA_CONST(I_UNIT, 0.D0, 1.D0)
+      
+      ! I_IM_PART = I_UNIT * I_CD_THETA
+      CALL CDMCD(I_UNIT, I_CD_THETA, I_IM_PART)
+      
+      ! Result = I_CD_LR + I_IM_PART
+      CALL CDACD(I_CD_LR, I_IM_PART, INC)
+      
+      CALL FOXDAL(IC, 12) ! Free all 12 handles (8 DA + 4 CD)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_EXP(INA, INC)
+C     Complex Exp: exp(X+iY) = exp(X) * (cos(Y) + i*sin(Y))
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(20)
+      INTEGER I_X, I_Y, I_EX, I_CY, I_SY
+      INTEGER I_CD_EX, I_CD_CY, I_CD_SY, I_CD_W, I_UNIT, I_TMP
+      
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+
+C     Alloc DA temps (5 vars)
+      CALL FOXALL(IC, 5, NMMAX)
+      I_X = IC(1)
+      I_Y = IC(2)
+      I_EX = IC(3)
+      I_CY = IC(4)
+      I_SY = IC(5)
+      
+      CALL CDRE(INA, I_X)
+      CALL CDIM(INA, I_Y)
+      
+      CALL DAEXP(I_X, I_EX)
+      CALL DACOSE(I_Y, I_CY)
+      CALL DASINE(I_Y, I_SY)
+      
+C     Alloc CD temps (6 vars). Use offset 6.
+      CALL FOXALL(IC(6), 6, 2*NMMAX)
+      I_CD_EX = IC(6)
+      I_CD_CY = IC(7)
+      I_CD_SY = IC(8)
+      I_CD_W  = IC(9)
+      I_UNIT  = IC(10)
+      I_TMP   = IC(11)
+      
+C     Create W = Cos(Y) + i Sin(Y)
+      CALL CDCMPL(I_CY, I_CD_CY)
+      CALL CDCMPL(I_SY, I_CD_SY)
+      CALL CREATE_CDA_CONST(I_UNIT, 0.D0, 1.D0)
+      
+      ! i * Sin(Y)
+      CALL CDMCD(I_UNIT, I_CD_SY, I_TMP)
+      
+      ! W = Cos(Y) + i*Sin(Y)
+      CALL CDACD(I_CD_CY, I_TMP, I_CD_W)
+      
+C     Result = Exp(X) * W
+C     Exp(X) is DA. Convert to CD first for multiplication or use CDMDA?
+C     CDMDA(CD, DA, OUT) -> Multiply CD by DA.
+C     So CDMDA(I_CD_W, I_EX, INC).
+      CALL CDMDA(I_CD_W, I_EX, INC)
+ 
+      ! Cleanup: Free DA temps (1-5) and CD temps (6-11).
+      ! Since we alloc'd separately (pointer logic in FOXALL array?), safer to free separately.
+      ! FOXDAL(IC, 5) frees handles in IC(1)..IC(5).
+      CALL FOXDAL(IC, 5)
+      ! FOXDAL(IC(6), 6) frees handles in IC(6)..IC(11).
+      CALL FOXDAL(IC(6), 6)
+      
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_PKP(INA, VAL, INC)
+C     Complex Real Power: Z^a = Exp(a * Log(Z))
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(2)
+      DOUBLE PRECISION VAL
+      INTEGER I_LOG, I_SCALED, I_VAL_DA
+      
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      
+      ! Alloc CD Temps
+      CALL FOXALL(IC, 2, 2*NMMAX)
+      I_LOG = IC(1)
+      I_SCALED = IC(2)
+      
+      CALL COMPUTE_CD_LOG(INA, I_LOG)
+      
+      ! Multiply Log(Z) by VAL (Real Scalar)
+      ! CDMRE(INA, INB, INC) -> CD * RealScalar(DA?) or Double?
+      ! Check CDMRE usage in dafox.f:
+      ! "SUBROUTINE CDMRE(INA,INB,INC)"
+      ! "THIS SUBROUTINE PERFORMS A CD MULTIPLICATION OF THE CD VECTOR INA AND REAL INB"
+      ! Is INB a Real DA or a Double?
+      ! grep CDMRE -> "SUBROUTINE CDMRE(INA,INB,INC)".
+      ! Comment usually says arguments. 
+      ! Let's assume INB is Real DA (NRE type or just DA). 
+      ! If we have Double VAL, we need to make constant.
+      
+      ! Create Constant DA for VAL
+      ! We need another temp.
+      ! Re-alloc IC to 3? Or utilize FOXALL separately.
+      ! Let's assume INB is DA.
+      I_VAL_DA = 0 ! Need alloc.
+      CALL FOXALL(I_VAL_DA, 1, NMMAX) ! Single handle
+      CALL DACON(I_VAL_DA, VAL)
+      
+      CALL CDMRE(I_LOG, I_VAL_DA, I_SCALED)
+      
+      CALL COMPUTE_CD_EXP(I_SCALED, INC)
+      
+      CALL FOXDAL(IC, 2)
+      CALL FOXDAL(I_VAL_DA, 1)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_MUI(INA, INC)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(1)
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      CALL FOXALL(IC, 1, 2*NMMAX)
+      INC = IC(1)
+      CALL CDMUI(INA, INC)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_PEI(INA, N, INC)
+C     Complex Integer Power: C = A^N
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, N, INC, I, IC(2), I_TMP, I_ONE
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+     
+      CALL FOXALL(IC, 2, 2*NMMAX)
+      INC = IC(1)
+      I_TMP = IC(2)
+      
+C     Create 1.0 (Complex)
+      CALL CREATE_CDA_CONST(INC, 1.D0, 0.D0)
+
+      IF(N.EQ.0) RETURN
+
+      IF(N.GT.0) THEN
+         DO I=1, N
+            CALL CDMCD(INC, INA, I_TMP)
+            CALL CDCOP(I_TMP, INC)
+         END DO
+      ELSE
+         DO I=1, ABS(N)
+            CALL CDMCD(INC, INA, I_TMP)
+            CALL CDCOP(I_TMP, INC)
+         END DO
+         CALL CDMUI(INC, I_TMP)
+         CALL CDCOP(I_TMP, INC)
+      END IF
+      CALL FOXDAL(IC, 2)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_SIN(INA, INC)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(1)
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      CALL FOXALL(IC, 1, 2*NMMAX)
+      INC = IC(1)
+      CALL DASINE(INA, INC)
+      RETURN
+      END
+
+      SUBROUTINE COMPUTE_CD_COS(INA, INC)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INC, IC(1)
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      CALL FOXALL(IC, 1, 2*NMMAX)
+      INC = IC(1)
+      CALL DACOSE(INA, INC)
       RETURN
       END

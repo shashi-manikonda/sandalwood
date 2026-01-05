@@ -89,7 +89,7 @@ bind_cosy_func("compute_da_cot_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_asin_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_acos_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_atan_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("compute_da_coth_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_asinh_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_acosh_", [POINTER(c_int), POINTER(c_int)])
@@ -126,6 +126,11 @@ bind_cosy_func("da_integ_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("da_poisson_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("da_lin_comb_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 bind_cosy_func("da_mat_inv_", [POINTER(c_double), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("da_mat_inv_", [POINTER(c_double), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_polval_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_mui_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_pep_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_pkp_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 
 # Control flags
 _USE_OMP = bool(os.environ.get("COSY_USE_OMP", "0"))
@@ -418,9 +423,67 @@ class CosyDA:
         libcosy.compute_da_erf_(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
+    def inv_sqrt(self):
+        res_idx = c_int(0)
+        libcosy.compute_da_isrt_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyDA(idx=res_idx.value, owned=True)
+
+    def inv_cbrt(self):
+        res_idx = c_int(0)
+        libcosy.compute_da_isrt3_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyDA(idx=res_idx.value, owned=True)
+
+    def coth(self):
+        res_idx = c_int(0)
+        libcosy.compute_da_coth_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyDA(idx=res_idx.value, owned=True)
+
     def cot(self):
         res_idx = c_int(0)
         libcosy.compute_da_cot_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyDA(idx=res_idx.value, owned=True)
+
+    def estimate_stability(self, var_id=0, order=None):
+        """
+        Estimate stability/order decay.
+        var_id: variable index (1-based for COSY, 0 means all).
+        order: order to estimate at (defaults to global max_order).
+        """
+        if order is None:
+            order = CosyBackend._order
+        val = c_double(0.0)
+        libcosy.compute_da_daest_(byref(c_int(self.idx)), byref(c_int(var_id)), byref(c_int(order)), byref(val))
+        return val.value
+
+    def compose_polval(self, args_da_list):
+        """
+        Compose this DA with a list of argument DAs using POLVAL.
+        args_da_list: list of CosyDA objects (length must match N_ARGS expected by POLVAL, usually dimension).
+        """
+        n_args = len(args_da_list)
+        # Verify dimension? self.dimension unavailable on CosyDA directly usually, but caller context has it.
+        # Create array of indices
+        args_indices = (c_int * n_args)()
+        for i, arg in enumerate(args_da_list):
+            args_indices[i] = arg.idx
+        
+        res_idx = c_int(0)
+        libcosy.compute_da_polval_(byref(res_idx), byref(c_int(self.idx)), args_indices, byref(c_int(n_args)))
+        return CosyDA(idx=res_idx.value, owned=True)
+
+    def inverse(self):
+        res_idx = c_int(0)
+        libcosy.compute_da_mui_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyDA(idx=res_idx.value, owned=True)
+
+    def __pow__(self, exponent):
+        res_idx = c_int(0)
+        if isinstance(exponent, int):
+            libcosy.compute_da_pep_(byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx))
+        elif isinstance(exponent, float):
+            libcosy.compute_da_pkp_(byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx))
+        else:
+             return NotImplemented
         return CosyDA(idx=res_idx.value, owned=True)
 
 
@@ -459,6 +522,22 @@ class CosyCDA(CosyDA):
         libcosy.get_cda_re_(byref(c_int(self.idx)), byref(c_int(re_da.idx)))
         libcosy.get_cda_im_(byref(c_int(self.idx)), byref(c_int(im_da.idx)))
         return complex(re_da.get_constant(), im_da.get_constant())
+
+    def inverse(self):
+        res_idx = c_int(0)
+        libcosy.compute_cd_mui_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __pow__(self, exponent):
+        res_idx = c_int(0)
+        if isinstance(exponent, int):
+             libcosy.compute_cd_pei_(byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx))
+        elif isinstance(exponent, float):
+             libcosy.compute_cd_pkp_(byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx))
+        else:
+             return NotImplemented
+        return CosyCDA(idx=res_idx.value, owned=True)
+
 
     def get_all_terms(self):
         # Complex batch getting not yet fully implemented in wrapper.
@@ -521,9 +600,14 @@ class CosyBackendManager:
 
 
 class CosyMtfData:
-    def __init__(self, dimension: int = None, is_complex: bool = False):
+    def __init__(self, dimension: int = None, is_complex: bool = False, idx=None, owned=False):
         CosyBackendManager.check_init()
-        if is_complex:
+        if idx is not None:
+            if is_complex:
+                self.da = CosyCDA(idx=idx, owned=owned)
+            else:
+                self.da = CosyDA(idx=idx, owned=owned)
+        elif is_complex:
             self.da = CosyCDA(create_new=True)
         else:
             self.da = CosyDA(create_new=True)
@@ -588,6 +672,18 @@ class CosyMtfData:
 
     def get_constant(self):
         return self.da.get_constant()
+
+    def inverse(self):
+        res_da = self.da.inverse()
+        is_complex = isinstance(res_da, CosyCDA)
+        return CosyMtfData(self.dimension, is_complex=is_complex, idx=res_da.idx, owned=True)
+
+    def __pow__(self, other):
+        if isinstance(other, (int, float)):
+             res_da = self.da ** other
+             is_complex = isinstance(res_da, CosyCDA)
+             return CosyMtfData(self.dimension, is_complex=is_complex, idx=res_da.idx, owned=True)
+        return NotImplemented
 
     def to_dict(self):
         terms = self.da.get_all_terms()
@@ -776,6 +872,29 @@ class CosyMtfData:
         res = CosyMtfData(self.dimension)
         res.da = self.da.tanh()
         return res
+
+    def coth(self):
+        res = CosyMtfData(self.dimension)
+        res.da = self.da.coth()
+        return res
+
+    def erf(self):
+        res = CosyMtfData(self.dimension)
+        res.da = self.da.erf()
+        return res
+
+    def inv_sqrt(self):
+        res = CosyMtfData(self.dimension)
+        res.da = self.da.inv_sqrt()
+        return res
+
+    def inv_cbrt(self):
+        res = CosyMtfData(self.dimension)
+        res.da = self.da.inv_cbrt()
+        return res
+
+    def estimate_stability(self, var_id=0, order=None):
+        return self.da.estimate_stability(var_id, order)
 
 def da_mat_inv(matrix_flat, n):
     """
