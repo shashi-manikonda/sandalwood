@@ -3,18 +3,24 @@ import numpy as np
 import sandalwood.taylor_function as taylor
 from sandalwood.backends.cosy import cosy_backend
 
-# Only run if COSY is available
-@pytest.mark.skipif(not cosy_backend.CosyBackend.is_initialized(), reason="COSY backend not initialized")
-def test_derivative_simple():
-    """Test d(x^2)/dx = 2x"""
-    try:
-        # Use max_dimension=2 to be compatible with other tests
-        taylor.MultivariateTaylorFunction.initialize_mtf(max_order=2, max_dimension=2, implementation="cosy")
-    except RuntimeError:
-        pass # Already initialized
+@pytest.fixture(autouse=True)
+def cleanup_mtf():
+    """Reset MTF initialization after each test."""
+    yield
+    taylor.MultivariateTaylorFunction._INITIALIZED = False
 
+def safe_initialize(implementation):
+    """Robust initialization for tests."""
+    try:
+        taylor.MultivariateTaylorFunction.initialize_mtf(max_order=2, max_dimension=2, implementation=implementation)
+    except RuntimeError:
+        pass
+
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_derivative_simple(implementation):
+    """Test d(x^2)/dx = 2x"""
+    safe_initialize(implementation)
     x = taylor.MultivariateTaylorFunction.var(1)
-    
     f = x * x # x^2
     df = f.deriv(1) # df/dx
     
@@ -23,15 +29,11 @@ def test_derivative_simple():
     expected = 2 * 3.0
     assert np.isclose(val, expected), f"Expected {expected}, got {val}"
 
-def test_integration_simple():
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_integration_simple(implementation):
     """Test int(x) dx = x^2/2"""
-    try:
-        taylor.MultivariateTaylorFunction.initialize_mtf(max_order=2, max_dimension=2, implementation="cosy")
-    except RuntimeError:
-        pass
-
+    safe_initialize(implementation)
     x = taylor.MultivariateTaylorFunction.var(1)
-    
     f = x
     int_f = f.integrate(1)
     
@@ -40,16 +42,18 @@ def test_integration_simple():
     expected = (2.0**2) / 2.0
     assert np.isclose(val, expected), f"Expected {expected}, got {val}"
 
-def test_poisson_bracket():
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_poisson_bracket(implementation):
     """Test [q, p] = 1 where q=x1, p=x2"""
-    try:
-        taylor.MultivariateTaylorFunction.initialize_mtf(max_order=2, max_dimension=2, implementation="cosy")
-    except RuntimeError:
-        pass
-
+    safe_initialize(implementation)
     q = taylor.MultivariateTaylorFunction.var(1)
     p = taylor.MultivariateTaylorFunction.var(2)
     
+    if implementation == "python":
+        with pytest.raises(NotImplementedError):
+            q.poisson_bracket(p)
+        return
+
     # PB(q, p) = dq/dq * dp/dp - dq/dp * dp/dq
     #          = 1 * 1 - 0 * 0 = 1
     
@@ -63,13 +67,10 @@ def test_poisson_bracket():
     val_rev = pb_rev.eval([0, 0])[0]
     assert np.isclose(val_rev, -1.0), f"Expected -1.0, got {val_rev}"
 
-def test_mixed_derivative():
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_mixed_derivative(implementation):
     """Test d(x*y)/dx = y"""
-    try:
-        taylor.MultivariateTaylorFunction.initialize_mtf(max_order=2, max_dimension=2, implementation="cosy")
-    except RuntimeError:
-        pass
-
+    safe_initialize(implementation)
     x = taylor.MultivariateTaylorFunction.var(1)
     y = taylor.MultivariateTaylorFunction.var(2)
     

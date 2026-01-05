@@ -1,10 +1,21 @@
 import pytest
 import numpy as np
 from sandalwood.backends.cosy import cosy_backend
+from sandalwood import taylor_function as taylor
 
-@pytest.mark.skipif(not cosy_backend.CosyBackend.is_initialized(), reason="COSY backend not initialized")
-def test_linear_combination():
+@pytest.fixture(autouse=True)
+def cleanup_mtf():
+    """Reset MTF initialization after each test."""
+    yield
+    taylor.MultivariateTaylorFunction._INITIALIZED = False
+
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_linear_combination(implementation):
     """Test da_lin_comb: res = 2*DA1 + 3*DA2"""
+    if implementation == "python":
+        pytest.skip("Linear combination via low-level backend not yet implemented for Python")
+        return
+
     # Setup
     cosy_backend.CosyBackend.initialize(order=1, dim=1)
     
@@ -15,20 +26,20 @@ def test_linear_combination():
     # Compute 2*x + 3*1 using lin_comb
     res_da = cosy_backend.da_lin_comb(da_x, 2.0, da_c, 3.0) # 2x + 3
     
-    # Wrap in MTF to eval? Or assume CosyDA works?
-    # CosyDA is low level. Use CosyMtfData to eval?
-    # Or implement simple eval for testing
-    
     # We can use CosyMtfData wrapper for easy eval
     mtf_data = cosy_backend.CosyMtfData(1)
     mtf_data.da = res_da
     
-    val = mtf_data.eval([2.0])[0] # 2(2) + 3 = 7
+    val = mtf_data.eval([2.0]) # 2(2) + 3 = 7
     assert np.isclose(val, 7.0), f"Expected 7.0, got {val}"
 
-@pytest.mark.skipif(not cosy_backend.CosyBackend.is_initialized(), reason="COSY backend not initialized")
-def test_matrix_inversion():
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_matrix_inversion(implementation):
     """Test inversion of a 2x2 matrix using da_mat_inv"""
+    if implementation == "python":
+        pytest.skip("Matrix inversion via low-level backend not yet implemented for Python")
+        return
+
     # Matrix A = [[4, 7], [2, 6]]
     # Det = 24 - 14 = 10
     # Inv = 1/10 * [[6, -7], [-2, 4]] = [[0.6, -0.7], [-0.2, 0.4]]
