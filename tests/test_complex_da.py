@@ -6,32 +6,14 @@ from sandalwood.taylor_function import MultivariateTaylorFunction as mtf
 @pytest.fixture(autouse=True)
 def setup_mtf():
     mtf.initialize_mtf(max_order=4, max_dimension=2)
-    # Ensure clean state
     yield
     mtf._INITIALIZED = False
 
 def test_complex_scalar_inverse():
     if mtf._IMPLEMENTATION != "cosy":
         pytest.skip("Complex inverse only implemented for COSY backend so far")
-
-    # DEBUG EARLY
-    dummy = mtf.var(1, dimension=2)
-    from sandalwood.backends.cosy.cosy_backend import libcosy
-    from ctypes import byref, c_int
-    if hasattr(libcosy, 'debug_print_type_'):
-         print("DEBUG: Early Type Check")
-         libcosy.debug_print_type_(byref(c_int(dummy.mtf_data.da.idx)))
         
     A = mtf.from_constant(1.0 + 1.0j, dimension=2)
-    
-    # DEBUG
-    from sandalwood.backends.cosy.cosy_backend import libcosy
-    from ctypes import byref, c_int
-    if hasattr(A.mtf_data.da, 'idx'):
-         # print(f"DEBUG: Checking type for idx={A.mtf_data.da.idx}")
-         if hasattr(libcosy, 'debug_print_type_'):
-             libcosy.debug_print_type_(byref(c_int(A.mtf_data.da.idx)))
-
     B = A.inverse()
     
     # Expected: 1/(1+i) = (1-i)/2 = 0.5 - 0.5i
@@ -88,49 +70,63 @@ def test_complex_real_power():
     coeffs = B.to_dict()["coeffs"]
     assert np.allclose(coeffs[0], 0.0 + 2.0j)
     
-    # Sqrt(i) = e^(i pi/4) = (1+i)/sqrt(2)?
-    # Wait, A = i. 
+    # Sqrt(i) = e^(i pi/4) = (1+i)/sqrt(2)
     I = mtf.from_constant(1.0j, dimension=2)
     S = I ** 0.5
-    # (1+i)/sqrt(2) = 0.707 + 0.707i
     expected = (1.0 + 1.0j) / np.sqrt(2)
     coeffs_s = S.to_dict()["coeffs"]
     assert np.allclose(coeffs_s[0], expected)
 
-def test_complex_log_exp_consistency():
+def test_complex_exp_euler():
     if mtf._IMPLEMENTATION != "cosy":
-        pytest.skip("Complex power only implemented for COSY backend so far")
+        pytest.skip("Complex exp only implemented for COSY backend so far")
         
-    # Check if (e^x)^i = e^(ix) = cos(x) + i sin(x)
-    # Verify via Euler
+    # Euler's formula: exp(ix) = cos(x) + i sin(x)
     x = mtf.var(1, dimension=2)
-    exp_x = x.exp() # Real DA
+    i = mtf.from_constant(1j, dimension=2)
     
-    # exp_x ** 1j -> Complex Power logic should trigger.
-    # Note: exp() returns CosyDA (real).
-    # CosyDA.__pow__(complex) triggers to_complex().
-    # So (e^x)^(i) calls COMPUTE_CD_PKI? No PKP is for real power.
-    # We implemented PKP (Real Power DA^Double).
-    # We did NOT implement COMPUTE_CD_PCI (Complex Power exp^Complex).
-    # My wrapper additions only had PKP (Real Val).
-    # Ah.
-    
-    # Limitation: Current implementation supports Real Power of Complex Base.
-    # Does not support Complex Power of Base (Real or Complex).
-    # So (e^x)**2.0 works. (e^x)**(1j) fails (NotImplemented).
-    
-    # Let's verify Real Power of Complex Base works.
-    # (e^(ix))^2 = e^(2ix)
-    
-    i = mtf.from_constant(1.0j, dimension=2)
     ix = i * x
-    # ix is Complex DA
+    f_exp = ix.exp()
     
-    # exp(ix) -> Not implemented directly in MTF? 
-    # MTF.exp() delegates to backend.
-    # CosyMtfData.exp() calls da.exp().
-    # CosyCDA does NOT have exp() method implemented in python backend wrapper list.
-    # I only added inverse and pow.
-    # So exp(ix) will fail if CosyCDA doesn't implement exp.
-    pass
+    f_cos = x.cos()
+    f_sin = x.sin()
+    f_euler = f_cos + i * f_sin
+    
+    # Compare coefficients
+    diff = f_exp - f_euler
+    coeffs = diff.to_dict()["coeffs"]
+    max_err = np.max(np.abs(coeffs)) if len(coeffs) > 0 else 0.0
+    assert max_err < 1e-12
 
+def test_complex_log_exp():
+    if mtf._IMPLEMENTATION != "cosy":
+        pytest.skip("Complex log/exp only implemented for COSY backend so far")
+        
+    # log(exp(ix)) = ix
+    x = mtf.var(1, dimension=2)
+    i = mtf.from_constant(1j, dimension=2)
+    ix = i * x
+    
+    f = ix.exp().log()
+    
+    # Compare with ix
+    diff = f - ix
+    coeffs = diff.to_dict()["coeffs"]
+    max_err = np.max(np.abs(coeffs)) if len(coeffs) > 0 else 0.0
+    assert max_err < 1e-12
+
+def test_complex_trig():
+    if mtf._IMPLEMENTATION != "cosy":
+        pytest.skip("Complex trig only implemented for COSY backend so far")
+        
+    # sin^2(z) + cos^2(z) = 1
+    x = mtf.var(1, dimension=2)
+    y = mtf.var(2, dimension=2)
+    z = x + 1j * y
+    
+    res = z.sin()**2 + z.cos()**2
+    
+    # Constant term should be 1.0, others 0.0
+    coeffs = res.to_dict()["coeffs"]
+    assert np.allclose(coeffs[0], 1.0 + 0j)
+    assert np.all(np.abs(coeffs[1:]) < 1e-12)

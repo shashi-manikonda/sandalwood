@@ -181,6 +181,7 @@ class CosyBackend:
 
 
 class CosyDA:
+    is_complex = False
     def __init__(self, create_new=False, idx=None, var_id=None, create_mode=None, owned=False):
         self.owned = owned
         if create_mode == "new":
@@ -251,7 +252,12 @@ class CosyDA:
         libcosy.create_da_const_(byref(res_idx), byref(c_double(float(val))))
         return cls(idx=res_idx.value, owned=True)
 
+    def _should_promote(self, other):
+        return self.is_complex or isinstance(other, complex) or (isinstance(other, CosyDA) and other.is_complex)
+
     def __add__(self, other):
+        if self._should_promote(other):
+             return self.to_complex() + other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
             libcosy.compute_da_add_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
@@ -264,6 +270,8 @@ class CosyDA:
         return self.__add__(other)
 
     def __sub__(self, other):
+        if self._should_promote(other):
+             return self.to_complex() - other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
             libcosy.compute_da_sub_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
@@ -273,12 +281,16 @@ class CosyDA:
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __rsub__(self, other):
+        if self._should_promote(other):
+             return CosyCDA.from_const(other) - self
         res_idx = c_int(0)
         con = CosyDA.from_const(other)
         libcosy.compute_da_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __neg__(self):
+        if self.is_complex:
+             return self.to_complex() * -1.0
         res_idx = c_int(0)
         con = CosyDA.from_const(0.0)
         libcosy.compute_da_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
@@ -290,14 +302,14 @@ class CosyDA:
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __mul__(self, other):
+        if self._should_promote(other):
+             return self.to_complex() * other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
             libcosy.compute_da_mul_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, (int, float, np.number)):
             con = CosyDA.from_const(other)
             libcosy.compute_da_mul_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx) )
-        elif isinstance(other, complex):
-            return self.to_complex() * other
         else:
             return NotImplemented
         return CosyDA(idx=res_idx.value, owned=True)
@@ -306,6 +318,8 @@ class CosyDA:
         return self.__mul__(other)
 
     def __truediv__(self, other):
+        if self._should_promote(other):
+             return self.to_complex() / other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
             libcosy.compute_da_div_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
@@ -315,6 +329,8 @@ class CosyDA:
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __rtruediv__(self, other):
+        if self._should_promote(other):
+             return CosyCDA.from_const(other) / self
         res_idx = c_int(0)
         con = CosyDA.from_const(other)
         libcosy.compute_da_div_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
@@ -488,6 +504,7 @@ class CosyDA:
 
 
 class CosyCDA(CosyDA):
+    is_complex = True
     def __init__(self, create_new=False, idx=None, from_var=None, from_const=None, create_mode=None, owned=False):
         self.owned = owned
         if create_mode == "new":
@@ -523,6 +540,57 @@ class CosyCDA(CosyDA):
         libcosy.get_cda_im_(byref(c_int(self.idx)), byref(c_int(im_da.idx)))
         return complex(re_da.get_constant(), im_da.get_constant())
 
+    def _ensure_cd(self, other):
+        if isinstance(other, CosyCDA):
+            return other
+        if isinstance(other, (CosyDA, int, float, complex, np.number)):
+            return CosyCDA.from_const(other)
+        return NotImplemented
+
+    def __add__(self, other):
+        b = self._ensure_cd(other)
+        if b is NotImplemented: return NotImplemented
+        res_idx = c_int(0)
+        libcosy.compute_cd_add_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        b = self._ensure_cd(other)
+        if b is NotImplemented: return NotImplemented
+        res_idx = c_int(0)
+        libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __rsub__(self, other):
+        a = self._ensure_cd(other)
+        if a is NotImplemented: return NotImplemented
+        return a - self
+
+    def __mul__(self, other):
+        b = self._ensure_cd(other)
+        if b is NotImplemented: return NotImplemented
+        res_idx = c_int(0)
+        libcosy.compute_cd_mul_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        b = self._ensure_cd(other)
+        if b is NotImplemented: return NotImplemented
+        res_idx = c_int(0)
+        libcosy.compute_cd_div_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __rtruediv__(self, other):
+        a = self._ensure_cd(other)
+        if a is NotImplemented: return NotImplemented
+        return a / self
+
     def inverse(self):
         res_idx = c_int(0)
         libcosy.compute_cd_mui_(byref(c_int(self.idx)), byref(res_idx))
@@ -537,6 +605,44 @@ class CosyCDA(CosyDA):
         else:
              return NotImplemented
         return CosyCDA(idx=res_idx.value, owned=True)
+
+    def exp(self):
+        res_idx = c_int(0)
+        libcosy.compute_cd_exp_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def log(self):
+        res_idx = c_int(0)
+        libcosy.compute_cd_log_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def sin(self):
+        res_idx = c_int(0)
+        libcosy.compute_cd_sin_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def cos(self):
+        res_idx = c_int(0)
+        libcosy.compute_cd_cos_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def sinh(self):
+        # sinh(z) = (exp(z) - exp(-z)) / 2
+        ez = self.exp()
+        enz = (-self).exp()
+        return (ez - enz) * 0.5
+
+    def cosh(self):
+        # cosh(z) = (exp(z) + exp(-z)) / 2
+        ez = self.exp()
+        enz = (-self).exp()
+        return (ez + enz) * 0.5
+
+    def tanh(self):
+        return self.sinh() / self.cosh()
+
+    def sqrt(self):
+        return self ** 0.5
 
 
     def get_all_terms(self):
@@ -771,32 +877,22 @@ class CosyMtfData:
             raise ValueError(f"Invalid input shape {point.shape}")
 
     def add(self, other):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da + other.da
-        return res
+        return self._create_res(self.da + other.da)
 
     def subtract(self, other):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da - other.da
-        return res
+        return self._create_res(self.da - other.da)
 
     def multiply(self, other):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da * other.da
-        return res
+        return self._create_res(self.da * other.da)
 
     def multiply_inplace(self, other):
         self.da = self.da * other.da
 
     def divide(self, other):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da / other.da
-        return res
+        return self._create_res(self.da / other.da)
 
     def negate(self):
-        res = CosyMtfData(self.dimension)
-        res.da = -self.da
-        return res
+        return self._create_res(-self.da)
 
     def partial_derivative(self, deriv_dim):
         res = CosyMtfData(self.dimension)
@@ -813,85 +909,66 @@ class CosyMtfData:
         res.da = self.da.poisson_bracket(other.da)
         return res
 
+    def _create_res(self, res_da):
+        is_complex = isinstance(res_da, (CosyCDA, complex)) # complex for scalar cases if any
+        if not is_complex and hasattr(res_da, 'is_complex'):
+             is_complex = res_da.is_complex
+        # In case it's already a CosyCDA
+        if isinstance(res_da, CosyCDA):
+             is_complex = True
+        
+        # Determine idx
+        idx = res_da.idx if hasattr(res_da, 'idx') else None
+        
+        return CosyMtfData(self.dimension, is_complex=is_complex, idx=idx, owned=True)
+
     def sin(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.sin()
-        return res
+        return self._create_res(self.da.sin())
 
     def cos(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.cos()
-        return res
+        return self._create_res(self.da.cos())
 
     def tan(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.tan()
-        return res
+        return self._create_res(self.da.tan())
 
     def exp(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.exp()
-        return res
+        return self._create_res(self.da.exp())
 
     def log(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.log()
-        return res
+        return self._create_res(self.da.log())
 
     def sqrt(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.sqrt()
-        return res
+        return self._create_res(self.da.sqrt())
 
     def asin(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.arcsin()
-        return res
+        return self._create_res(self.da.asin() if hasattr(self.da, 'asin') else self.da.arcsin())
 
     def acos(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.arccos()
-        return res
+        return self._create_res(self.da.acos() if hasattr(self.da, 'acos') else self.da.arccos())
 
     def atan(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.arctan()
-        return res
+        return self._create_res(self.da.atan() if hasattr(self.da, 'atan') else self.da.arctan())
 
     def sinh(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.sinh()
-        return res
+        return self._create_res(self.da.sinh())
 
     def cosh(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.cosh()
-        return res
+        return self._create_res(self.da.cosh())
 
     def tanh(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.tanh()
-        return res
+        return self._create_res(self.da.tanh())
 
     def coth(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.coth()
-        return res
+        return self._create_res(self.da.coth())
 
     def erf(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.erf()
-        return res
+        return self._create_res(self.da.erf())
 
     def inv_sqrt(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.inv_sqrt()
-        return res
+        return self._create_res(self.da.inv_sqrt())
 
     def inv_cbrt(self):
-        res = CosyMtfData(self.dimension)
-        res.da = self.da.inv_cbrt()
-        return res
+        return self._create_res(self.da.inv_cbrt())
 
     def estimate_stability(self, var_id=0, order=None):
         return self.da.estimate_stability(var_id, order)
