@@ -1052,4 +1052,83 @@ def _derivative(mtf_instance, deriv_dim):
     new_coeffs *= p
     new_exponents[:, deriv_dim_index] -= 1
 
+
     return type(mtf_instance)((new_exponents, new_coeffs), mtf_instance.dimension)
+
+
+def _isqrt_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """
+    Computes the Taylor expansion of the inverse square root of an MTF.
+
+    This function implements `1/sqrt(C + p(x))` by factoring out the
+    constant term `C` to compute `(1/sqrt(C)) * (1/sqrt(1 + p(x)/C))`.
+
+    Parameters
+    ----------
+    variable : MultivariateTaylorFunction or numeric
+        The input function. Must have a non-zero constant term.
+    order : int, optional
+        The truncation order for the resulting Taylor series. If None, the
+        global `_MAX_ORDER` is used.
+
+    Returns
+    -------
+    MultivariateTaylorFunction
+        A new MTF representing the inverse square root of the input.
+
+    Raises
+    ------
+    ValueError
+        If the constant term of the input function is zero.
+    """
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    input_mtf = MultivariateTaylorFunction.to_mtf(variable)
+    constant_term_C_value, polynomial_part_B_mtf = _split_constant_polynomial_part(
+        input_mtf
+    )
+    if abs(constant_term_C_value) < 1e-9:
+        raise ValueError(
+            "Constant part of input to isqrt_taylor is too close to zero. "
+            "This method requires a non-zero constant term."
+        )
+    constant_factor_isqrt_C = 1.0 / math.sqrt(constant_term_C_value)
+    polynomial_part_x_mtf = polynomial_part_B_mtf / constant_term_C_value
+    isqrt_1_plus_x_mtf = isqrt_taylor_1D_expansion(polynomial_part_x_mtf, order=order)
+    result_mtf = isqrt_1_plus_x_mtf * constant_factor_isqrt_C
+    return result_mtf.truncate(order)
+
+
+def isqrt_taylor_1D_expansion(
+    variable, order: Optional[int] = None
+) -> MultivariateTaylorFunction:
+    """
+    Helper: 1D Taylor expansion of isqrt(1+u) around zero, precomputed coefficients.
+    """
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    input_mtf = MultivariateTaylorFunction.to_mtf(variable)
+    isqrt_taylor_1d_coefficients = {}
+    taylor_dimension_1d = 1
+    variable_index_1d = 0
+    
+    # Dynamic coefficient generation for isqrt(1+x) = (1+x)^(-1/2)
+    coeffs = [0.0] * (order + 1)
+    coeffs[0] = 1.0
+    if order >= 1:
+        coeffs[1] = -0.5
+        for n in range(2, order + 1):
+            coeffs[n] = coeffs[n-1] * (-0.5 - (n - 1)) / n
+
+    for n_order in range(order + 1):
+        if abs(coeffs[n_order]) > 1e-16:
+            isqrt_taylor_1d_coefficients[
+                _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
+            ] = np.array([coeffs[n_order]]).reshape(1)
+
+    isqrt_taylor_1d_mtf = type(variable)(
+        coefficients=isqrt_taylor_1d_coefficients,
+        dimension=taylor_dimension_1d,
+    )
+    composed_mtf = isqrt_taylor_1d_mtf.compose({1: input_mtf})
+    return composed_mtf.truncate(order)

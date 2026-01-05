@@ -22,7 +22,9 @@ def old_eval(mtf, evaluation_point):
 
 @pytest.fixture(autouse=True)
 def reset_mtf():
-    """Resets the MTF library before each test."""
+    """Resets the MTF library before and after each test."""
+    mtf._INITIALIZED = False
+    yield
     mtf._INITIALIZED = False
 
 

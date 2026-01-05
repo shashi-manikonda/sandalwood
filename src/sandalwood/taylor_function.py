@@ -517,8 +517,10 @@ class MultivariateTaylorFunction:
         """
         if dimension is None:
             dimension = cls.get_max_dimension()
-        # Ensure the value is a scalar float, not a numpy array
-        coeffs = {(0,) * dimension: float(constant_value)}
+        if isinstance(constant_value, complex):
+             coeffs = {(0,) * dimension: constant_value}
+        else:
+             coeffs = {(0,) * dimension: float(constant_value)}
         return cls(coefficients=coeffs, dimension=dimension)
 
     @classmethod
@@ -1098,6 +1100,13 @@ class MultivariateTaylorFunction:
             If the power is not a supported type or value (e.g., a float
             other than 0.5 or -0.5).
         """
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             try:
+                 res_data = self.mtf_data ** power
+                 return type(self)(mtf_data=res_data, dimension=self.dimension)
+             except NotImplementedError:
+                 pass # Fallback to default if not supported (e.g. complex)
+
         if isinstance(power, numbers.Integral):
             if power < 0:
                 # Generalize for any negative integer power
@@ -1142,6 +1151,19 @@ class MultivariateTaylorFunction:
             res_data = self.mtf_data.negate()
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         return type(self)((self.exponents.copy(), -self.coeffs), self.dimension)
+
+    def inverse(self):
+        """
+        Computes the multiplicative inverse (1/f).
+        """
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             try:
+                 res_data = self.mtf_data.inverse()
+                 return type(self)(mtf_data=res_data, dimension=self.dimension)
+             except NotImplementedError:
+                 pass # Fallback
+
+        return self._inv_mtf_internal(self)
 
     def __truediv__(self, other):
         if isinstance(other, (int, float, complex, np.number)):
@@ -1521,6 +1543,7 @@ class MultivariateTaylorFunction:
                 raise ValueError("All inner functions must have the same dimension.")
 
         # Create the full substitution mapping.
+        # This mapping is used for both Python backend and determining arguments for COSY.
         substitutions = {}
         for i in range(1, self.dimension + 1):
             if i in other_function_dict:
@@ -1534,6 +1557,38 @@ class MultivariateTaylorFunction:
                         f"the result dimension is only {result_dim}."
                     )
                 substitutions[i] = type(self).var(i, dimension=result_dim)
+
+        # COSY Backend Optimization: Use POLVAL for fast composition
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            # Construct ordered list of CosyDA objects corresponding to variables 1..self.dimension
+            args_da_list = []
+            for i in range(1, self.dimension + 1):
+                # We can rely on substitutions dict which is fully populated above
+                mtf_arg = substitutions[i]
+                if mtf_arg.mtf_data is None:
+                     # This should not happen if backend is consistent, but safeguard
+                     raise RuntimeError(f"Argument for var {i} has no COSY data")
+                args_da_list.append(mtf_arg.mtf_data.da)
+            
+            res_da = self.mtf_data.da.compose_polval(args_da_list)
+            
+            # The result should be wrapped in CosyMtfData
+            # We need to access CosyMtfData class. It is available via self.mtf_data.__class__
+            res_data = self.mtf_data.__class__(result_dim, idx=res_da.idx, owned=True)
+            # Be careful: compose_polval returns CosyDA(owned=True).
+            # CosyMtfData(..., idx=..., owned=True) will take ownership.
+            # res_da is a temporary wrapper; extracting idx handles transfer if we don't close res_da?
+            # CosyDA.__del__ calls cosy_free_ if owned.
+            # So: res_da owns it. We pass idx to res_data. We must detach ownership from res_da or set res_data.da = res_da?
+            # Current CosyMtfData implementation:
+            # def __init__(self, dimension, idx=None, ... owned=False):
+            #     if idx is not None: self.da = CosyDA(idx=idx, owned=owned)
+            # So passing idx and owned=True works, BUT res_da ALSO thinks it owns it.
+            # When res_da goes out of scope, it frees idx. Then res_data has dangling ptr.
+            # Fix: res_da.owned = False after transfer.
+            res_da.owned = False
+            
+            return type(self)(mtf_data=res_data, dimension=result_dim)
 
         # The final MTF will be initialized as a zero constant of the correct
         # dimension.
@@ -1937,13 +1992,50 @@ class MultivariateTaylorFunction:
         return _sqrt_taylor(self)
 
     def isqrt(self) -> "MultivariateTaylorFunction":
-        # COSY has DASQRT but not ISQRT directly maybe?
-        # wrapper.f has COMPUTE_DA_ISRT
+        return self.inv_sqrt()
+
+    def inv_sqrt(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             # cos_backend.CosyMtfData doesn't have isqrt yet. 
-             # I'll add it to CosyMtfData first if needed.
-             pass
+            res_data = self.mtf_data.inv_sqrt()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        from .elementary_functions import _isqrt_taylor
         return _isqrt_taylor(self)
+
+    def inv_pow_3_2(self) -> "MultivariateTaylorFunction":
+        """Computes 1 / x^(3/2) using COSY DAISR3."""
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            res_data = self.mtf_data.inv_cbrt() # This calls DAISR3 which is 1/x^1.5
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        raise NotImplementedError("inv_pow_3_2 is only available for the COSY backend")
+
+    def inv_cbrt(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            # DAISR3 is actually 1/x^1.5, so we can't use it for inv_cbrt.
+            # We could use self ** (-1/3) if __pow__ supported it.
+            raise NotImplementedError("inv_cbrt not yet implemented for COSY backend (DAISR3 is 1/x^1.5)")
+        raise NotImplementedError("inv_cbrt will be implemented in future for Python backend")
+
+    def erf(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            res_data = self.mtf_data.erf()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        raise NotImplementedError("erf will be implemented in future for Python backend")
+
+    def coth(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            res_data = self.mtf_data.coth()
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+        raise NotImplementedError("coth will be implemented in future for Python backend")
+
+    def estimate_stability(self, var_id: int = 0, order: int = None) -> float:
+        """
+        Estimates the stability/order decay of the Taylor function.
+        
+        Only available for the 'cosy' backend.
+        """
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            return self.mtf_data.estimate_stability(var_id, order)
+        raise NotImplementedError("estimate_stability is only available for the COSY backend")
 
     def asin(self):
         return self.arcsin()
@@ -2345,79 +2437,4 @@ def sqrt_taylor_1D_expansion(
     return composed_mtf.truncate(order)
 
 
-def _isqrt_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
-    """
-    Computes the Taylor expansion of the inverse square root of an MTF.
 
-    This function implements `1/sqrt(C + p(x))` by factoring out the
-    constant term `C` to compute `(1/sqrt(C)) * (1/sqrt(1 + p(x)/C))`.
-
-    Parameters
-    ----------
-    variable : MultivariateTaylorFunction or numeric
-        The input function. Must have a non-zero constant term.
-    order : int, optional
-        The truncation order for the resulting Taylor series. If None, the
-        global `_MAX_ORDER` is used.
-
-    Returns
-    -------
-    MultivariateTaylorFunction
-        A new MTF representing the inverse square root of the input.
-
-    Raises
-    ------
-    ValueError
-        If the constant term of the input function is zero.
-    """
-    if order is None:
-        order = MultivariateTaylorFunction.get_max_order()
-    input_mtf = MultivariateTaylorFunction.to_mtf(variable)
-    constant_term_C_value, polynomial_part_B_mtf = _split_constant_polynomial_part(
-        input_mtf
-    )
-    if abs(constant_term_C_value) < 1e-9:
-        raise ValueError(
-            "Constant part of input to isqrt_taylor is too close to zero. "
-            "This method requires a non-zero constant term."
-        )
-    constant_factor_isqrt_C = 1.0 / math.sqrt(constant_term_C_value)
-    polynomial_part_x_mtf = polynomial_part_B_mtf / constant_term_C_value
-    isqrt_1_plus_x_mtf = isqrt_taylor_1D_expansion(polynomial_part_x_mtf, order=order)
-    result_mtf = isqrt_1_plus_x_mtf * constant_factor_isqrt_C
-    return result_mtf.truncate(order)
-
-
-def isqrt_taylor_1D_expansion(
-    variable, order: Optional[int] = None
-) -> MultivariateTaylorFunction:
-    """
-    Helper: 1D Taylor expansion of isqrt(1+u) around zero, precomputed coefficients.
-    """
-    if order is None:
-        order = MultivariateTaylorFunction.get_max_order()
-    input_mtf = MultivariateTaylorFunction.to_mtf(variable)
-    isqrt_taylor_1d_coefficients = {}
-    taylor_dimension_1d = 1
-    variable_index_1d = 0
-    
-    # Dynamic coefficient generation for isqrt(1+x) = (1+x)^(-1/2)
-    coeffs = [0.0] * (order + 1)
-    coeffs[0] = 1.0
-    if order >= 1:
-        coeffs[1] = -0.5
-        for n in range(2, order + 1):
-            coeffs[n] = coeffs[n-1] * (-0.5 - (n - 1)) / n
-
-    for n_order in range(order + 1):
-        if abs(coeffs[n_order]) > 1e-16:
-            isqrt_taylor_1d_coefficients[
-                _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
-            ] = np.array([coeffs[n_order]]).reshape(1)
-
-    isqrt_taylor_1d_mtf = type(variable)(
-        coefficients=isqrt_taylor_1d_coefficients,
-        dimension=taylor_dimension_1d,
-    )
-    composed_mtf = isqrt_taylor_1d_mtf.compose({1: input_mtf})
-    return composed_mtf.truncate(order)
