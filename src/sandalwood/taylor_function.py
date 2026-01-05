@@ -1103,10 +1103,7 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
              try:
                  res_data = self.mtf_data ** power
-                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-                 if self._TRUNCATE_AFTER_OPERATION:
-                     result_mtf._cleanup_after_operation()
-                 return result_mtf
+                 return self._create_result(res_data)
              except NotImplementedError:
                  pass # Fallback to default if not supported (e.g. complex)
 
@@ -1162,10 +1159,7 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
              try:
                  res_data = self.mtf_data.inverse()
-                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-                 if self._TRUNCATE_AFTER_OPERATION:
-                     result_mtf._cleanup_after_operation()
-                 return result_mtf
+                 return self._create_result(res_data)
              except NotImplementedError:
                  pass # Fallback
 
@@ -1632,6 +1626,37 @@ class MultivariateTaylorFunction:
 
         return final_mtf
 
+    def to_dict(self):
+        """
+        Returns the exponents and coefficients as a dictionary.
+
+        Returns
+        -------
+        dict
+            A dictionary with keys 'exponents' and 'coeffs'.
+        """
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             return self.mtf_data.to_dict()
+        self._ensure_synced()
+        return {"exponents": self._exponents, "coeffs": self._coeffs}
+
+    def _create_result(self, res_data):
+        """Helper to create a result MTF, promoting to complex if needed."""
+        is_complex = False
+        if hasattr(res_data, "is_complex"):
+             is_complex = res_data.is_complex
+        
+        if is_complex:
+             from .complex_taylor_function import ComplexMultivariateTaylorFunction
+             cls = ComplexMultivariateTaylorFunction
+        else:
+             cls = type(self)
+             
+        result_mtf = cls(mtf_data=res_data, dimension=self.dimension)
+        if self._TRUNCATE_AFTER_OPERATION:
+             result_mtf._cleanup_after_operation()
+        return result_mtf
+
     def get_tabular_dataframe(self):
         """
         Returns a pandas DataFrame representation of the Taylor function.
@@ -1923,85 +1948,73 @@ class MultivariateTaylorFunction:
 
     def sin(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.sin()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.sin())
         from .elementary_functions import _sin_taylor
         return _sin_taylor(self)
 
     def cos(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.cos()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.cos())
         from .elementary_functions import _cos_taylor
         return _cos_taylor(self)
 
     def tan(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.tan()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.tan())
         from .elementary_functions import _tan_taylor
         return _tan_taylor(self)
 
     def exp(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.exp()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.exp())
         from .elementary_functions import _exp_taylor
         return _exp_taylor(self)
 
     def log(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.log()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.log())
         from .elementary_functions import _log_taylor
         return _log_taylor(self)
 
     def sinh(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.sinh()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.sinh())
         from .elementary_functions import _sinh_taylor
         return _sinh_taylor(self)
 
     def cosh(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.cosh()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.cosh())
         from .elementary_functions import _cosh_taylor
         return _cosh_taylor(self)
 
     def tanh(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.tanh()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.tanh())
         from .elementary_functions import _tanh_taylor
         return _tanh_taylor(self)
 
     def arcsin(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.asin()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.asin())
         from .elementary_functions import _arcsin_taylor
         return _arcsin_taylor(self)
 
     def arccos(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.acos()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.acos())
         from .elementary_functions import _arccos_taylor
         return _arccos_taylor(self)
 
     def arctan(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.atan()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.atan())
         from .elementary_functions import _arctan_taylor
         return _arctan_taylor(self)
 
     def sqrt(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.sqrt()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.sqrt())
         return _sqrt_taylor(self)
 
     def isqrt(self) -> "MultivariateTaylorFunction":
@@ -2009,8 +2022,7 @@ class MultivariateTaylorFunction:
 
     def inv_sqrt(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.inv_sqrt()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
+            return self._create_result(self.mtf_data.inv_sqrt())
         from .elementary_functions import _isqrt_taylor
         return _isqrt_taylor(self)
 
