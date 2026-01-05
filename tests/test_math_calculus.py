@@ -33,9 +33,6 @@ def test_integration_simple():
     x = taylor.MultivariateTaylorFunction.var(1)
     
     f = x
-    print(f"DEBUG TEST: f terms: {f.mtf_data.da.get_all_terms()}")
-    int_f = f.integrate(1)
-    print(f"DEBUG TEST: int_f terms: {int_f.mtf_data.da.get_all_terms()}")
     
     # Expect x^2/2
     val = int_f.eval([2.0, 0.0])[0]
@@ -76,12 +73,9 @@ def test_mixed_derivative():
     y = taylor.MultivariateTaylorFunction.var(2)
     
     f = x * y
-    print(f"DEBUG TEST mixed: f terms: {f.mtf_data.da.get_all_terms()}")
     df_dx = f.deriv(1)
-    print(f"DEBUG TEST mixed: df_dx terms: {df_dx.mtf_data.da.get_all_terms()}")
     
     # df/dx should be y
     # Eval at (x=2, y=3) -> expected 3
     val = df_dx.eval([2.0, 3.0])[0]
-    print(f"DEBUG TEST mixed: val={val}")
     # assert np.isclose(val, 3.0), f"Expected 3.0, got {val}"
