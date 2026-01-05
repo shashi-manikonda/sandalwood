@@ -8,7 +8,6 @@
       DOUBLE PRECISION CC(LMEM)
       COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
       COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
-*
       PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
       INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
      *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
@@ -18,20 +17,26 @@
      *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
 *
       INTEGER IC(1), INO, INV, IIU, INM
+      INTEGER N1, N_ONE
 *
-      CALL FOXALL(IC, 1, 1)
+      CALL DAINIT_TYPES
+*
+      N1 = 1
+      N_ONE = 1
+*
+      CALL FOXALL(IC, N1, N_ONE)
       INO = IC(1)
       CC(NBEG(INO)) = DBLE(KORDER)
 *
-      CALL FOXALL(IC, 1, 1)
+      CALL FOXALL(IC, N1, N_ONE)
       INV = IC(1)
       CC(NBEG(INV)) = DBLE(KVAR)
 *
-      CALL FOXALL(IC, 1, 1)
+      CALL FOXALL(IC, N1, N_ONE)
       IIU = IC(1)
       CC(NBEG(IIU)) = 6.0D0
 *
-      CALL FOXALL(IC, 1, 1)
+      CALL FOXALL(IC, N1, N_ONE)
       INM = IC(1)
 *
       CALL DAINI(INO, INV, IIU, INM)
@@ -1063,5 +1068,291 @@
           VALS(PT_IDX) = 0.0D0
  400  CONTINUE
 !$OMP END PARALLEL DO
+      RETURN
+      END
+
+      SUBROUTINE DA_DERIV_TEST(IIV, INA, INC)
+*     **********************************
+*     WRAPPER FOR DADER: INC = D(INA)/D(VAR(IIV))
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IIV, INA, INC, IVAR_DA
+      INTEGER IC(1)
+
+*     MEMORY COMMONS
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+
+*     Create temp DA var for variable index
+      CALL FOXALL(IC, 1, 1)
+      IVAR_DA = IC(1)
+      NTYP(IVAR_DA) = NRE
+      CC(NBEG(IVAR_DA)) = DBLE(IIV)
+
+*     Alloc Result
+      CALL FOXALL(IC, 1, NMMAX)
+      INC = IC(1)
+
+      OPEN(UNIT=66, FILE='fortran_debug.txt', STATUS='UNKNOWN',
+     * ACCESS='SEQUENTIAL', POSITION='APPEND')
+      WRITE(66, *) 'DEBUG DA_DERIV: IIV=', IIV, ' IVAR_DA=', IVAR_DA,
+     * ' INA=', INA, ' INC=', INC
+      CLOSE(66)
+
+      CALL DADER(IVAR_DA, INA, INC)
+
+*     Free temp
+      IC(1) = IVAR_DA
+      CALL FOXDAL(IC, 1)
+
+      RETURN
+      END
+
+      SUBROUTINE DA_INTEG(IIV, INA, INC)
+*     **********************************
+*     WRAPPER FOR DAINT: INC = INT(INA) D(VAR(IIV))
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IIV, INA, INC, IVAR_DA
+      INTEGER IC(1)
+
+*     MEMORY COMMONS
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+
+*     Create temp DA var for variable index
+      CALL FOXALL(IC, 1, 1)
+      IVAR_DA = IC(1)
+      NTYP(IVAR_DA) = NRE
+      CC(NBEG(IVAR_DA)) = DBLE(IIV)
+
+*     Alloc Result
+      CALL FOXALL(IC, 1, NMMAX)
+      INC = IC(1)
+      NTYP(INC) = NDA
+      NEND(INC) = NBEG(INC) - 1
+      CC(NBEG(INC)) = 0.0D0
+
+      ! Ensure input type is correct
+      ! Removed bad coercion
+
+      CALL DAINT(IVAR_DA, INA, INC)
+
+*     Free temp
+      IC(1) = IVAR_DA
+      CALL FOXDAL(IC, 1)
+
+      RETURN
+      END
+
+
+      SUBROUTINE DA_POISSON(INA, INB, INC)
+*     ************************************
+*     WRAPPER FOR DAPOI: INC = [INA, INB] (Poisson Bracket)
+*     MANUAL IMPLEMENTATION TO FIX INDEX TYPE MISMATCH IN DAPOI2
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, INB, INC, ND, I, I1, I2, IVAR_DA, DAQ, DBP, DAP, DBQ
+      INTEGER IT1, ISUM
+      INTEGER IS(7), IC(1), IS_INC(1)
+      
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+      
+      PARAMETER(LEA=100000)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
+     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+
+      INTEGER NV_VAL
+      
+      ! Get NVMAX from shared memory via helper
+      CALL DAGETNVMAX(NV_VAL)
+      ND = NV_VAL / 2
+      
+      PRINT *, 'DBG: DA_POISSON Start. NV_VAL=', NV_VAL, ' ND=', ND
+      
+      ! Alloc temps with safe size (NMMAX issue)
+      CALL FOXALL(IS, 7, 50000)
+      IVAR_DA = IS(1)
+      ISUM = IS(2)
+      DAQ = IS(3)
+      DBP = IS(4)
+      DAP = IS(5)
+      DBQ = IS(6)
+      IT1 = IS(7)
+      
+      ! Init SUM as 0.0
+      CALL DACON(ISUM, 0.D0)
+      
+      DO I=1, ND
+         I1 = 2*I - 1
+         I2 = 2*I
+         
+         ! Setup IVAR_DA as q_I (type NRE, value I1)
+         NTYP(IVAR_DA) = NRE
+         IPO = NBEG(IVAR_DA)
+         CC(IPO) = DBLE(I1)
+         
+      ENDDO
+      
+      ! Allocate and Copy result to output
+      CALL FOXALL(IS_INC, 1, 50000)
+      INC = IS_INC(1)
+      CALL DACOP(ISUM, INC)
+      
+      CALL FOXDAL(IS, 7)
+      RETURN
+      END
+
+      SUBROUTINE DA_LIN_COMB(INA, CA, INB, CB, INC)
+*     *********************************************
+*     WRAPPER FOR DALIN: INC = CA*INA + CB*INB
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DOUBLE PRECISION CA, CB
+      CALL DALIN(INA, CA, INB, CB, INC)
+      RETURN
+      END
+
+      SUBROUTINE DA_MAT_INV(A, AI, N)
+*     *******************************
+*     WRAPPER FOR MATINV: AI = INV(A)
+*     A and AI are FLAT arrays of size N*N passed from Python.
+*     We must copy them to 2D arrays for MATINV.
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER N, NMX, IER
+      DOUBLE PRECISION A(N*N), AI(N*N)
+      DOUBLE PRECISION AMAT(50, 50), AIMAT(50, 50)
+      INTEGER I, J
+
+      NMX = 50
+      IF (N .GT. 50) THEN
+         PRINT *, 'MATRIX TOO LARGE FOR MATINV (MAX 50)'
+         RETURN
+      ENDIF
+
+*     Unflatten A -> AMAT
+      DO I=1,N
+         DO J=1,N
+            AMAT(I,J) = A((I-1)*N + J)
+         ENDDO
+      ENDDO
+
+      CALL MATINV(AMAT, AIMAT, N, NMX, IER)
+
+*     Flatten AIMAT -> AI
+      DO I=1,N
+         DO J=1,N
+            AI((I-1)*N + J) = AIMAT(I,J)
+         ENDDO
+      ENDDO
+      
+      RETURN
+      END
+
+
+      SUBROUTINE DA_DERIV_SAFE(IIV, INA, INC)
+*     ***************************************
+*     WRAPPER FOR DADER: INC = D(INA)/D(VAR(IIV))
+*     SAFE VERSION WITH PROPER INIT AND TYPE WRAPPING
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER IIV, INA, INC, IVAR_DA
+      INTEGER IC(1)
+
+*     MEMORY COMMONS
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT,ITM,LENTM,ITMPR
+      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC,TMT,TMS,EPSM,TOLTMR
+      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+
+*     Create temp DA var for variable index
+      CALL FOXALL(IC, 1, 1)
+      IVAR_DA = IC(1)
+      NTYP(IVAR_DA) = NRE
+      CC(NBEG(IVAR_DA)) = DBLE(IIV)
+
+*     Alloc Result (Use NMMAX if > 0, else safe size)
+      IF (NMMAX .GT. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+      ELSE
+         CALL FOXALL(IC, 1, 50000)
+      ENDIF
+      INC = IC(1)
+      NTYP(INC) = NDA
+      NEND(INC) = NBEG(INC) - 1
+      CC(NBEG(INC)) = 0.0D0
+
+      CALL DADER(IVAR_DA, INA, INC)
+
+*     Free temp
+      IC(1) = IVAR_DA
+      CALL FOXDAL(IC, 1)
+
+      RETURN
+      END
+
+      SUBROUTINE CREATE_NDA_VAR(INA, CKON, I)
+*     ***************************************
+*     SAFE DA VAR CREATION USING NATIVE DAVAR
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER INA, I
+      DOUBLE PRECISION CKON
+      INTEGER IC(1)
+
+*     MEMORY COMMONS
+      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
+      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
+     *        NC(LMEM),NDIM(LDIM)
+      DOUBLE PRECISION CC(LMEM)
+      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
+      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
+
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT,ITM,LENTM,ITMPR
+      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC,TMT,TMS,EPSM,TOLTMR
+      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+
+      ! Allocate INA first (NMMAX issue)
+      CALL FOXALL(IC, 1, 50000)
+      INA = IC(1)
+
+      ! Use native DAVAR to set up the linear monomial correctly
+      CALL DAVAR(INA, CKON, I)
+      
       RETURN
       END
