@@ -16,6 +16,9 @@ def test_linear_combination(implementation):
         pytest.skip("Linear combination via low-level backend not yet implemented for Python")
         return
 
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
+
     # Setup
     cosy_backend.CosyBackend.initialize(order=1, dim=1)
     
@@ -39,6 +42,9 @@ def test_matrix_inversion(implementation):
     if implementation == "python":
         pytest.skip("Matrix inversion via low-level backend not yet implemented for Python")
         return
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
 
     # Matrix A = [[4, 7], [2, 6]]
     # Det = 24 - 14 = 10

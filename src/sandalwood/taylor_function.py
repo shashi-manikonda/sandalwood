@@ -25,7 +25,10 @@ from .backend import get_backend
 # COSY Backend availability
 try:
     from .backends.cosy import cosy_backend
-    _COSY_BACKEND_AVAILABLE = True
+    if cosy_backend.libcosy.__class__.__name__ == "DummyLib":
+         _COSY_BACKEND_AVAILABLE = False
+    else:
+         _COSY_BACKEND_AVAILABLE = True
 except Exception:
     _COSY_BACKEND_AVAILABLE = False
 
