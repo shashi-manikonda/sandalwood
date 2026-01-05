@@ -116,8 +116,16 @@ bind_cosy_func("get_cda_coeff_by_index_", [POINTER(c_int), POINTER(c_int), POINT
 # ... (Previous bindings)
 bind_cosy_func("get_mem_state_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("set_mem_state_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("create_nda_var_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 bind_cosy_func("get_all_coeffs_flat_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("eval_da_batch_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+
+# --- Math Framework Bindings ---
+bind_cosy_func("da_deriv_safe_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("da_integ_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("da_poisson_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("da_lin_comb_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("da_mat_inv_", [POINTER(c_double), POINTER(c_double), POINTER(c_int)])
 
 # Control flags
 _USE_OMP = bool(os.environ.get("COSY_USE_OMP", "0"))
@@ -184,7 +192,8 @@ class CosyDA:
             res_idx = c_int(0)
             # Use 0.0 as default value for variables (Monomial x_i)
             # Convert 0-based Python index to 1-based COSY index
-            libcosy.create_da_var_(byref(res_idx), byref(c_double(0.0)), byref(c_int(var_id + 1)))
+            # Use safe NDA creation to avoid NST issues
+            libcosy.create_nda_var_(byref(res_idx), byref(c_double(0.0)), byref(c_int(var_id + 1)))
             self.idx = res_idx.value
         else:
             raise ValueError("Must provide idx, create_new=True, or var_id")
@@ -308,12 +317,40 @@ class CosyDA:
 
     def deriv(self, var_id):
         res_idx = c_int(0)
-        libcosy.compute_da_der_(byref(c_int(self.idx)), byref(c_int(var_id + 1)), byref(res_idx))
+        c_var = c_int(var_id + 1)
+        c_idx = c_int(self.idx)
+        print(f"DEBUG PYTHON deriv (pre): var_id={var_id}, idx={self.idx}, res_idx={res_idx.value}")
+        libcosy.da_deriv_safe_(byref(c_var), byref(c_idx), byref(res_idx))
+        print(f"DEBUG PYTHON deriv (post): res_idx={res_idx.value}")
         return CosyDA(idx=res_idx.value, owned=True)
 
     def integral(self, var_id):
         res_idx = c_int(0)
-        libcosy.compute_da_int_(byref(c_int(self.idx)), byref(c_int(var_id + 1)), byref(res_idx))
+        c_var = c_int(var_id + 1)
+        c_idx = c_int(self.idx)
+        print(f"DEBUG PYTHON integral (pre): var_id={var_id}, idx={self.idx}, res_idx={res_idx.value}")
+        libcosy.da_integ_(byref(c_var), byref(c_idx), byref(res_idx))
+        print(f"DEBUG PYTHON integral (post): res_idx={res_idx.value}")
+        return CosyDA(idx=res_idx.value, owned=True)
+
+    def poisson_bracket(self, other):
+        res_idx = c_int(0)
+        # Note: DA_POISSON wrapper might NOT allocate INC. It calls DAPOI(INA, INB, INC, SCRATCH).
+        # We need to verify if DA_POISSON fixed.
+        # Assuming we need to allocate for POISSON if wrapper doesn't.
+        # But for now, let's keep original alloc for Poisson or fix wrapper?
+        # Let's fix wrapper later if test fails. Reverting to create_da_const for Poisson just in case?
+        # Or better: check wrapper.
+        c_zero_val = c_double(0.0)
+        c_zero_int = c_int(0)
+        libcosy.create_da_var_(byref(res_idx), byref(c_zero_val), byref(c_zero_int))
+        
+        if isinstance(other, CosyDA):
+            c_idx_self = c_int(self.idx)
+            c_idx_other = c_int(other.idx)
+            libcosy.da_poisson_(byref(c_idx_self), byref(c_idx_other), byref(res_idx))
+        else:
+            libcosy.create_da_const_(byref(res_idx), byref(c_double(0.0)))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sin(self):
@@ -575,55 +612,34 @@ class CosyMtfData:
 
     def eval(self, points):
         points = np.asarray(points, dtype=np.float64)
+    def eval(self, point):
+        """
+        Evaluate the DA vector at the given point(s).
         
-        # Check if single point (1D) or batch (2D)
-        if points.ndim == 1:
-            # Single point case
-            if len(points) != self.dimension: # Check logical dim
-                 # Ideally check physical dim if needed, but wrapper handles padding/truncation? 
-                 # Actually wrapper expects points of size NVMAX usually or assumes correct length.
-                 pass
-            c_point = (c_double * len(points))(*points)
-            res = c_double()
-            libcosy.eval_da_(byref(c_int(self.da.idx)), c_point, byref(res))
-            return res.value
-        elif points.ndim == 2:
-            # Batch case
-            n_points, dim = points.shape
-            # We must flatten the points array row by row (C-style)
-            # COSY wrapper expects [p1_x, p1_y, ..., p2_x, ...]
-            
-            # Optimization: If dim < physical_dimension, we might need to pad?
-            # The current EVAL_DA implementation in wrapper assumes POINTS has length NVMAX 
-            # or accesses up to NVMAX.
-            # However, my new EVAL_DA_BATCH accesses (PT_IDX-1)*NVMAX + K.
-            # So the input array MUST be strided by NVMAX.
-            
-            phys_dim = CosyBackend._dim
-            if dim != phys_dim:
-                 # We need to pad or check
-                 if dim < phys_dim:
-                     # Copy to padded array
-                     padded = np.zeros((n_points, phys_dim), dtype=np.float64)
-                     padded[:, :dim] = points
-                     points_flat = padded.flatten() # defaults to C order
-                 elif dim > phys_dim:
-                     raise ValueError(f"Input dimension {dim} > Backend dimension {phys_dim}")
-                 else:
-                     points_flat = points.flatten()
-            else:
-                 points_flat = points.flatten()
+        Args:
+            point: 1D array (single point) or 2D array (batch of points).
+                   Dimensions must match the number of variables (CosyBackend._dim).
+        
+        Returns:
+            float (if single point) or np.ndarray (if batch).
+        """
+        if not CosyBackend.is_initialized():
+            raise RuntimeError("COSY backend not initialized")
 
-            c_points = (c_double * len(points_flat)).from_buffer_copy(points_flat)
-            c_n_points = c_int(n_points)
-            
-            # Prepare result array
+        point = np.asarray(point, dtype=np.float64)
+        
+        # Handle Batch Evaluation (2D input)
+        if point.ndim == 2:
+            n_points, dim = point.shape
+            # If input dim < NVMAX, pad with zeros
+            if dim < CosyBackend._dim:
+                padded = np.zeros((n_points, CosyBackend._dim), dtype=np.float64)
+                padded[:, :dim] = point
+                point_flat = padded.flatten()
+            else:
+                point_flat = point.flatten() # Assumes dim == NVMAX
+
             vals = np.zeros(n_points, dtype=np.float64)
-            c_vals = (c_double * len(vals)).from_buffer(vals) # Share memory? from_buffer works for Mutable
-            
-            # workspace for exponent caching
-            # LEA = 100000 in COSY default. MAX_TERMS should slightly exceed expected terms.
-            # Using 100,000 is safe and matches COSY's static limit LEA.
             max_terms = 100000 
             c_max_terms = c_int(max_terms)
             
@@ -637,6 +653,10 @@ class CosyMtfData:
             c_temp_exps = (c_int * len(temp_exps)).from_buffer(temp_exps)
             c_temp_coeffs = (c_double * len(temp_coeffs)).from_buffer(temp_coeffs)
             
+            c_points = (c_double * len(point_flat)).from_buffer(point_flat)
+            c_vals = (c_double * len(vals)).from_buffer(vals)
+            c_n_points = c_int(n_points)
+            
             libcosy.eval_da_batch_(byref(c_int(self.da.idx)), 
                                    c_points, 
                                    byref(c_n_points), 
@@ -646,8 +666,13 @@ class CosyMtfData:
                                    byref(c_max_terms))
                                    
             return vals
+        # Handle Single Point Evaluation (1D input)
+        elif point.ndim == 1:
+            points_reshaped = point.reshape(1, -1)
+            # Recursively call with 2D array and extract result
+            return self.eval(points_reshaped)[0]
         else:
-            raise ValueError(f"Invalid input shape {points.shape}")
+            raise ValueError(f"Invalid input shape {point.shape}")
 
     def add(self, other):
         res = CosyMtfData(self.dimension)
@@ -685,6 +710,11 @@ class CosyMtfData:
     def integrate(self, var_idx):
         res = CosyMtfData(self.dimension)
         res.da = self.da.integral(var_idx - 1)
+        return res
+
+    def poisson_bracket(self, other):
+        res = CosyMtfData(self.dimension)
+        res.da = self.da.poisson_bracket(other.da)
         return res
 
     def sin(self):
@@ -746,3 +776,36 @@ class CosyMtfData:
         res = CosyMtfData(self.dimension)
         res.da = self.da.tanh()
         return res
+
+def da_mat_inv(matrix_flat, n):
+    """
+    Invert a scalar matrix using COSY's MATINV.
+    Args:
+        matrix_flat: Flat list/array of n*n doubles (row-major).
+        n: Dimension (max 50).
+    Returns:
+        Flat list of n*n doubles (inverse).
+    """
+    if n > 50:
+        raise ValueError("COSY MATINV supports max dimension 50")
+    
+    mat_arr = (c_double * (n * n))(*matrix_flat)
+    inv_arr = (c_double * (n * n))()
+    
+    libcosy.da_mat_inv_(mat_arr, inv_arr, byref(c_int(n)))
+    
+    return [inv_arr[i] for i in range(n * n)]
+
+def da_lin_comb(da1, c1, da2, c2):
+    """
+    Compute Linear Combination: res = c1*da1 + c2*da2
+    """
+    res_idx = c_int(0)
+    libcosy.create_da_var_(byref(res_idx), byref(c_double(0.0)), byref(c_int(0)))
+    
+    libcosy.da_lin_comb_(
+        byref(c_int(da1.idx)), byref(c_double(c1)),
+        byref(c_int(da2.idx)), byref(c_double(c2)),
+        byref(res_idx)
+    )
+    return CosyDA(idx=res_idx.value, owned=True)

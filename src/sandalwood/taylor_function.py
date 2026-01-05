@@ -1190,6 +1190,77 @@ class MultivariateTaylorFunction:
         inverse_self_mtf = self._inv_mtf_internal(self)
         return inverse_self_mtf * other
 
+    def deriv(self, var_idx):
+        """
+        Computes the partial derivative with respect to variable `var_idx`.
+        
+        Parameters
+        ----------
+        var_idx : int
+            The 1-based index of the variable (e.g., 1 for x1).
+            
+        Returns
+        -------
+        MultivariateTaylorFunction
+            The partial derivative.
+        """
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             # CosyMtfData expects 1-based index for consistency with other methods?
+             # Let's check CosyMtfData.partial_derivative implementation again.
+             # It takes `deriv_dim` and subtracts 1. So it expects 1-based.
+             res_data = self.mtf_data.partial_derivative(var_idx)
+             return type(self)(mtf_data=res_data, dimension=self.dimension)
+             
+        # Python implementation placeholder
+        raise NotImplementedError("deriv() not yet implemented for Python backend")
+
+    def integrate(self, var_idx):
+        """
+        Computes the indefinite integral with respect to variable `var_idx`.
+        
+        Parameters
+        ----------
+        var_idx : int
+            The 1-based index of the variable.
+        
+        Returns
+        -------
+        MultivariateTaylorFunction
+            The integrated function (constant of integration = 0).
+        """
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             # CosyMtfData.integrate also takes 1-based index (subtracts 1 internally)
+             res_data = self.mtf_data.integrate(var_idx)
+             return type(self)(mtf_data=res_data, dimension=self.dimension)
+
+        raise NotImplementedError("integrate() not yet implemented for Python backend")
+
+    def poisson_bracket(self, other):
+        """
+        Computes the Poisson Bracket [self, other].
+        
+        Parameters
+        ----------
+        other : MultivariateTaylorFunction
+            The other function in the bracket.
+            
+        Returns
+        -------
+        MultivariateTaylorFunction
+            The result of the Poisson Bracket.
+        """
+        if not isinstance(other, MultivariateTaylorFunction):
+             try:
+                 other = self.to_mtf(other, self.dimension)
+             except (TypeError, ValueError):
+                 return NotImplemented
+
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             res_data = self.mtf_data.poisson_bracket(other.mtf_data)
+             return type(self)(mtf_data=res_data, dimension=self.dimension)
+
+        raise NotImplementedError("poisson_bracket() not yet implemented for Python backend")
+
     def _inv_mtf_internal(self, mtf_instance, order=None):
         """Internal method to calculate Taylor expansion of 1/mtf_instance."""
         if order is None:

@@ -9,12 +9,15 @@ COSY_SRC="$DIR/cosy_src"
 LIB_NAME="libcosy.so"
 OUTPUT="$DIR/$LIB_NAME"
 
-echo "Compiling COSY sources from $COSY_SRC and wrapper.f..."
+echo "Compiling COSY sources from $COSY_SRC and wrapper.f from $DIR/wrapper.f..."
+ls -l "$DIR/wrapper.f"
 
-gfortran -shared -fPIC -std=legacy -g -O2 \
+# Non-monolithic build with -fcommon
+gfortran -shared -fPIC -fcommon -std=legacy -g -O2 \
     "$COSY_SRC/dafox.f" \
     "$COSY_SRC/foxfit.f" \
     "$COSY_SRC/foxgraf.f" \
+    "$COSY_SRC/helper.f" \
     "$DIR/wrapper.f" \
     -fopenmp \
     -o "$OUTPUT"
