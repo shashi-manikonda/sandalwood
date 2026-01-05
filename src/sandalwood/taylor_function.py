@@ -1205,35 +1205,41 @@ class MultivariateTaylorFunction:
             The partial derivative.
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             # CosyMtfData expects 1-based index for consistency with other methods?
-             # Let's check CosyMtfData.partial_derivative implementation again.
-             # It takes `deriv_dim` and subtracts 1. So it expects 1-based.
              res_data = self.mtf_data.partial_derivative(var_idx)
              return type(self)(mtf_data=res_data, dimension=self.dimension)
              
-        # Python implementation placeholder
-        raise NotImplementedError("deriv() not yet implemented for Python backend")
+        from .elementary_functions import _derivative
+        return _derivative(self, var_idx)
 
-    def integrate(self, var_idx):
+    def derivative(self, var_idx):
+        """Alias for deriv."""
+        return self.deriv(var_idx)
+
+    def integrate(self, var_idx, lower_limit=None, upper_limit=None):
         """
-        Computes the indefinite integral with respect to variable `var_idx`.
+        Computes the indefinite or definite integral with respect to variable `var_idx`.
         
         Parameters
         ----------
         var_idx : int
             The 1-based index of the variable.
+        lower_limit : float, optional
+            Lower limit for definite integration.
+        upper_limit : float, optional
+            Upper limit for definite integration.
         
         Returns
         -------
         MultivariateTaylorFunction
-            The integrated function (constant of integration = 0).
+            The integrated function.
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             # CosyMtfData.integrate also takes 1-based index (subtracts 1 internally)
-             res_data = self.mtf_data.integrate(var_idx)
-             return type(self)(mtf_data=res_data, dimension=self.dimension)
+            if lower_limit is None and upper_limit is None:
+                res_data = self.mtf_data.integrate(var_idx)
+                return type(self)(mtf_data=res_data, dimension=self.dimension)
 
-        raise NotImplementedError("integrate() not yet implemented for Python backend")
+        from .elementary_functions import _integrate
+        return _integrate(self, var_idx, lower_limit, upper_limit)
 
     def poisson_bracket(self, other):
         """
@@ -1948,23 +1954,6 @@ class MultivariateTaylorFunction:
     def atan(self):
         return self.arctan()
 
-    def integrate(self, integration_variable_index, lower_limit=None, upper_limit=None):
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            # definite integral not directly in backend yet for COSY?
-            if lower_limit is None and upper_limit is None:
-                res_data = self.mtf_data.integrate(integration_variable_index)
-                return type(self)(mtf_data=res_data, dimension=self.dimension)
-
-        from .elementary_functions import _integrate
-
-        return _integrate(self, integration_variable_index, lower_limit, upper_limit)
-
-    def derivative(self, deriv_dim):
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.partial_derivative(deriv_dim)
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
-        from .elementary_functions import _derivative
-        return _derivative(self, deriv_dim)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """
