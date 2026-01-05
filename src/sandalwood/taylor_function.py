@@ -1103,7 +1103,10 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
              try:
                  res_data = self.mtf_data ** power
-                 return type(self)(mtf_data=res_data, dimension=self.dimension)
+                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+                 if self._TRUNCATE_AFTER_OPERATION:
+                     result_mtf._cleanup_after_operation()
+                 return result_mtf
              except NotImplementedError:
                  pass # Fallback to default if not supported (e.g. complex)
 
@@ -1159,7 +1162,10 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
              try:
                  res_data = self.mtf_data.inverse()
-                 return type(self)(mtf_data=res_data, dimension=self.dimension)
+                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+                 if self._TRUNCATE_AFTER_OPERATION:
+                     result_mtf._cleanup_after_operation()
+                 return result_mtf
              except NotImplementedError:
                  pass # Fallback
 
@@ -1291,6 +1297,13 @@ class MultivariateTaylorFunction:
 
     def _inv_mtf_internal(self, mtf_instance, order=None):
         """Internal method to calculate Taylor expansion of 1/mtf_instance."""
+        if self._IMPLEMENTATION == "cosy" and mtf_instance.mtf_data is not None:
+            res_data = mtf_instance.mtf_data.inverse()
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
+
         if order is None:
             order = self.get_max_order()
         constant_term_coeff = mtf_instance.extract_coefficient(

@@ -1543,14 +1543,24 @@ C     Actually better pass array.
       END
 
       SUBROUTINE COMPUTE_DA_MUI(INA, INC)
+*     ***********************************
+*     Wrapper for DAMUI: INC = 1/INA
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER INA, INC, IC(1)
-      PARAMETER(LEA=100000)
-      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
-     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
-     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
-     *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
+      INTEGER INA, INC
+      INTEGER IC(1)
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC
+      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      
+      IF (NMMAX .LE. 0) THEN
+         CALL FOXALL(IC, 1, 50000)
+      ELSE
+         CALL FOXALL(IC, 1, NMMAX)
+      ENDIF
       INC = IC(1)
       CALL DAMUI(INA, INC)
       RETURN
@@ -1610,53 +1620,54 @@ C     Init INC = 1.0 (Constant DA)
       RETURN
       END
 
-      SUBROUTINE COMPUTE_DA_PKP(INA, VAL, INC)
-C     Real Power: C = A^VAL = EXP(VAL * LOG(A))
+      SUBROUTINE COMPUTE_DA_PKP(INA, REXP, INC)
+*     *****************************************
+*     Robust power using DAFUN: INC = INA**REXP
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER INA, INC, IC(1), I_LOG, I_PROD, I_REAL_VAL
-      DOUBLE PRECISION VAL
-      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
-      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
-     *        NC(LMEM),NDIM(LDIM)
-      DOUBLE PRECISION CC(LMEM)
-      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
-      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
-      PARAMETER(LEA=100000)
-      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
-     *       IEO(LEA),IA1(0:1400000),IA2(0:1400000),NCFLT(LEA),
-     *       IEW(40),IED(40),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
-     *       LFLT,NFLT
+      INTEGER INA, INC
+      DOUBLE PRECISION REXP
+      INTEGER IC(1)
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
+     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
+     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC
+      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
+     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
+      DIMENSION XF(0:LNO)
+      DOUBLE PRECISION RE
 
-      CALL FOXALL(IC, 1, NMMAX)
-      INC = IC(1)
+      A0 = RE(INA)
+      CNORM = A0
       
-C     1. LOG(A)
-      CALL FOXALL(IC, 1, NMMAX)
-      I_LOG = IC(1)
-      CALL DALOG(INA, I_LOG)
+      IF (A0 .EQ. 0.0D0) THEN
+         ! Handle zero base for non-negative integer powers
+         IPOW = NINT(REXP)
+         IF (ABS(REXP - DBLE(IPOW)) .LT. 1.0D-10 .AND. IPOW .GE. 0) THEN
+            DO I=0, NOCUT
+               XF(I) = 0.0D0
+            ENDDO
+            IF (IPOW .LE. NOCUT) XF(IPOW) = 1.0D0
+            CNORM = 1.0D0
+         ELSE
+            PRINT*, '$$$ ERROR IN COMPUTE_DA_PKP, BASE IS ZERO'
+            CALL FOXDEB
+         ENDIF
+      ELSE
+         XF(0) = A0**REXP
+         DO 10 I=1,NOCUT
+            XF(I) = XF(I-1) * (REXP - DBLE(I) + 1.0D0) / DBLE(I)
+  10     CONTINUE
+      ENDIF
 
-C     2. Create Real Variable for VAL (Length 1, Type NRE)
-      CALL FOXALL(IC, 1, 1)
-      I_REAL_VAL = IC(1)
-      NTYP(I_REAL_VAL) = NRE ! Set type to Real
-      CC(NBEG(I_REAL_VAL)) = VAL ! Set value
-
-C     3. Multiply I_LOG * I_REAL_VAL -> I_PROD
-      CALL FOXALL(IC, 1, NMMAX)
-      I_PROD = IC(1)
-      CALL DAMRE(I_LOG, I_REAL_VAL, I_PROD)
-
-C     4. EXP(I_PROD) -> INC
-      CALL DAEXP(I_PROD, INC)
-
-C     5. Cleanup
-      IC(1) = I_LOG
-      CALL FOXDAL(IC, 1)
-      IC(1) = I_REAL_VAL
-      CALL FOXDAL(IC, 1)
-      IC(1) = I_PROD
-      CALL FOXDAL(IC, 1)
-
+      IF (NMMAX .LE. 0) THEN
+         CALL FOXALL(IC, 1, 50000)
+      ELSE
+         CALL FOXALL(IC, 1, NMMAX)
+      ENDIF
+      INC = IC(1)
+      CALL DAFUN(INA, CNORM, XF, NOCUT, INC)
+      
       RETURN
       END
 

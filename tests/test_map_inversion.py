@@ -4,16 +4,15 @@ from sandalwood import TaylorMap, mtf
 import pytest
 import sandalwood.taylor_function
 
-def test_map_inversion_from_demo(backend_implementation):
-    """
-    This test replicates the map inversion demo from taylor_map_demo.ipynb
-    to verify if it's broken after recent changes.
-    """
-    implementation = backend_implementation
-
-    # 1. Initialize sandalwood
+@pytest.fixture(autouse=True)
+def setup_mtf(backend_implementation):
+    """Initializes sandalwood globals for the test."""
     mtf._INITIALIZED = False
-    mtf.initialize_mtf(max_order=4, max_dimension=2, implementation=implementation)
+    mtf.initialize_mtf(max_order=4, max_dimension=2, implementation=backend_implementation)
+    yield
+    mtf._INITIALIZED = False
+
+def test_map_inversion_from_demo(backend_implementation):
 
     # 2. Create the invertible map
     x = mtf.var(1, 2)
