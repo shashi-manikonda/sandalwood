@@ -64,8 +64,5 @@
       NCD = 7
       NGR = 8
       
-      PRINT *, 'DBG: Types Init. NDA=', NDA, ' NRE=', NRE, ' NST=', NST
-      PRINT *, 'DBG: NCM=', NCM, ' NVE=', NVE, ' NCD=', NCD, ' NGR=', NGR
-      
       RETURN
       END
