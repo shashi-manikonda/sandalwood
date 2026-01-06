@@ -3,11 +3,34 @@ import sys
 import os
 import time
 import pandas as pd
+import numpy as np
 from core import BenchmarkEngine, ARTIFACTS_DIR
 
 # Ensure we can import sandalwood from the parent src directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src")))
 from sandalwood import TaylorMap, mtf
+
+FULL_OPS = [
+    # Arithmetic
+    ("Add", "x + y", "DA(1)+DA(2)"),
+    ("Sub", "x - y", "DA(1)-DA(2)"),
+    ("Mul", "x * y", "DA(1)*DA(2)"),
+    ("Div", "(1+x)/(1+y)", "(1+DA(1))/(1+DA(2))"),
+    ("Pow", "(1+x)**3", "(1+DA(1))**3"),
+    # Elementary Functions
+    ("Sin", "mtf.sin(x)", "SIN(DA(1))"),
+    ("Cos", "mtf.cos(x)", "COS(DA(1))"),
+    ("Tan", "mtf.tan(x)", "TAN(DA(1))"),
+    ("Exp", "mtf.exp(x)", "EXP(DA(1))"),
+    ("Log", "mtf.log(1+x)", "LOG(1+DA(1))"),
+    ("Sqrt", "mtf.sqrt(1+x)", "SQRT(1+DA(1))"),
+    ("Asin", "mtf.arcsin(0.5*x)", "ASIN(0.5*DA(1))"),
+    ("Acos", "mtf.arccos(0.5*x)", "ACOS(0.5*DA(1))"),
+    ("Atan", "mtf.arctan(x)", "ATAN(DA(1))"),
+    ("Sinh", "mtf.sinh(x)", "SINH(DA(1))"),
+    ("Cosh", "mtf.cosh(x)", "COSH(DA(1))"),
+    ("Tanh", "mtf.tanh(x)", "TANH(DA(1))"),
+]
 
 def run_ops_benchmark(engine, args):
     """Benchmarks individual operations (Python vs COSY Backend)."""
@@ -34,7 +57,10 @@ def run_ops_benchmark(engine, args):
         })
         
     df = pd.DataFrame(results)
-    print("\n" + df.to_string(index=False))
+    if args.json:
+        print(df.to_json(orient='records'))
+    else:
+        print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Operation Benchmarks")
 
 def run_raw_comparison(engine, args):
@@ -66,7 +92,10 @@ def run_raw_comparison(engine, args):
         })
         
     df = pd.DataFrame(results)
-    print("\n" + df.to_string(index=False))
+    if args.json:
+        print(df.to_json(orient='records'))
+    else:
+        print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Raw COSY Comparison")
 
 def run_batch_eval(engine, args):
@@ -139,15 +168,117 @@ def run_profile(engine, args):
         f.write(f"# Profiling Results - {timestamp}\n\n```\n{s.getvalue()}\n```\n")
     print(f"Profile saved to {filepath}")
 
+import json
+import subprocess
+
+def run_full_benchmark(args):
+    """Performs a comprehensive parametric sweep across orders and variables."""
+    orders = [2, 4, 6, 8, 10]
+    vars_list = [4, 6]
+    iters = args.iters if args.iters != 100 else 10
+    
+    full_results = []
+    
+    python_bin = sys.executable
+    script_path = __file__
+    
+    for v in vars_list:
+        for o in orders:
+            print(f"\n>>> Sweep: Variables={v}, Order={o} <<<")
+            
+            # Use subprocess to run the ops and raw comparisons for this (v, o)
+            # Ops
+            cmd_ops = [python_bin, script_path, "--mode", "ops", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--json"]
+            try:
+                res_ops = subprocess.run(cmd_ops, capture_output=True, text=True, check=True)
+                # JSON might be mixed with other output (initialization prints)
+                # We search for the JSON part (starting with [ and ending with ])
+                out = res_ops.stdout
+                json_part = out[out.find('['):out.rfind(']')+1]
+                ops_data = json.loads(json_part)
+                
+                # Raw
+                cmd_raw = [python_bin, script_path, "--mode", "raw", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--json"]
+                res_raw = subprocess.run(cmd_raw, capture_output=True, text=True, check=True)
+                out = res_raw.stdout
+                json_part = out[out.find('['):out.rfind(']')+1]
+                raw_data = json.loads(json_part)
+                
+                # Combine data for this (v, o)
+                # Map operation name to timings
+                raw_map = {item['Case']: item for item in raw_data}
+                
+                # Merge into full results
+                # We have 17 operations total. 
+                # (Some are in ops, some in raw. Actually core.py's run_ops_benchmark and run_raw_comparison have hardcoded sublists.)
+                # I should probably unify these or handle them both.
+                
+                # Let's just collect everything from the subprocesses
+                # Each item will have 'Operation' or 'Case' key.
+                
+                # We need clean data for the HTML report.
+                for item in ops_data:
+                    full_results.append({
+                        "Operation": item['Operation'],
+                        "Variables": v,
+                        "Order": o,
+                        "Python Time (s)": engine_format_to_float(item['Python Time']),
+                        "SCosy Time (s)": engine_format_to_float(item['Sandalwood COSY Time']),
+                        "Raw-Cosy Time (s)": np.nan,
+                        "Speedup (S-Cosy)": item['Speedup']
+                    })
+                
+                for item in raw_data:
+                    full_results.append({
+                        "Operation": item['Case'],
+                        "Variables": v,
+                        "Order": o,
+                        "Python Time (s)": engine_format_to_float(item['Python Time']),
+                        "SCosy Time (s)": engine_format_to_float(item['SCosy Time']),
+                        "Raw-Cosy Time (s)": engine_format_to_float(item['Raw COSY Time']),
+                        "Speedup (S-Cosy)": item['Speedup (Py/SCosy)'],
+                        "Efficiency (vs Raw)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['SCosy Time']) if engine_format_to_float(item['SCosy Time']) > 0 else np.nan
+                    })
+                    
+            except Exception as e:
+                print(f"Error in sweep (v={v}, o={o}): {e}")
+                if 'res_ops' in locals(): print(res_ops.stderr)
+    
+    # Generate report
+    engine = BenchmarkEngine(10, 6)
+    plots = engine.generate_plots(full_results)
+    report_path = engine.generate_html_report(full_results, plots)
+    
+    print(f"\nFull benchmark complete!")
+    print(f"HTML Report: {report_path}")
+
+def engine_format_to_float(s):
+    """Converts formatted timing string (e.g. '1.5 ms') back to float in seconds."""
+    if not isinstance(s, str) or s == "N/A" or "nan" in s.lower(): return np.nan
+    try:
+        val, unit = s.split()
+        val = float(val)
+        if unit == "ms": return val * 1e-3
+        if unit == "µs": return val * 1e-6
+        if unit == "ns": return val * 1e-9
+        return val
+    except: return np.nan
+
 def main():
     parser = argparse.ArgumentParser(description="Unified Sandalwood Benchmark Suite")
-    parser.add_argument("--mode", choices=["ops", "raw", "batch", "profile"], default="ops")
+    parser.add_argument("--mode", choices=["ops", "raw", "batch", "profile", "full"], default="ops")
     parser.add_argument("--order", type=int, default=8)
     parser.add_argument("--dims", type=int, default=4)
     parser.add_argument("--iters", type=int, default=100)
     parser.add_argument("--npoints", type=int, default=10000)
+    parser.add_argument("--json", action="store_true", help="Output results in JSON format")
     
     args = parser.parse_args()
+    
+    if args.mode == "full":
+        run_full_benchmark(args)
+        return
+
     engine = BenchmarkEngine(args.order, args.dims)
     
     if args.mode == "ops":

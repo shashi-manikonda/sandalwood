@@ -4,6 +4,9 @@ import time
 import subprocess
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import base64
+from io import BytesIO
 from datetime import datetime
 from sandalwood import mtf
 
@@ -16,12 +19,12 @@ COSY_FOX_SRC = os.path.join(BASE_DIR, "COSY.fox")
 # Ensure artifacts directory exists
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
-# MTF to COSY function name mapping
 MTF_TO_COSY = {
     "mtf.sin": "SIN", "mtf.cos": "COS", "mtf.exp": "EXP",
     "mtf.sqrt": "SQRT", "mtf.log": "LOG", "mtf.arctan": "ATAN",
     "mtf.tan": "TAN", "mtf.arcsin": "ASIN", "mtf.arccos": "ACOS",
     "mtf.sinh": "SINH", "mtf.cosh": "COSH", "mtf.tanh": "TANH",
+    "mtf.gaussian": "EXP(-(DA(1)**2))", # Custom handling
 }
 
 class BenchmarkEngine:
@@ -155,4 +158,93 @@ END;
             f.write("\n")
             
         print(f"Results saved to {filepath}")
+        return filepath
+
+    def generate_plots(self, full_results):
+        """Generates plots for timing vs order and returns as base64 strings."""
+        plots = {}
+        df = pd.DataFrame(full_results)
+        
+        # Plot 1: Timing vs Order for different variants (Python vs S-Cosy)
+        # We'll pick a few representative ops or just average all
+        for op in df['Operation'].unique():
+            plt.figure(figsize=(10, 6))
+            op_df = df[df['Operation'] == op]
+            
+            for vars_count in op_df['Variables'].unique():
+                v_df = op_df[op_df['Variables'] == vars_count]
+                plt.plot(v_df['Order'], v_df['Python Time (s)'], marker='o', label=f'Python (v={vars_count})')
+                plt.plot(v_df['Order'], v_df['SCosy Time (s)'], marker='s', label=f'S-Cosy (v={vars_count})')
+            
+            plt.title(f'Timing vs Order: {op}')
+            plt.xlabel('Order')
+            plt.ylabel('Time (s)')
+            plt.yscale('log')
+            plt.grid(True, which="both", ls="-", alpha=0.5)
+            plt.legend()
+            
+            buf = BytesIO()
+            plt.savefig(buf, format='png')
+            plt.close()
+            plots[op] = base64.b64encode(buf.getvalue()).decode('utf-8')
+            
+        return plots
+
+    def generate_html_report(self, full_results, plots):
+        """Generates a styled HTML report with tables and embedded plots."""
+        df = pd.DataFrame(full_results)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Sandalwood Comprehensive Benchmark Report</title>
+            <style>
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background: #f8f9fa; color: #333; }}
+                h1, h2 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+                th, td {{ padding: 12px; text-align: left; border: 1px solid #ddd; }}
+                th {{ background-color: #3498db; color: white; }}
+                tr:nth-child(even) {{ background-color: #f2f2f2; }}
+                tr:hover {{ background-color: #e9ecef; }}
+                .plot-container {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px; }}
+                .plot-item {{ background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }}
+                .plot-item img {{ max-width: 100%; height: auto; }}
+                .summary {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+            </style>
+        </head>
+        <body>
+            <h1>Sandalwood Benchmark Report</h1>
+            <div class="summary">
+                <p><strong>Generated on:</strong> {timestamp}</p>
+                <p><strong>Summary:</strong> This report compares the performance of Sandalwood's Python backend, Sandalwood's COSY backend (S-Cosy), and direct COSY script execution (Raw-Cosy) across various expansion orders and variables.</p>
+            </div>
+
+            <h2>Performance Comparison Table</h2>
+            {df.to_html(index=False, classes='table')}
+
+            <h2>Performance Visualizations (Log Scale)</h2>
+            <div class="plot-container">
+        """
+        
+        for op, img_data in plots.items():
+            html += f"""
+                <div class="plot-item">
+                    <h3>{op}</h3>
+                    <img src="data:image/png;base64,{img_data}" alt="{op} plot">
+                </div>
+            """
+            
+        html += """
+            </div>
+        </body>
+        </html>
+        """
+        
+        filepath = os.path.join(ARTIFACTS_DIR, "benchmark_report.html")
+        with open(filepath, "w") as f:
+            f.write(html)
+        
+        print(f"HTML Report generated at {filepath}")
         return filepath
