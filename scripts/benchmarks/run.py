@@ -2,6 +2,7 @@ import argparse
 import sys
 import os
 import time
+import tracemalloc
 import pandas as pd
 import numpy as np
 from core import BenchmarkEngine, ARTIFACTS_DIR
@@ -32,6 +33,25 @@ FULL_OPS = [
     ("Tanh", "mtf.tanh(x)", "TANH(DA(1))"),
 ]
 
+def format_memory(bytes_val):
+    """Formats bytes to human-readable string."""
+    if bytes_val < 1024:
+        return f"{bytes_val} B"
+    elif bytes_val < 1024**2:
+        return f"{bytes_val/1024:.2f} KB"
+    else:
+        return f"{bytes_val/1024**2:.2f} MB"
+
+def measure_memory(func, *args, **kwargs):
+    """Runs a function and captures peak memory usage."""
+    tracemalloc.start()
+    try:
+        result = func(*args, **kwargs)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    return result, peak
+
 def run_ops_benchmark(engine, args):
     """Benchmarks individual operations (Python vs COSY Backend)."""
     ops = [
@@ -43,24 +63,42 @@ def run_ops_benchmark(engine, args):
         ("Log", "mtf.log(1+x)", "LOG(1+DA(1))"),
     ]
     
+    if args.filter:
+        ops = [op for op in ops if args.filter.lower() in op[0].lower()]
+
     results = []
     for name, mtf_expr, cosy_expr in ops:
         print(f"Benchmarking {name}...")
-        c_py, t_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-        c_sc, t_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
         
-        results.append({
+        if args.memory:
+            (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
+            (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
+        else:
+            c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+            c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+            mem_py, mem_sc = 0, 0
+
+        row = {
             "Operation": name,
-            "Python Time": engine.format_time(t_py),
-            "Sandalwood COSY Time": engine.format_time(t_sc),
+            "Python Time": engine.format_time(t_py, s_py),
+            "S-COSY Time": engine.format_time(t_sc, s_sc),
             "Speedup": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
-        })
+        }
+
+        if args.memory:
+            row["Py Mem"] = format_memory(mem_py)
+            row["S-COSY Mem"] = format_memory(mem_sc)
+
+        results.append(row)
         
     df = pd.DataFrame(results)
     if args.json:
         print(df.to_json(orient='records'))
     else:
-        print("\n" + df.to_string(index=False))
+        try:
+             print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+        except ImportError:
+             print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Operation Benchmarks")
 
 def run_raw_comparison(engine, args):
@@ -71,31 +109,50 @@ def run_raw_comparison(engine, args):
         ("exp_test", "mtf.exp(x - 0.5)", "EXP(DA(1) - 0.5)"),
     ]
     
+    if args.filter:
+        cases = [c for c in cases if args.filter.lower() in c[0].lower()]
+
     results = []
     for name, mtf_expr, cosy_expr in cases:
         print(f"Comparing {name} with Raw COSY...")
-        c_py, t_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-        c_sc, t_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
-        c_raw, t_raw = engine.run_raw_cosy(name, cosy_expr, args.iters)
+
+        if args.memory:
+             (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
+             (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
+        else:
+             c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+             c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+             mem_py, mem_sc = 0, 0
+
+        c_raw, t_raw, s_raw = engine.run_raw_cosy(name, cosy_expr, args.iters)
         
         rmse_py = engine.calculate_rmse(c_py, c_raw)
         rmse_sc = engine.calculate_rmse(c_sc, c_raw)
         
-        results.append({
+        row = {
             "Case": name,
-            "Python Time": engine.format_time(t_py),
-            "SCosy Time": engine.format_time(t_sc),
-            "Raw COSY Time": engine.format_time(t_raw),
+            "Python Time": engine.format_time(t_py, s_py),
+            "SCosy Time": engine.format_time(t_sc, s_sc),
+            "Raw COSY Time": engine.format_time(t_raw, s_raw),
             "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
             "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
             "Speedup (Py/SCosy)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
-        })
+        }
+
+        if args.memory:
+            row["Py Mem"] = format_memory(mem_py)
+            row["S-COSY Mem"] = format_memory(mem_sc)
+
+        results.append(row)
         
     df = pd.DataFrame(results)
     if args.json:
         print(df.to_json(orient='records'))
     else:
-        print("\n" + df.to_string(index=False))
+        try:
+             print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+        except ImportError:
+             print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Raw COSY Comparison")
 
 def run_batch_eval(engine, args):
@@ -132,7 +189,10 @@ def run_batch_eval(engine, args):
     }]
     
     df = pd.DataFrame(results)
-    print("\n" + df.to_string(index=False))
+    try:
+         print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+    except ImportError:
+         print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Batch Evaluation Benchmarks")
 
 def run_profile(engine, args):
@@ -223,7 +283,7 @@ def run_full_benchmark(args):
                         "Variables": v,
                         "Order": o,
                         "Python Time (s)": engine_format_to_float(item['Python Time']),
-                        "SCosy Time (s)": engine_format_to_float(item['Sandalwood COSY Time']),
+                        "SCosy Time (s)": engine_format_to_float(item['S-COSY Time']),
                         "Raw-Cosy Time (s)": np.nan,
                         "Speedup (S-Cosy)": item['Speedup']
                     })
@@ -272,6 +332,8 @@ def main():
     parser.add_argument("--iters", type=int, default=100)
     parser.add_argument("--npoints", type=int, default=10000)
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
+    parser.add_argument("--memory", action="store_true", help="Enable memory profiling")
+    parser.add_argument("--filter", type=str, help="Filter benchmarks by name pattern")
     
     args = parser.parse_args()
     

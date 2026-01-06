@@ -32,6 +32,23 @@ class BenchmarkEngine:
         self.order = order
         self.dimension = dimension
         self.variable_names = ["x", "y", "z", "u", "v", "w"][:dimension]
+
+    def get_system_info(self):
+        """Returns a dictionary containing system information."""
+        import platform
+        import psutil
+
+        info = {
+            "OS": platform.system(),
+            "OS Release": platform.release(),
+            "Architecture": platform.machine(),
+            "Processor": platform.processor(),
+            "Python Version": platform.python_version(),
+            "CPU Count (Physical)": psutil.cpu_count(logical=False),
+            "CPU Count (Logical)": psutil.cpu_count(logical=True),
+            "Total RAM": f"{psutil.virtual_memory().total / (1024**3):.2f} GB"
+        }
+        return info
         
     def setup_mtf(self, implementation):
         """Initializes Sandalwood MTF with the specified backend."""
@@ -41,32 +58,47 @@ class BenchmarkEngine:
             globals_dict[vn] = mtf.var(i+1)
         return globals_dict
 
-    def run_sandalwood(self, expression, implementation, iterations):
-        """Runs a benchmark on a Sandalwood expression."""
+    def run_sandalwood(self, expression, implementation, iterations, repeats=5, warmup=1):
+        """Runs a benchmark on a Sandalwood expression with statistics."""
         globals_dict = self.setup_mtf(implementation)
-        start = time.perf_counter()
-        for _ in range(iterations):
-            res = eval(expression, globals_dict)
-        elapsed = time.perf_counter() - start
         
-        # Extract coefficients
+        # Compile expression first to avoid parsing overhead during timing
+        code = compile(expression, "<string>", "eval")
+
+        # Warmup
+        for _ in range(warmup):
+            for _ in range(iterations):
+                _ = eval(code, globals_dict)
+
+        timings = []
+        for _ in range(repeats):
+            start = time.perf_counter()
+            for _ in range(iterations):
+                res = eval(code, globals_dict)
+            elapsed = time.perf_counter() - start
+            timings.append(elapsed)
+
+        avg_time = np.mean(timings)
+        std_time = np.std(timings)
+
+        # Extract coefficients from last result
         exponents = res.exponents
         coeffs = res.coeffs
-        return {tuple(exp): c for exp, c in zip(exponents, coeffs)}, elapsed
+        return {tuple(exp): c for exp, c in zip(exponents, coeffs)}, avg_time, std_time
 
-    def run_raw_cosy(self, name, cosy_expr, iterations):
-        """Runs a benchmark using Raw COSY script execution."""
+    def run_raw_cosy(self, name, cosy_expr, iterations, repeats=5, warmup=1):
+        """Runs a benchmark using Raw COSY script execution with statistics."""
         script_name = f"tmp_{name}.fox"
         fox_path = os.path.join(ARTIFACTS_DIR, script_name)
         dat_path = os.path.join(ARTIFACTS_DIR, "foxyinp.dat")
         
         # Prepare system files in artifacts dir if they don't exist
-        for f in ["COSY.bin", "DAINI.DAT"]:
-             src = os.path.join(BASE_DIR, f)
-             dst = os.path.join(ARTIFACTS_DIR, f)
-             if os.path.exists(src) and not os.path.exists(dst):
-                 import shutil
-                 shutil.copy(src, dst)
+        # COSY needs COSY.fox to be present to run properly
+        src_fox = os.path.join(BASE_DIR, "COSY.fox")
+        dst_fox = os.path.join(ARTIFACTS_DIR, "COSY.fox")
+        if os.path.exists(src_fox) and not os.path.exists(dst_fox):
+             import shutil
+             shutil.copy(src_fox, dst_fox)
 
         cosy_script = f"""
 INCLUDE 'COSY';
@@ -88,34 +120,57 @@ END;
         with open(fox_path, "w") as f: f.write(cosy_script)
         with open(dat_path, "w") as f_dat: f_dat.write(os.path.splitext(script_name)[0])
 
-        start = time.perf_counter()
+        # Warmup (not fully applicable since it's a process, but good for disk cache)
+        for _ in range(warmup):
+             with open(dat_path, 'r') as dat_file:
+                subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, cwd=ARTIFACTS_DIR)
+
+        timings = []
+        last_process = None
+
         try:
-            with open(dat_path, 'r') as dat_file:
-                process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
-            elapsed = time.perf_counter() - start
-            return self.parse_cosy_output(process.stdout), elapsed
+            for _ in range(repeats):
+                start = time.perf_counter()
+                with open(dat_path, 'r') as dat_file:
+                    last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
+                elapsed = time.perf_counter() - start
+                timings.append(elapsed)
+
+            avg_time = np.mean(timings)
+            std_time = np.std(timings)
+            return self.parse_cosy_output(last_process.stdout), avg_time, std_time
         except Exception as e:
             print(f"Raw COSY failed: {e}")
-            return None, None
+            return None, None, None
 
     @staticmethod
-    def format_time(seconds):
+    def format_time(seconds, std_dev=None):
         """Formats time in seconds to a string with appropriate units (s, ms, µs)."""
         if pd.isna(seconds): return "N/A"
-        if seconds < 1e-6:
-            return f"{seconds * 1e9:.2f} ns"
-        elif seconds < 1e-3:
-            return f"{seconds * 1e6:.2f} µs"
+
+        unit = "s"
+        factor = 1.0
+
+        if seconds < 1e-3:
+            unit = "µs"
+            factor = 1e6
         elif seconds < 1:
-            return f"{seconds * 1e3:.2f} ms"
-        else:
-            return f"{seconds:.4f} s"
+            unit = "ms"
+            factor = 1e3
+
+        val = seconds * factor
+        if std_dev is not None and not pd.isna(std_dev):
+            std = std_dev * factor
+            return f"{val:.2f} ± {std:.2f} {unit}"
+        return f"{val:.2f} {unit}"
 
     @staticmethod
     def format_speedup(ratio):
         """Formats a speedup ratio to a meaningful string."""
         if pd.isna(ratio) or ratio == 0: return "N/A"
         if ratio == float('inf'): return "Inf"
+        if ratio >= 10:
+             return f"{int(ratio)}x"
         return f"{ratio:.2f}x"
 
     def parse_cosy_output(self, output):
@@ -194,7 +249,15 @@ END;
         """Generates a styled HTML report with tables and embedded plots."""
         df = pd.DataFrame(full_results)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        sys_info = self.get_system_info()
+
+        sys_html = "".join([f"<li><strong>{k}:</strong> {v}</li>" for k, v in sys_info.items()])
         
+        # Export CSV
+        csv_path = os.path.join(ARTIFACTS_DIR, f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        df.to_csv(csv_path, index=False)
+        print(f"Raw CSV exported to: {csv_path}")
+
         html = f"""
         <!DOCTYPE html>
         <html>
