@@ -165,3 +165,97 @@ def test_da_weighted_matrix_inversion(implementation):
     
     # Check off-diagonal is zero
     assert np.isclose(i_01.truncate(max_order).get_max_coefficient(), 0.0, atol=1e-12)
+
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_non_trivial_integration(implementation):
+    """
+    Test int(x*y^2 + sin(x)) dx = 0.5*x^2*y^2 - cos(x) + C
+    We verify by differentiating the result to get back the integrand.
+    """
+    safe_init(implementation, order=5, dim=2)
+    x = mtf.var(1)
+    y = mtf.var(2)
+    
+    integrand = x * (y**2) + x.sin()
+    
+    # Integrate wrt x (dim 1)
+    integral = integrand.integrate(1)
+    
+    # Derivative wrt x should match integrand (up to truncation)
+    deriv = integral.deriv(1)
+    
+    # Compare deriv vs integrand
+    diff = deriv - integrand
+    
+    max_order = x.get_max_order()
+    # TPSA rule: Integral increases accuracy order, Derivative decreases.
+    # So deriv(int(f)) should be accurate to order(f).
+    # However x.sin() is truncated. 
+    # Let's check coefficients are zero.
+    assert np.allclose(diff.truncate(max_order-1).get_max_coefficient(), 0.0, atol=1e-12)
+
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_advanced_special_functions(implementation):
+    """
+    Test composition chains:
+    1. log(sqrt(1+x)) vs 0.5 * log(1+x)
+    2. tan(asin(x)) vs x/sqrt(1-x^2)
+    """
+    safe_init(implementation, order=6, dim=1)
+    x = mtf.var(1)
+    
+    # 1. log(sqrt(1+x)) = log((1+x)^0.5) = 0.5 * log(1+x)
+    f1 = (1.0 + x).sqrt().log()
+    f2 = 0.5 * (1.0 + x).log()
+    
+    diff1 = f1 - f2
+    # Should be essentially zero
+    assert np.allclose(diff1.truncate(5).get_max_coefficient(), 0.0, atol=1e-12)
+    
+    # 2. tan(asin(x))
+    # Domain check: asin(x) defined for |x| < 1. 
+    # Use small x.
+    if implementation == "cosy":
+        # tan/asin might be supported in COSY
+        t = x.asin().tan()
+        
+        # Analytic: x / sqrt(1-x^2)
+        # = x * (1 - x^2)^(-0.5)
+        analytic = x * (1.0 - x**2)**(-0.5)
+        
+        diff2 = t - analytic
+        # Evaluate at small point
+        val = diff2.eval([0.1])[0]
+        assert np.isclose(val, 0.0, atol=1e-10)
+
+@pytest.mark.parametrize("implementation", ["python", "cosy"])
+def test_complex_arithmetic_non_trivial(implementation):
+    """
+    Test (1+i)x * (1-i)x = (1 - i^2)x^2 = 2x^2
+    """
+    safe_init(implementation, order=4, dim=1)
+    
+    # We need to manually construct complex MTFs if not supported by var directly?
+    # var(1) is proper Real MTF.
+    x = mtf.var(1)
+    
+    # If implementation allows complex scalars:
+    c1 = 1.0 + 1j
+    c2 = 1.0 - 1j
+    
+    if implementation == "cosy":
+         # Check if complex scalars work in COSY backend wrapper
+         # Currently cosymtfdata tries to handle it.
+         pass
+         
+    p1 = x * c1 # (1+i)x
+    p2 = x * c2 # (1-i)x
+    
+    res = p1 * p2
+    
+    # Should be 2*x^2 + 0j
+    # Coefficient of x^2 should be 2.0
+    
+    coeff = res.extract_coefficient((2,))
+    assert np.isclose(coeff.real, 2.0, atol=1e-12)
+    assert np.isclose(coeff.imag, 0.0, atol=1e-12)
