@@ -110,6 +110,15 @@ bind_cosy_func("get_cda_im_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("set_cd_parts_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_to_cd_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("get_cda_coeff_by_index_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double), POINTER(c_double)])
+bind_cosy_func("compute_cd_tan_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_sinh_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_cosh_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_tanh_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_sqrt_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_der_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_pei_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_pkp_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_cd_mui_", [POINTER(c_int), POINTER(c_int)])
 
 # ... (Previous bindings)
 bind_cosy_func("get_mem_state_", [POINTER(c_int), POINTER(c_int)])
@@ -550,37 +559,6 @@ class CosyCDA(CosyDA):
             return CosyCDA.from_const(other)
         return NotImplemented
 
-    def __add__(self, other):
-        b = self._ensure_cd(other)
-        if b is NotImplemented: return NotImplemented
-        res_idx = c_int(0)
-        libcosy.compute_cd_add_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
-        return CosyCDA(idx=res_idx.value, owned=True)
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __sub__(self, other):
-        b = self._ensure_cd(other)
-        if b is NotImplemented: return NotImplemented
-        res_idx = c_int(0)
-        libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
-        return CosyCDA(idx=res_idx.value, owned=True)
-
-    def __rsub__(self, other):
-        a = self._ensure_cd(other)
-        if a is NotImplemented: return NotImplemented
-        return a - self
-
-    def __mul__(self, other):
-        b = self._ensure_cd(other)
-        if b is NotImplemented: return NotImplemented
-        res_idx = c_int(0)
-        libcosy.compute_cd_mul_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
-        return CosyCDA(idx=res_idx.value, owned=True)
-
-    def __rmul__(self, other):
-        return self.__mul__(other)
 
     def __truediv__(self, other):
         b = self._ensure_cd(other)
@@ -629,23 +607,30 @@ class CosyCDA(CosyDA):
         libcosy.compute_cd_cos_(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
+    def tan(self):
+        res_idx = c_int(0)
+        libcosy.compute_cd_tan_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
     def sinh(self):
-        # sinh(z) = (exp(z) - exp(-z)) / 2
-        ez = self.exp()
-        enz = (-self).exp()
-        return (ez - enz) * 0.5
+        res_idx = c_int(0)
+        libcosy.compute_cd_sinh_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
 
     def cosh(self):
-        # cosh(z) = (exp(z) + exp(-z)) / 2
-        ez = self.exp()
-        enz = (-self).exp()
-        return (ez + enz) * 0.5
+        res_idx = c_int(0)
+        libcosy.compute_cd_cosh_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
 
     def tanh(self):
-        return self.sinh() / self.cosh()
+        res_idx = c_int(0)
+        libcosy.compute_cd_tanh_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
 
     def sqrt(self):
-        return self ** 0.5
+        res_idx = c_int(0)
+        libcosy.compute_cd_sqrt_(byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
 
 
     def get_all_terms(self):
@@ -681,6 +666,31 @@ class CosyCDA(CosyDA):
             libcosy.compute_cd_add_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        res_idx = c_int(0)
+        if isinstance(other, CosyCDA):
+            libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+        elif isinstance(other, CosyDA):
+            other_cd = other.to_complex()
+            libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
+        else:
+            re_v = float(other.real) if hasattr(other, 'real') else float(other)
+            im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
+            con = CosyCDA(from_const=(re_v, im_v))
+            libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __rsub__(self, other):
+        res_idx = c_int(0)
+        re_v = float(other.real) if hasattr(other, 'real') else float(other)
+        im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
+        con = CosyCDA(from_const=(re_v, im_v))
+        libcosy.compute_cd_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
     def __mul__(self, other):
         res_idx = c_int(0)
         if isinstance(other, CosyCDA):
@@ -693,6 +703,15 @@ class CosyCDA(CosyDA):
             im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
             con = CosyCDA(from_const=(re_v, im_v))
             libcosy.compute_cd_mul_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def deriv(self, var_id):
+        res_idx = c_int(0)
+        c_var = c_int(var_id + 1)
+        libcosy.compute_cd_der_(byref(c_var), byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
 

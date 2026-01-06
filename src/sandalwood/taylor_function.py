@@ -11,6 +11,7 @@ Power Series Algebra (TPSA).
 
 import json
 import math
+import cmath
 import numbers
 from collections import defaultdict
 from functools import reduce
@@ -475,7 +476,17 @@ class MultivariateTaylorFunction:
             if self._exponents.size > 0 and self._exponents.shape[1] != self.dimension:
                 # This might happen if backend truncates or changes dimension unexpectedly?
                 # Or if self.dimension was set incorrectly.
+                # Or if self.dimension was set incorrectly.
                 pass
+
+    def _ensure_backend(self):
+        """Attempts to reconstruct backend data if it is missing."""
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is None:
+             if self._coeffs is not None and self._exponents is not None and _COSY_BACKEND_AVAILABLE:
+                 is_complex = np.iscomplexobj(self._coeffs)
+                 self.mtf_data = cosy_backend.CosyMtfData(self.dimension, is_complex=is_complex)
+                 self.mtf_data.from_numpy(self._exponents, self._coeffs)
+
 
     @property
     def exponents(self):
@@ -924,8 +935,13 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for addition.")
 
+        # Ensure backend consistency
+        if self._IMPLEMENTATION == "cosy":
+            self._ensure_backend()
+            other._ensure_backend()
+
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
             res_data = self.mtf_data.add(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -994,8 +1010,13 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for subtraction.")
 
+        # Ensure backend consistency
+        if self._IMPLEMENTATION == "cosy":
+             self._ensure_backend()
+             other._ensure_backend()
+
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
             res_data = self.mtf_data.subtract(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1007,6 +1028,8 @@ class MultivariateTaylorFunction:
 
     def __rsub__(self, other):
         """Defines reverse subtraction for non-commutative property."""
+        if isinstance(other, (int, float, complex, np.number)):
+             return self.to_mtf(other, self.dimension) - self
         return -(self - other)
 
     def __mul__(self, other):
@@ -1024,8 +1047,13 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for multiplication.")
 
+        # Ensure backend consistency
+        if self._IMPLEMENTATION == "cosy":
+             self._ensure_backend()
+             other._ensure_backend()
+
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
             res_data = self.mtf_data.multiply(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1180,8 +1208,13 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for division.")
 
+        # Ensure backend consistency
+        if self._IMPLEMENTATION == "cosy":
+             self._ensure_backend()
+             other._ensure_backend()
+
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
             res_data = self.mtf_data.divide(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1568,7 +1601,7 @@ class MultivariateTaylorFunction:
                 substitutions[i] = type(self).var(i, dimension=result_dim)
 
         # COSY Backend Optimization: Use POLVAL for fast composition
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+        if False and self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             # Construct ordered list of CosyDA objects corresponding to variables 1..self.dimension
             args_da_list = []
             for i in range(1, self.dimension + 1):
@@ -1696,6 +1729,12 @@ class MultivariateTaylorFunction:
             by=["Order", "Exponents"], ascending=[True, False]
         ).reset_index(drop=True)
         return df
+
+    def get_all_terms(self):
+        """
+        Returns a list of all non-zero terms as (exponents, coefficient) pairs.
+        """
+        return list(zip(map(tuple, self.exponents), self.coeffs))
 
     def extract_coefficient(self, exponents):
         """
@@ -2234,8 +2273,8 @@ class MultivariateTaylorFunction:
 
         if const_idx.size > 0:
             val = self.coeffs[const_idx[0]]
-            if isinstance(val, complex):
-                return val.real
+            if isinstance(val, (complex, np.complex128)):
+                return val
             return float(val)
         else:
             return 0.0
@@ -2438,12 +2477,25 @@ def _sqrt_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
     constant_term_C_value, polynomial_part_B_mtf = _split_constant_polynomial_part(
         input_mtf
     )
-    if constant_term_C_value <= 0:
-        raise ValueError(
-            "Constant part of input to sqrt_taylor is non-positive. This method is "
-            "for sqrt(constant*(1+x)) form, requiring positive constant."
+    
+    # Avoid circular import by importing locally
+    from .complex_taylor_function import ComplexMultivariateTaylorFunction
+    is_complex_input = isinstance(input_mtf, ComplexMultivariateTaylorFunction) or isinstance(constant_term_C_value, complex)
+
+    if abs(constant_term_C_value) < 1e-12:
+         raise ValueError(
+            "Constant part of input to sqrt_taylor is too close to zero. "
+            "Square root is not defined at zero for this expansion."
         )
-    constant_factor_sqrt_C = math.sqrt(constant_term_C_value)
+
+    if not is_complex_input and constant_term_C_value < 0:
+        raise ValueError(
+            "Constant part of input to sqrt_taylor is negative. This method "
+            "requires a non-negative constant for Real inputs. For complex "
+            "roots, use ComplexMultivariateTaylorFunction."
+        )
+
+    constant_factor_sqrt_C = cmath.sqrt(constant_term_C_value)
     polynomial_part_x_mtf = polynomial_part_B_mtf / constant_term_C_value
     sqrt_1_plus_x_mtf = sqrt_taylor_1D_expansion(polynomial_part_x_mtf, order=order)
     result_mtf = sqrt_1_plus_x_mtf * constant_factor_sqrt_C
@@ -2497,6 +2549,3 @@ def sqrt_taylor_1D_expansion(
     )
     composed_mtf = sqrt_taylor_1d_mtf.compose({1: input_mtf})
     return composed_mtf.truncate(order)
-
-
-

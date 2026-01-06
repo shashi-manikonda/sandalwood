@@ -9,6 +9,7 @@ Differential Algebra (DA).
 """
 
 import math
+import cmath
 from typing import Optional
 
 import numpy as np
@@ -157,8 +158,8 @@ def _sin_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
     constant_term_C_value, polynomial_part_mtf = _split_constant_polynomial_part(
         input_mtf
     )
-    constant_sin_C = math.sin(constant_term_C_value)
-    constant_cos_C = math.cos(constant_term_C_value)
+    constant_sin_C = cmath.sin(constant_term_C_value)
+    constant_cos_C = cmath.cos(constant_term_C_value)
 
     term1_mtf = cos_taylor_around_zero(polynomial_part_mtf) * constant_sin_C
     term2_mtf = sin_taylor_around_zero(polynomial_part_mtf) * constant_cos_C
@@ -205,8 +206,8 @@ def _cos_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
     constant_term_C_value, polynomial_part_mtf = _split_constant_polynomial_part(
         input_mtf
     )
-    constant_cos_C = math.cos(constant_term_C_value)
-    constant_sin_C = math.sin(constant_term_C_value)
+    constant_cos_C = cmath.cos(constant_term_C_value)
+    constant_sin_C = cmath.sin(constant_term_C_value)
 
     term1_mtf = cos_taylor_around_zero(polynomial_part_mtf) * constant_cos_C
     term2_mtf = sin_taylor_around_zero(polynomial_part_mtf) * constant_sin_C
@@ -321,7 +322,7 @@ def _exp_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
         order = MultivariateTaylorFunction.get_max_order()
     input_mtf = MultivariateTaylorFunction.to_mtf(variable)
     return _apply_constant_factoring(
-        input_mtf, math.exp, exp_taylor_around_zero, "*"
+        input_mtf, cmath.exp, exp_taylor_around_zero, "*"
     ).truncate(order)
 
 
@@ -420,19 +421,21 @@ def _log_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
         input_mtf
     )
 
-    if constant_term_C_value <= 1e-9:
+    is_complex_input = isinstance(input_mtf, ComplexMultivariateTaylorFunction) or isinstance(constant_term_C_value, complex)
+
+    if abs(constant_term_C_value) < 1e-12:
         raise ValueError(
-            "Constant part of input to log_taylor is too close to zero or "
-            "negative. Logarithm is not defined for non-positive values, "
-            "and this method requires a positive constant term."
+            "Constant part of input to log_taylor is too close to zero. "
+            "Logarithm is not defined at zero."
         )
-    if constant_term_C_value < 0:  # Explicit check for negative constant part
+    
+    if not is_complex_input and constant_term_C_value < 0:
         raise ValueError(
             "Constant part of input to log_taylor is negative. Logarithm is "
-            "not defined for negative values."
+            "not defined for negative values in the Real domain."
         )
 
-    constant_factor_log_C = math.log(constant_term_C_value)
+    constant_factor_log_C = cmath.log(constant_term_C_value)
     polynomial_part_x_mtf = polynomial_part_B_mtf / constant_term_C_value
     log_1_plus_x_mtf = log_taylor_1D_expansion(polynomial_part_x_mtf, order=order)
     result_mtf = log_1_plus_x_mtf + constant_factor_log_C
@@ -491,7 +494,7 @@ def _arctan_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorF
         input_mtf
     )
 
-    constant_arctan_C = math.atan(constant_term_C_value)
+    constant_arctan_C = cmath.atan(constant_term_C_value)
     denominator_mtf = MultivariateTaylorFunction.from_constant(
         1.0 + constant_term_C_value**2
     ) + (float(constant_term_C_value) * polynomial_part_B_mtf)
@@ -557,8 +560,8 @@ def _sinh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
     constant_term_C_value, polynomial_part_mtf = _split_constant_polynomial_part(
         input_mtf
     )
-    constant_sinh_C = math.sinh(constant_term_C_value)
-    constant_cosh_C = math.cosh(constant_term_C_value)
+    constant_sinh_C = cmath.sinh(constant_term_C_value)
+    constant_cosh_C = cmath.cosh(constant_term_C_value)
 
     term1_mtf = cosh_taylor_around_zero(polynomial_part_mtf) * constant_sinh_C
     term2_mtf = sinh_taylor_around_zero(polynomial_part_mtf) * constant_cosh_C
@@ -605,8 +608,8 @@ def _cosh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
     constant_term_C_value, polynomial_part_mtf = _split_constant_polynomial_part(
         input_mtf
     )
-    constant_cosh_C = math.cosh(constant_term_C_value)
-    constant_sinh_C = math.sinh(constant_term_C_value)
+    constant_cosh_C = cmath.cosh(constant_term_C_value)
+    constant_sinh_C = cmath.sinh(constant_term_C_value)
 
     term1_mtf = cosh_taylor_around_zero(polynomial_part_mtf) * constant_cosh_C
     term2_mtf = sinh_taylor_around_zero(polynomial_part_mtf) * constant_sinh_C
@@ -722,9 +725,7 @@ def _arctanh_taylor(
     constant_term_C_value, polynomial_part_B_mtf = _split_constant_polynomial_part(
         input_mtf
     )  # Corrected variable name here and below
-    constant_arctanh_C = math.atanh(
-        constant_term_C_value
-    )  # Note: math.atanh for scalar input
+    constant_arctanh_C = cmath.atanh(constant_term_C_value)
 
     denominator_mtf = MultivariateTaylorFunction.from_constant(
         1.0 - constant_term_C_value**2
@@ -877,46 +878,6 @@ def _erf_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
     return _create_composed_taylor_from_coeffs(variable, "erf", order, dynamic_erf).truncate(order)
 
 
-def _arccos_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
-    """
-    Computes the Taylor expansion of `arccos(x)`.
-
-    Uses the identity `arccos(x) = pi/2 - arcsin(x)`.
-
-    Parameters
-    ----------
-    variable : MultivariateTaylorFunction or numeric
-        The input function `x`.
-    order : int, optional
-        The truncation order for the result. If None, the global default
-        is used.
-
-    Returns
-    -------
-    MultivariateTaylorFunction
-        The Taylor series for `arccos(x)`.
-
-    Examples
-    --------
-    >>> from sandalwood import MultivariateTaylorFunction
-    >>> import numpy as np
-    >>> mtf = MultivariateTaylorFunction
-    >>> mtf.initialize_mtf(max_order=3, max_dimension=1)
-    >>> x = mtf.var(1)
-    >>> f = mtf.arccos(x)
-    >>> print(f.get_tabular_dataframe())
-       Coefficient  Order Exponents
-    0  1.570796e+00      0    (0,)
-    1 -1.000000e+00      1    (1,)
-    2 -1.666667e-01      3    (3,)
-    """
-    if order is None:
-        order = MultivariateTaylorFunction.get_max_order()
-    arcsin_mtf = _arcsin_taylor(variable, order=order)  # Get arcsin_taylor expansion
-    pi_over_2_constant = np.pi / 2.0
-    arccos_mtf = (
-        MultivariateTaylorFunction.to_mtf(pi_over_2_constant) - arcsin_mtf
-    )  # Perform MTF subtraction
     return arccos_mtf.truncate(order)  # Truncate to the desired order
 
 
