@@ -214,3 +214,7 @@ DAS.DAT
 *.log
 *.txt
 scripts/benchmark_archived/
+*.lis
+*.bin
+*.o
+cosy
