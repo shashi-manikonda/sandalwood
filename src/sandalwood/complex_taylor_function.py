@@ -60,7 +60,8 @@ class ComplexMultivariateTaylorFunction(MultivariateTaylorFunction):
         """
         Initializes a ComplexMultivariateTaylorFunction.
 
-        Ensures that the coefficients are of a complex data type.
+        Ensures that the coefficients are of a complex data type and upgrades
+        backend data to complex if necessary.
 
         Parameters
         ----------
@@ -75,8 +76,27 @@ class ComplexMultivariateTaylorFunction(MultivariateTaylorFunction):
             Internal data for C++ backend. Not for user consumption.
         """
         super().__init__(coefficients, dimension, var_name, mtf_data=mtf_data)
-        if self.coeffs.dtype != np.complex128:
-            self.coeffs = self.coeffs.astype(np.complex128)
+        
+        # Ensure complex coefficients
+        if self._coeffs is not None and self._coeffs.dtype != np.complex128:
+            # We modify _coeffs directly to avoid triggering the setter and invalidating mtf_data
+            self._coeffs = self._coeffs.astype(np.complex128)
+            
+            # If backend is active, we might need to upgrade the data to complex
+            if self.mtf_data is not None:
+                 if hasattr(self.mtf_data, "is_complex") and not self.mtf_data.is_complex:
+                      if hasattr(self.mtf_data, "to_complex"):
+                           self.mtf_data = self.mtf_data.to_complex()
+                      else:
+                           # Fallback: recreate (should not happen with CosyMtfData)
+                           self.mtf_data = None
+                           
+        # Check if mtf_data is still consistent with our complex requirement
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+             if hasattr(self.mtf_data, "is_complex") and not self.mtf_data.is_complex:
+                  # If likely Real data but we want Complex
+                   if hasattr(self.mtf_data, "to_complex"):
+                        self.mtf_data = self.mtf_data.to_complex()
 
     @classmethod
     def from_constant(cls, constant_value, dimension=None):
