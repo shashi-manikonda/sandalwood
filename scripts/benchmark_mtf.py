@@ -12,12 +12,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from sandalwood import mtf
 
 
-def run_benchmark(backend, operation, dims, order, iterations):
+def run_benchmark(backend, operation, dims, order, iterations, use_complex):
     try:
-        if backend == "cosy":
-            mtf.initialize_mtf(max_order=order, max_dimension=dims, implementation="cosy")
-        else:
-            mtf.initialize_mtf(max_order=order, max_dimension=dims, implementation="python")
+        mtf_impl = "cosy" if backend == "cosy" else "python"
+        mtf.initialize_mtf(max_order=order, max_dimension=dims, implementation=mtf_impl)
             
         # Setup variables
         vars = [mtf.var(i+1) for i in range(dims)]
@@ -25,6 +23,11 @@ def run_benchmark(backend, operation, dims, order, iterations):
         # Pre-compute some dense polynomials for testing
         poly1 = vars[0]
         poly2 = vars[0]
+        # To verify Phase 2 (Complex DA), we mix in complex constants if requested
+        if use_complex:
+             poly1 = poly1 + 1j
+             poly2 = poly2 - 0.5j
+
         for i in range(1, dims):
             poly1 = poly1 + vars[i]
             poly2 = poly2 - vars[i]
@@ -61,6 +64,8 @@ def run_benchmark(backend, operation, dims, order, iterations):
                     res = poly1.cos()
                 elif operation == "tan":
                     res = poly1.tan()
+                elif operation == "cot":
+                    res = (poly1 + 0.1).cot()
                 elif operation == "exp":
                     res = poly1.exp()
                 elif operation == "log":
@@ -79,6 +84,10 @@ def run_benchmark(backend, operation, dims, order, iterations):
                     res = poly1.cosh()
                 elif operation == "tanh":
                     res = poly1.tanh()
+                elif operation == "coth":
+                    res = (poly1 + 0.1).coth()
+                elif operation == "erf":
+                    res = poly1.erf()
                 elif operation == "derivative":
                     res = poly1.derivative(1)
                 elif operation == "integrate":
@@ -99,7 +108,8 @@ def run_benchmark(backend, operation, dims, order, iterations):
             "min": min_time,
             "max": max_time,
             "iterations": iterations,
-            "batch_size": batch_size
+            "batch_size": batch_size,
+            "complex": use_complex
         }
 
         print(f"RESULT_JSON: {json.dumps(result)}")
@@ -115,10 +125,11 @@ def run_benchmark(backend, operation, dims, order, iterations):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", required=True, choices=["python", "cosy"])
-    parser.add_argument("--op", required=True, choices=["add", "sub", "mul", "div", "pow", "eval", "sin", "cos", "tan", "exp", "log", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh", "derivative", "integrate"])
+    parser.add_argument("--op", required=True, choices=["add", "sub", "mul", "div", "pow", "eval", "sin", "cos", "tan", "cot", "exp", "log", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh", "coth", "erf", "derivative", "integrate"])
     parser.add_argument("--dims", type=int, default=4)
     parser.add_argument("--order", type=int, default=5)
     parser.add_argument("--iters", type=int, default=100)
+    parser.add_argument("--complex", action="store_true", help="Use complex polynomials")
     
     args = parser.parse_args()
-    run_benchmark(args.backend, args.op, args.dims, args.order, args.iters)
+    run_benchmark(args.backend, args.op, args.dims, args.order, args.iters, args.complex)
