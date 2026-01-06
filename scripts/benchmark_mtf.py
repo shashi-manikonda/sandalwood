@@ -1,14 +1,16 @@
-import sys
-import os
-import time
 import argparse
-import numpy as np
 import json
+import os
+import sys
+import time
+
+import numpy as np
 
 # Ensure we can import sandalwood
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from sandalwood import mtf
+
 
 def run_benchmark(backend, operation, dims, order, iterations):
     try:

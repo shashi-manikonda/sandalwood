@@ -51,7 +51,6 @@ from .complex_taylor_function import (
     ComplexMultivariateTaylorFunction,
     cmtf,
 )
-
 from .taylor_function import (
     MultivariateTaylorFunction,
     mtf,

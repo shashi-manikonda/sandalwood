@@ -1,6 +1,6 @@
 import os
 import sys
-from ctypes import CDLL, POINTER, RTLD_GLOBAL, byref, c_double, c_int
+from ctypes import CDLL, POINTER, byref, c_double, c_int
 
 import numpy as np
 
@@ -780,6 +780,9 @@ class CosyMtfData:
         return self.da.get_constant()
 
     def inverse(self):
+        c0 = self.get_constant()
+        if abs(c0) == 0:
+             raise ValueError("Inversion of zero constant (Division by zero).")
         res_da = self.da.inverse()
         is_complex = isinstance(res_da, CosyCDA)
         return CosyMtfData(self.dimension, is_complex=is_complex, idx=res_da.idx, owned=True)
@@ -889,6 +892,9 @@ class CosyMtfData:
         self.da = self.da * other.da
 
     def divide(self, other):
+        c0 = other.get_constant()
+        if abs(c0) == 0:
+             raise ValueError("Division by zero (constant part is zero).")
         return self._create_res(self.da / other.da)
 
     def negate(self):
@@ -935,9 +941,20 @@ class CosyMtfData:
         return self._create_res(self.da.exp())
 
     def log(self):
+        c0 = self.get_constant()
+        if isinstance(c0, complex) or isinstance(self.da, CosyCDA):
+            if abs(c0) == 0:
+                raise ValueError("Logarithm undefined for zero constant part.")
+        else:
+            if c0 <= 0:
+                raise ValueError("Logarithm undefined for non-positive constant part.")
         return self._create_res(self.da.log())
 
     def sqrt(self):
+        c0 = self.get_constant()
+        if not (isinstance(c0, complex) or isinstance(self.da, CosyCDA)):
+            if c0 < 0:
+                raise ValueError("Square root undefined for negative constant part (Real domain).")
         return self._create_res(self.da.sqrt())
 
     def asin(self):

@@ -19,7 +19,6 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-
 from .backend import get_backend
 
 # COSY Backend availability
@@ -1909,7 +1908,7 @@ class MultivariateTaylorFunction:
         if self.coeffs.size == 0:
             return
 
-        keep_mask = np.abs(self.coeffs) > etol
+        keep_mask = (np.abs(self.coeffs) > etol) | np.isnan(self.coeffs) | np.isinf(self.coeffs)
 
         self.exponents = self.exponents[keep_mask]
         self.coeffs = self.coeffs[keep_mask]

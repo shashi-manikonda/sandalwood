@@ -1,6 +1,7 @@
-import sandalwood
 import numpy as np
 import pytest
+
+import sandalwood
 from sandalwood import TaylorMap, mtf
 
 

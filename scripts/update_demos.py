@@ -1,9 +1,10 @@
 
-import os
-import json
-import subprocess
 import glob
+import json
+import os
+import subprocess
 import sys
+
 
 def update_notebook(filepath):
     print(f"Processing {filepath}...")
@@ -39,13 +40,13 @@ def update_notebook(filepath):
     # No, default is now COSY. We trust the default.
     
     if modified:
-        print(f"  - Modified backend to COSY in source.")
+        print("  - Modified backend to COSY in source.")
     
     with open(filepath, 'w') as f:
         json.dump(nb, f, indent=1)
 
     # Execute
-    print(f"  - Executing...")
+    print("  - Executing...")
     env = os.environ.copy()
     env["PYTHONPATH"] = os.path.join(os.getcwd(), "src") + os.pathsep + env.get("PYTHONPATH", "")
     # Ensure COSY libs are found if needed (setup usually handles rpath but just in case)
@@ -60,7 +61,7 @@ def update_notebook(filepath):
     
     try:
         subprocess.run(cmd, env=env, check=True, capture_output=True)
-        print(f"  - Done.")
+        print("  - Done.")
     except subprocess.CalledProcessError as e:
         print(f"  - FAILED executon: {e}")
         print(e.stderr.decode() if e.stderr else "No stderr")

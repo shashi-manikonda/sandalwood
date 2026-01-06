@@ -1,8 +1,8 @@
 
-import pytest
 import numpy as np
+import pytest
+
 import sandalwood.taylor_function as taylor
-import sandalwood.backends.cosy.cosy_backend as cosy_backend
 
 # Common test parameters
 MAX_ORDER = 4

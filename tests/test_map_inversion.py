@@ -1,8 +1,7 @@
+import pytest
+
 from sandalwood import TaylorMap, mtf
 
-
-import pytest
-import sandalwood.taylor_function
 
 @pytest.fixture(autouse=True)
 def setup_mtf(backend_implementation):

@@ -1,10 +1,12 @@
 
-import pytest
-import os
-import sys
-import subprocess
-import tempfile
 import json
+import os
+import subprocess
+import sys
+import tempfile
+
+import pytest
+
 
 @pytest.mark.demo
 @pytest.mark.parametrize("backend", ["python", "cosy"])

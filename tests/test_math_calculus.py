@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+import pytest
+
 import sandalwood.taylor_function as taylor
-from sandalwood.backends.cosy import cosy_backend
+
 
 @pytest.fixture(autouse=True)
 def cleanup_mtf():

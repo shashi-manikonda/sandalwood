@@ -1,13 +1,15 @@
-import pytest
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import pytest
 
 # Ensure we can import sandalwood
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyMtfData, CosyDA
+from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyDA, CosyMtfData
 from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
+
 
 @pytest.mark.skipif(sys.platform == 'win32', reason="Batch eval optimization primarily for Linux/OpenMP")
 def test_batch_eval_correctness():

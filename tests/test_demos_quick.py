@@ -1,10 +1,12 @@
 
-import pytest
-import os
-import sys
-import subprocess
 import json
+import os
+import subprocess
+import sys
 import tempfile
+
+import pytest
+
 
 def find_demos():
     """Recursively finds all .ipynb and .py files in the demos directory."""
