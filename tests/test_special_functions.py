@@ -78,11 +78,6 @@ def test_erf(implementation):
     
     x = 0.0 + taylor.MultivariateTaylorFunction.var(1)
     
-    if implementation == "python":
-        with pytest.raises(NotImplementedError, match="erf will be implemented in future"):
-            x.erf()
-        return
-
     res = x.erf()
     
     # erf(0) = 0
@@ -108,11 +103,6 @@ def test_coth(implementation):
     # No, coth(x) blows up at x=0. Use x = 1 + delta
     x = 1.0 + taylor.MultivariateTaylorFunction.var(1)
     
-    if implementation == "python":
-        with pytest.raises(NotImplementedError, match="coth will be implemented in future"):
-            x.coth()
-        return
-
     res = x.coth()
     
     # Expected constant: coth(1) = 1/tanh(1)

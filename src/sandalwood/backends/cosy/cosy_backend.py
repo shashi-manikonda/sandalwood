@@ -84,18 +84,16 @@ bind_cosy_func("compute_da_tan_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_sqr_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_sqrt_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_isrt_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_erf_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_cot_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_asin_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_acos_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_atan_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("compute_da_coth_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_asinh_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_acosh_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_atanh_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_minv_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_isrt3_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_norm_", [POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("compute_da_wnorm_", [POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 
 # Complex wrappers
 bind_cosy_func("create_cda_var_", [POINTER(c_int), POINTER(c_int), POINTER(c_double)])
@@ -434,11 +432,6 @@ class CosyDA:
         libcosy.compute_da_atan_(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
-    def erf(self):
-        res_idx = c_int(0)
-        libcosy.compute_da_erf_(byref(c_int(self.idx)), byref(res_idx))
-        return CosyDA(idx=res_idx.value, owned=True)
-
     def inv_sqrt(self):
         res_idx = c_int(0)
         libcosy.compute_da_isrt_(byref(c_int(self.idx)), byref(res_idx))
@@ -458,6 +451,16 @@ class CosyDA:
         res_idx = c_int(0)
         libcosy.compute_da_cot_(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
+
+    def norm(self):
+        val = c_double(0.0)
+        libcosy.compute_da_norm_(byref(c_int(self.idx)), byref(val))
+        return val.value
+
+    def weighted_norm(self, weight_da):
+        val = c_double(0.0)
+        libcosy.compute_da_wnorm_(byref(c_int(self.idx)), byref(c_int(weight_da.idx)), byref(val))
+        return val.value
 
     def estimate_stability(self, var_id=0, order=None):
         """
@@ -937,6 +940,9 @@ class CosyMtfData:
     def tan(self):
         return self._create_res(self.da.tan())
 
+    def cot(self):
+        return self._create_res(self.da.cot())
+
     def exp(self):
         return self._create_res(self.da.exp())
 
@@ -978,14 +984,21 @@ class CosyMtfData:
     def coth(self):
         return self._create_res(self.da.coth())
 
-    def erf(self):
-        return self._create_res(self.da.erf())
-
     def inv_sqrt(self):
         return self._create_res(self.da.inv_sqrt())
 
     def inv_cbrt(self):
         return self._create_res(self.da.inv_cbrt())
+
+    def norm(self):
+        return self.da.norm()
+
+    def weighted_norm(self, weight):
+        if hasattr(weight, "mtf_data"):
+             weight = weight.mtf_data.da
+        elif hasattr(weight, "da"):
+             weight = weight.da
+        return self.da.weighted_norm(weight)
 
     def estimate_stability(self, var_id=0, order=None):
         return self.da.estimate_stability(var_id, order)

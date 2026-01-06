@@ -2043,16 +2043,32 @@ class MultivariateTaylorFunction:
         raise NotImplementedError("inv_cbrt will be implemented in future for Python backend")
 
     def erf(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.erf()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
-        raise NotImplementedError("erf will be implemented in future for Python backend")
+        # COSY's DAERF/REERF are under development and trigger errors for orders > 6.
+        # Per user request, we ignore COSY for erf and use the Python Taylor fallback.
+        from .elementary_functions import _erf_taylor
+        return _erf_taylor(self)
 
     def coth(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.coth()
-            return type(self)(mtf_data=res_data, dimension=self.dimension)
-        raise NotImplementedError("coth will be implemented in future for Python backend")
+            return self._create_result(self.mtf_data.coth())
+        from .elementary_functions import _coth_taylor
+        return _coth_taylor(self)
+
+    def cot(self) -> "MultivariateTaylorFunction":
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            return self._create_result(self.mtf_data.cot())
+        from .elementary_functions import _cot_taylor
+        return _cot_taylor(self)
+
+    def norm(self) -> float:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            return self.mtf_data.norm()
+        return float(self.get_max_coefficient())
+
+    def weighted_norm(self, weight) -> float:
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            return self.mtf_data.weighted_norm(weight)
+        raise NotImplementedError("weighted_norm is only available for the COSY backend")
 
     def estimate_stability(self, var_id: int = 0, order: int = None) -> float:
         """
@@ -2072,6 +2088,25 @@ class MultivariateTaylorFunction:
 
     def atan(self):
         return self.arctan()
+
+    def arcsinh(self):
+        # We use Python fallback for inverse hyperbolics as COSY bindings were buggy
+        from .elementary_functions import _arcsinh_taylor
+        return _arcsinh_taylor(self)
+
+    def arccosh(self):
+        from .elementary_functions import _arccosh_taylor
+        return _arccosh_taylor(self)
+
+    def arctanh(self):
+        from .elementary_functions import _arctanh_taylor
+        return _arctanh_taylor(self)
+
+    def asinh(self):
+        return self.arcsinh()
+
+    def acosh(self):
+        return self.arccosh()
 
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
