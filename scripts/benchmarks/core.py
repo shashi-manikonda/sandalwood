@@ -95,6 +95,26 @@ END;
             print(f"Raw COSY failed: {e}")
             return None, None
 
+    @staticmethod
+    def format_time(seconds):
+        """Formats time in seconds to a string with appropriate units (s, ms, µs)."""
+        if pd.isna(seconds): return "N/A"
+        if seconds < 1e-6:
+            return f"{seconds * 1e9:.2f} ns"
+        elif seconds < 1e-3:
+            return f"{seconds * 1e6:.2f} µs"
+        elif seconds < 1:
+            return f"{seconds * 1e3:.2f} ms"
+        else:
+            return f"{seconds:.4f} s"
+
+    @staticmethod
+    def format_speedup(ratio):
+        """Formats a speedup ratio to a meaningful string."""
+        if pd.isna(ratio) or ratio == 0: return "N/A"
+        if ratio == float('inf'): return "Inf"
+        return f"{ratio:.2f}x"
+
     def parse_cosy_output(self, output):
         """Parses COSY output to extract coefficients dictionary."""
         coefficients = {}

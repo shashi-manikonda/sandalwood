@@ -14,7 +14,7 @@ def run_ops_benchmark(engine, args):
     ops = [
         ("Add", "x + y", "DA(1)+DA(2)"),
         ("Mul", "x * y", "DA(1)*DA(2)"),
-        ("Pow", "(x+y)**3", "POW((DA(1)+DA(2)),3)"),
+        ("Pow", "(x+y)**3", "(DA(1)+DA(2))*(DA(1)+DA(2))*(DA(1)+DA(2))"),
         ("Sin", "mtf.sin(x)", "SIN(DA(1))"),
         ("Exp", "mtf.exp(x)", "EXP(DA(1))"),
         ("Log", "mtf.log(1+x)", "LOG(1+DA(1))"),
@@ -28,9 +28,9 @@ def run_ops_benchmark(engine, args):
         
         results.append({
             "Operation": name,
-            "Python (s)": t_py,
-            "Sandalwood COSY (s)": t_sc,
-            "Speedup (x)": t_py / t_sc if t_sc > 0 else 0
+            "Python Time": engine.format_time(t_py),
+            "Sandalwood COSY Time": engine.format_time(t_sc),
+            "Speedup": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
         })
         
     df = pd.DataFrame(results)
@@ -40,7 +40,7 @@ def run_ops_benchmark(engine, args):
 def run_raw_comparison(engine, args):
     """Compares Sandalwood (Python/COSY) with Raw COSY execution."""
     cases = [
-        ("mul_intensive", "(x + y + z + u)**2", "POW((DA(1)+DA(2)+DA(3)+DA(4)),2)"),
+        ("mul_intensive", "(x + y + z + u)**2", "(DA(1)+DA(2)+DA(3)+DA(4))*(DA(1)+DA(2)+DA(3)+DA(4))"),
         ("sin_complex", "mtf.sin(0.5 + x + y)", "SIN(0.5 + DA(1) + DA(2))"),
         ("exp_test", "mtf.exp(x - 0.5)", "EXP(DA(1) - 0.5)"),
     ]
@@ -57,12 +57,12 @@ def run_raw_comparison(engine, args):
         
         results.append({
             "Case": name,
-            "Python (s)": t_py,
-            "Sandalwood COSY (s)": t_sc,
-            "Raw COSY (s)": t_raw,
-            "RMSE (Py vs Raw)": rmse_py,
-            "RMSE (SCosy vs Raw)": rmse_sc,
-            "Speedup (Py/SCosy)": t_py / t_sc if t_sc > 0 else 0
+            "Python Time": engine.format_time(t_py),
+            "SCosy Time": engine.format_time(t_sc),
+            "Raw COSY Time": engine.format_time(t_raw),
+            "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
+            "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
+            "Speedup (Py/SCosy)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
         })
         
     df = pd.DataFrame(results)
@@ -97,9 +97,9 @@ def run_batch_eval(engine, args):
     
     results = [{
         "Points": args.npoints,
-        "Batch Total (s)": t_batch,
-        "Serial Est (s)": t_serial_est,
-        "Speedup (x)": t_serial_est / t_batch
+        "Batch Total": engine.format_time(t_batch),
+        "Serial Est": engine.format_time(t_serial_est),
+        "Speedup": engine.format_speedup(t_serial_est / t_batch if t_batch > 0 else 0)
     }]
     
     df = pd.DataFrame(results)
