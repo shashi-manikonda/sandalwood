@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "pandas",
+    "tabulate",
 ]
 
 [project.optional-dependencies]
