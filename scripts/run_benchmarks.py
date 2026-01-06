@@ -1,8 +1,9 @@
+import json
 import subprocess
 import sys
-import os
-import json
+
 from tabulate import tabulate
+
 
 def run_test(op, backend, dims=4, order=5, iters=1000):
     cmd = [
@@ -26,7 +27,7 @@ def run_test(op, backend, dims=4, order=5, iters=1000):
     except subprocess.TimeoutExpired:
         print(f"Timeout (>5s): {cmd}")
         return {"error": "Timeout"}
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         # If the backend failed (e.g. COSY missing), we treat it as failure but continue
         # Don't print stack trace for expected missing library errors unless debugging
         # print(f"Failed: {cmd}")

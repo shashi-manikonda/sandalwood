@@ -18,8 +18,8 @@ project = "sandalwood"
 copyright = "2025, Shashikant Manikonda"
 author = "Shashikant Manikonda"
 
-version = "1.5.2"
-release = "1.5.2"
+version = "0.0.1"
+release = "0.0.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

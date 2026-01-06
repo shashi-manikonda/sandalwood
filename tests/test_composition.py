@@ -1,8 +1,11 @@
-import pytest
 import numpy as np
+import pytest
+
 import sandalwood.taylor_function as taylor
+
 # Need to access protected members for testing low-level API before high-level integration
 from sandalwood.taylor_function import MultivariateTaylorFunction
+
 
 def safe_initialize(implementation):
     try:

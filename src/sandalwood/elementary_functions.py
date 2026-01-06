@@ -13,8 +13,6 @@ from typing import Optional
 
 import numpy as np
 
-
-
 # Import the new module with loaded coefficients
 from .complex_taylor_function import ComplexMultivariateTaylorFunction
 from .taylor_function import (

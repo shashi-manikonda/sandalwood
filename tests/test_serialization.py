@@ -3,9 +3,10 @@ import pickle
 
 import numpy as np
 import pytest
+
+from sandalwood import TaylorMap, mtf
 from sandalwood.complex_taylor_function import ComplexMultivariateTaylorFunction
 from sandalwood.taylor_function import MultivariateTaylorFunction
-from sandalwood import mtf, TaylorMap
 
 
 @pytest.fixture(autouse=True)

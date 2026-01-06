@@ -8,7 +8,6 @@ try:
 except ImportError:
     _TORCH_AVAILABLE = False
 from sandalwood import mtf
-import sandalwood.taylor_function
 
 
 # Old eval logic for comparison

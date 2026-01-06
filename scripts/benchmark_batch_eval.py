@@ -1,12 +1,14 @@
 
-import time
-import numpy as np
-import sys
 import os
+import sys
+import time
+
+import numpy as np
 
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
-from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyMtfData, CosyDA
+from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyDA, CosyMtfData
+
 
 def benchmark_batch_eval():
     print("Initializing COSY backend...")

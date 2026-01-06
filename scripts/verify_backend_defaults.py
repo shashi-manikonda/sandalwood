@@ -1,6 +1,7 @@
 
-from sandalwood.taylor_function import MultivariateTaylorFunction as MTF
 from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
+from sandalwood.taylor_function import MultivariateTaylorFunction as MTF
+
 
 def test_default_backend():
     print("Testing default backend initialization...")

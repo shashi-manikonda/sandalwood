@@ -1,7 +1,10 @@
-import pytest
-import numpy as np
 import math
+
+import numpy as np
+import pytest
+
 import sandalwood.taylor_function as taylor
+
 
 def safe_initialize(implementation):
     """Robust initialization for tests."""

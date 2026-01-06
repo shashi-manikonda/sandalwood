@@ -1,10 +1,16 @@
 
-import time
-import os
-import psutil
 import gc
-from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyMtfData, CosyDA, libcosy
-from ctypes import c_int, byref
+import os
+import time
+
+import psutil
+
+from sandalwood.backends.cosy.cosy_backend import (
+    CosyBackend,
+    CosyDA,
+    CosyMtfData,
+)
+
 
 def print_memory(label):
     process = psutil.Process(os.getpid())
