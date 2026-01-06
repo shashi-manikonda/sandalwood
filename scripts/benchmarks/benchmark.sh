@@ -84,6 +84,8 @@ ORDER=8
 DIMS=4
 ITERS=100
 NPOINTS=10000
+MEMORY_FLAG=""
+FILTER_ARG=""
 
 # Simple argument parsing
 while [[ $# -gt 0 ]]; do
@@ -108,9 +110,17 @@ while [[ $# -gt 0 ]]; do
       NPOINTS="$2"
       shift 2
       ;;
+    --memory)
+      MEMORY_FLAG="--memory"
+      shift 1
+      ;;
+    --filter)
+      FILTER_ARG="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [ops|raw|batch|profile] [--order N] [--dims N] [--iters N] [--npoints N]"
+      echo "Usage: $0 [ops|raw|batch|profile] [--order N] [--dims N] [--iters N] [--npoints N] [--memory] [--filter pattern]"
       exit 1
       ;;
   esac
@@ -118,14 +128,21 @@ done
 
 echo "--- Sandalwood Benchmark: $MODE ---"
 echo "Parameters: Order=$ORDER, Dims=$DIMS, Iters=$ITERS, Points=$NPOINTS"
+if [ ! -z "$MEMORY_FLAG" ]; then echo "Memory Profiling: Enabled"; fi
+if [ ! -z "$FILTER_ARG" ]; then echo "Filter: $FILTER_ARG"; fi
 echo "---"
 
 # Execute the runner
-"$PYTHON_BIN" "$BENCH_DIR/run.py" \
+CMD=("$PYTHON_BIN" "$BENCH_DIR/run.py" \
     --mode "$MODE" \
     --order "$ORDER" \
     --dims "$DIMS" \
     --iters "$ITERS" \
-    --npoints "$NPOINTS"
+    --npoints "$NPOINTS")
+
+if [ ! -z "$MEMORY_FLAG" ]; then CMD+=("--memory"); fi
+if [ ! -z "$FILTER_ARG" ]; then CMD+=("--filter" "$FILTER_ARG"); fi
+
+"${CMD[@]}"
 
 echo "--- Done ---"
