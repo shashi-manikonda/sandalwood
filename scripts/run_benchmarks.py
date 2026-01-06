@@ -5,7 +5,7 @@ import sys
 from tabulate import tabulate
 
 
-def run_test(op, backend, dims=4, order=5, iters=1000):
+def run_test(op, backend, dims=4, order=5, iters=1000, use_complex=False):
     cmd = [
         sys.executable, "scripts/benchmark_mtf.py",
         "--op", op,
@@ -14,6 +14,8 @@ def run_test(op, backend, dims=4, order=5, iters=1000):
         "--order", str(order),
         "--iters", str(iters)
     ]
+    if use_complex:
+        cmd.append("--complex")
     try:
         # Enforce 5s timeout per benchmark
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=10)
@@ -73,42 +75,39 @@ def get_speedup(py_stats, cosy_stats):
     return f"{speedup:.2f}x"
 
 def main():
-    ops = [
+    real_ops = [
         "add", "sub", "mul", "div", "pow", "exp", "log", "sqrt",
-        "sin", "cos", "tan", "asin", "acos", "atan",
-        "sinh", "cosh", "tanh", "derivative", "integrate", "eval"
+        "sin", "cos", "tan", "cot", "asin", "acos", "atan",
+        "sinh", "cosh", "tanh", "coth", "erf", "derivative", "integrate", "eval"
     ]
-    dims = 6
-    orders = [2, 8, 6, 10]
+    complex_ops = [
+        "add", "sub", "mul", "div", "exp", "sin"  # Foundation set for complex
+    ]
+    
+    dims = 4  # Reduced from 6 for speed
+    orders = [4, 8] # Reduced set for checking
     # Reduce iterations to avoid timeout (5s limit)
-    iters = 25
+    iters = 5
 
-    # print(f"Running benchmarks (Dims={dims}, Iters={iters})...")
-    
     headers = ["Order", "Operation", "Python", "COSY", "Speedup"]
-    table_data = []
-
-    # We can perform a dry run or just print incrementally.
-    # Since tabulate needs all data, we collect it.
     
+    # --- Real DA Benchmarks ---
+    print(f"\n=== Real DA Benchmarks (Dimensions={dims}) ===")
+    real_table_data = []
+
     for order in orders:
-        # Adjust iterations based on order to prevent timeout
         current_iters = iters
-        if order >= 16:
-            current_iters = max(1, iters // 10)
-        elif order >= 12:
+        if order >= 10:
             current_iters = max(1, iters // 5)
 
         print(f"Running Order={order} (Iters={current_iters})...")
 
-        for op in ops:
-            # Print progress to stderr so it doesn't mess up if we were piping stdout,
-            # though here we are just printing a final table.
+        for op in real_ops:
             sys.stderr.write(f"\r  Op={op} ...")
             sys.stderr.flush()
             
-            py_res = run_test(op, "python", dims, order, current_iters)
-            cosy_res = run_test(op, "cosy", dims, order, current_iters)
+            py_res = run_test(op, "python", dims, order, current_iters, use_complex=False)
+            cosy_res = run_test(op, "cosy", dims, order, current_iters, use_complex=False)
 
             row = [
                 order,
@@ -117,12 +116,41 @@ def main():
                 format_time(cosy_res),
                 get_speedup(py_res, cosy_res)
             ]
-            table_data.append(row)
+            real_table_data.append(row)
         sys.stderr.write("\n")
 
-    sys.stderr.write("\nDone.\n")
+    print(tabulate(real_table_data, headers=headers, tablefmt="github"))
+    
+    # --- Complex DA Benchmarks ---
+    print(f"\n=== Complex DA Benchmarks (Dimensions={dims}) ===")
+    complex_table_data = []
 
-    print(tabulate(table_data, headers=headers, tablefmt="github"))
+    for order in orders:
+        current_iters = iters
+        if order >= 10:
+            current_iters = max(1, iters // 5)
+
+        print(f"Running Order={order} (Iters={current_iters})...")
+
+        for op in complex_ops:
+            sys.stderr.write(f"\r  Op={op} ...")
+            sys.stderr.flush()
+            
+            py_res = run_test(op, "python", dims, order, current_iters, use_complex=True)
+            cosy_res = run_test(op, "cosy", dims, order, current_iters, use_complex=True)
+
+            row = [
+                order,
+                op,
+                format_time(py_res),
+                format_time(cosy_res),
+                get_speedup(py_res, cosy_res)
+            ]
+            complex_table_data.append(row)
+        sys.stderr.write("\n")
+    
+    print(tabulate(complex_table_data, headers=headers, tablefmt="github"))
+    sys.stderr.write("\nDone.\n")
 
 if __name__ == "__main__":
     main()
