@@ -40,6 +40,44 @@ if [ ! -f "$PYTHON_BIN" ]; then
     exit 1
 fi
 
+# Check if cosy_bin exists, if not compile it
+COSY_BIN="$BENCH_DIR/cosy_bin"
+COSY_SRC_DIR="$ROOT_DIR/src/sandalwood/backends/cosy/cosy_src"
+
+if [ ! -f "$COSY_BIN" ]; then
+    echo "Compiling COSY binary..."
+    if command -v gfortran &> /dev/null; then
+        gfortran -std=legacy -ffixed-form -O2 -o "$COSY_BIN" \
+            "$COSY_SRC_DIR/foxy.f" \
+            "$COSY_SRC_DIR/dafox.f" \
+            "$COSY_SRC_DIR/foxfit.f" \
+            "$COSY_SRC_DIR/foxgraf.f"
+        echo "Compilation complete."
+    else
+        echo "Error: gfortran not found. Cannot compile COSY binary."
+        echo "Please install gfortran."
+        exit 1
+    fi
+fi
+
+# Check if COSY.bin exists, if not generate it
+COSY_LIB_BIN="$BENCH_DIR/COSY.bin"
+if [ ! -f "$COSY_LIB_BIN" ]; then
+    echo "Generating COSY.bin..."
+    # Create foxyinp.dat for COSY compilation
+    echo "COSY" > "$BENCH_DIR/foxyinp.dat"
+
+    # Run cosy_bin to compile COSY.fox -> COSY.bin
+    # We must run inside BENCH_DIR so it finds COSY.fox
+    (cd "$BENCH_DIR" && ./cosy_bin < foxyinp.dat)
+
+    if [ ! -f "$COSY_LIB_BIN" ]; then
+        echo "Error: Failed to generate COSY.bin"
+        exit 1
+    fi
+    echo "COSY.bin generated."
+fi
+
 # Default parameters
 MODE="raw"
 ORDER=8

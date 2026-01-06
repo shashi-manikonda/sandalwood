@@ -220,3 +220,4 @@ scripts/benchmarks/artifacts/
 *.o
 cosy
 cosy_bin
+COSY.bin
