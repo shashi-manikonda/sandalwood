@@ -800,6 +800,88 @@ def _arccos_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorF
     Computes the Taylor expansion of `arccos(x)`.
 
     Uses the identity `arccos(x) = pi/2 - arcsin(x)`.
+    """
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    arcsin_mtf = _arcsin_taylor(variable, order=order)
+    result_mtf = (math.pi / 2.0) - arcsin_mtf
+    return result_mtf.truncate(order)
+
+
+def _cot_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """Computes the Taylor expansion of `cot(x)` as `1/tan(x)`."""
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    return (1.0 / _tan_taylor(variable, order=order)).truncate(order)
+
+
+def _coth_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """Computes the Taylor expansion of `coth(x)` as `1/tanh(x)`."""
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    return (1.0 / _tanh_taylor(variable, order=order)).truncate(order)
+
+
+def _arcsinh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """
+    Computes the Taylor expansion of `arcsinh(x)`.
+
+    Uses the identity `arcsinh(x) = log(x + sqrt(x^2 + 1))`.
+    """
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    x_mtf = MultivariateTaylorFunction.to_mtf(variable)
+    return _log_taylor(x_mtf + _sqrt_taylor(x_mtf**2 + 1.0, order=order), order=order)
+
+
+def _arccosh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """
+    Computes the Taylor expansion of `arccosh(x)`.
+
+    Uses the identity `arccosh(x) = log(x + sqrt(x^2 - 1))`.
+    """
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    x_mtf = MultivariateTaylorFunction.to_mtf(variable)
+    return _log_taylor(x_mtf + _sqrt_taylor(x_mtf**2 - 1.0, order=order), order=order)
+
+
+def _erf_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """
+    Computes the Taylor expansion of the error function `erf(x)`.
+
+    Uses the power series expansion around zero:
+    erf(z) = (2/sqrt(pi)) * sum_{n=0}^inf ((-1)^n * z^(2n+1)) / (n! * (2n+1))
+    """
+
+    def dynamic_erf(n):
+        if n % 2 == 1:
+            k = (n - 1) // 2
+            # coeff = (2 / sqrt(pi)) * ((-1)^k) / (k! * (2k+1))
+            return (2.0 / math.sqrt(math.pi)) * ((-1) ** k) / (math.factorial(k) * n)
+        return 0.0
+
+    if order is None:
+        order = MultivariateTaylorFunction.get_max_order()
+    input_mtf = MultivariateTaylorFunction.to_mtf(variable)
+    constant_term_C_value, polynomial_part_mtf = _split_constant_polynomial_part(
+        input_mtf
+    )
+
+    if abs(constant_term_C_value) > 1e-12:
+        raise ValueError(
+            "erf_taylor for Python backend currently only supports inputs with "
+            "zero constant term (expansion around zero)."
+        )
+
+    return _create_composed_taylor_from_coeffs(variable, "erf", order, dynamic_erf).truncate(order)
+
+
+def _arccos_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+    """
+    Computes the Taylor expansion of `arccos(x)`.
+
+    Uses the identity `arccos(x) = pi/2 - arcsin(x)`.
 
     Parameters
     ----------
