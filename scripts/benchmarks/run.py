@@ -60,7 +60,10 @@ def run_ops_benchmark(engine, args):
     if args.json:
         print(df.to_json(orient='records'))
     else:
-        print("\n" + df.to_string(index=False))
+        try:
+             print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+        except ImportError:
+             print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Operation Benchmarks")
 
 def run_raw_comparison(engine, args):
@@ -95,7 +98,10 @@ def run_raw_comparison(engine, args):
     if args.json:
         print(df.to_json(orient='records'))
     else:
-        print("\n" + df.to_string(index=False))
+        try:
+             print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+        except ImportError:
+             print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Raw COSY Comparison")
 
 def run_batch_eval(engine, args):
@@ -132,7 +138,10 @@ def run_batch_eval(engine, args):
     }]
     
     df = pd.DataFrame(results)
-    print("\n" + df.to_string(index=False))
+    try:
+         print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+    except ImportError:
+         print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Batch Evaluation Benchmarks")
 
 def run_profile(engine, args):

@@ -61,12 +61,12 @@ class BenchmarkEngine:
         dat_path = os.path.join(ARTIFACTS_DIR, "foxyinp.dat")
         
         # Prepare system files in artifacts dir if they don't exist
-        for f in ["COSY.bin", "DAINI.DAT"]:
-             src = os.path.join(BASE_DIR, f)
-             dst = os.path.join(ARTIFACTS_DIR, f)
-             if os.path.exists(src) and not os.path.exists(dst):
-                 import shutil
-                 shutil.copy(src, dst)
+        # COSY needs COSY.fox to be present to run properly
+        src_fox = os.path.join(BASE_DIR, "COSY.fox")
+        dst_fox = os.path.join(ARTIFACTS_DIR, "COSY.fox")
+        if os.path.exists(src_fox) and not os.path.exists(dst_fox):
+             import shutil
+             shutil.copy(src_fox, dst_fox)
 
         cosy_script = f"""
 INCLUDE 'COSY';
@@ -102,20 +102,18 @@ END;
     def format_time(seconds):
         """Formats time in seconds to a string with appropriate units (s, ms, µs)."""
         if pd.isna(seconds): return "N/A"
-        if seconds < 1e-6:
-            return f"{seconds * 1e9:.2f} ns"
-        elif seconds < 1e-3:
+        if seconds < 1e-3:
             return f"{seconds * 1e6:.2f} µs"
-        elif seconds < 1:
-            return f"{seconds * 1e3:.2f} ms"
         else:
-            return f"{seconds:.4f} s"
+            return f"{seconds * 1e3:.2f} ms"
 
     @staticmethod
     def format_speedup(ratio):
         """Formats a speedup ratio to a meaningful string."""
         if pd.isna(ratio) or ratio == 0: return "N/A"
         if ratio == float('inf'): return "Inf"
+        if ratio >= 10:
+             return f"{int(ratio)}x"
         return f"{ratio:.2f}x"
 
     def parse_cosy_output(self, output):
