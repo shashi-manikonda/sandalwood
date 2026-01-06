@@ -82,6 +82,64 @@ def test_inverse_hyperbolics_fallback():
         if sum(exp_tuple) > 1 and sum(exp_tuple) <= 5:
             assert abs(poly.extract_coefficient(tuple(exp_tuple))) < 1e-10
 
+def test_trig_identities():
+    x = mtf.var(1) * 0.5
+    # sin^2(x) + cos^2(x) == 1
+    f = x.sin()**2 + x.cos()**2
+    assert np.allclose(f.get_constant(), 1.0, atol=1e-12)
+    poly = f.get_polynomial_part()
+    if poly.coeffs.size > 0:
+        assert np.max(np.abs(poly.coeffs)) < 1e-10
+
+    # arcsin(x) + arccos(x) == pi/2
+    f_inv_sum = x.arcsin() + x.arccos()
+    assert np.allclose(f_inv_sum.get_constant(), math.pi / 2.0, atol=1e-12)
+    poly_inv = f_inv_sum.get_polynomial_part()
+    if poly_inv.coeffs.size > 0:
+        assert np.max(np.abs(poly_inv.coeffs)) < 1e-10
+
+    # tan(arctan(x)) == x
+    g = x.arctan().tan()
+    assert np.allclose(g.extract_coefficient((1, 0)), 0.5, atol=1e-12)
+    # No other terms higher than order 1 should exist significantly after truncation
+    # (actually truncation can leave residues, but they should be small)
+
+def test_hyperbolic_identities():
+    x = mtf.var(1)
+    # cosh^2(x) - sinh^2(x) == 1
+    f = x.cosh()**2 - x.sinh()**2
+    assert np.allclose(f.get_constant(), 1.0, atol=1e-12)
+    poly = f.get_polynomial_part()
+    if poly.coeffs.size > 0:
+        assert np.max(np.abs(poly.coeffs)) < 1e-10
+
+    # sinh(arcsinh(x)) == x
+    g = x.arcsinh().sinh()
+    assert np.allclose(g.extract_coefficient((1, 0)), 1.0, atol=1e-12)
+
+def test_erf_identities():
+    x = mtf.var(1)
+    # erf is an odd function: erf(-x) = -erf(x)
+    f1 = x.erf()
+    f2 = ((-x).erf())
+    sum_erf = f1 + f2
+    assert np.allclose(sum_erf.get_constant(), 0.0, atol=1e-15)
+    poly = sum_erf.get_polynomial_part()
+    if poly.coeffs.size > 0:
+        assert np.max(np.abs(poly.coeffs)) < 1e-12
+
+def test_power_log_identities():
+    x = mtf.var(1) + 1.0
+    # exp(log(x)) == x
+    f = x.log().exp()
+    assert np.allclose(f.get_constant(), 1.0, atol=1e-12)
+    assert np.allclose(f.extract_coefficient((1, 0)), 1.0, atol=1e-12)
+
+    # sqrt(x^2) == x for x > 0
+    g = (x**2).sqrt()
+    assert np.allclose(g.get_constant(), 1.0, atol=1e-12)
+    assert np.allclose(g.extract_coefficient((1, 0)), 1.0, atol=1e-12)
+
 def test_backend_consistency():
     # Run tests with both backends
     for backend in ["python", "cosy"]:
@@ -89,7 +147,7 @@ def test_backend_consistency():
         
         x = mtf.var(1)
         
-        # Test erf
+        # Test erf consistency
         f1 = x.erf()
         c0 = f1.get_constant()
         c1 = f1.extract_coefficient((1,))
@@ -102,6 +160,12 @@ def test_backend_consistency():
         c0_cot = f2.get_constant()
         expected_c0 = 1.0 / math.tan(0.5)
         assert np.allclose(c0_cot, expected_c0, atol=1e-12)
+
+        # Test arcsinh (verify it works on both backends even if fallback is used)
+        f3 = x.arcsinh()
+        # d/dx arcsinh(x) = 1/sqrt(x^2 + 1)
+        # At x=0, derivative is 1.0
+        assert np.allclose(f3.extract_coefficient((1,)), 1.0, atol=1e-12)
 
 if __name__ == "__main__":
     pytest.main([__file__])
