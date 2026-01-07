@@ -260,13 +260,10 @@ def run_full_benchmark(args):
                         "Python Time (s)": engine_format_to_float(item['Python Time']),
                         "SCosy Time (s)": engine_format_to_float(item['S-COSY Time']),
                         "Raw-Cosy Time (s)": engine_format_to_float(item['Raw COSY Time']),
-                        "Speedup (vs Python)": item['Speedup (vs Python)'],
+                        "Speedup (vs Python)": engine_format_to_float(item['Speedup (vs Python)']),
                         "Speedup (vs Raw COSY)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['S-COSY Time']) if engine_format_to_float(item['S-COSY Time']) > 0 else np.nan
                     })
-                    
-            except Exception as e:
-                print(f"Error in sweep (v={v}, o={o}): {e}")
-                
+
     # Generate report
     engine = BenchmarkEngine(10, 6)
     plots = engine.generate_plots(full_results)
@@ -279,6 +276,10 @@ def engine_format_to_float(s):
     """Converts formatted timing string (e.g. '1.5 ms' or '1.5 ± 0.1 ms') back to float in seconds."""
     if not isinstance(s, str) or s == "N/A" or "nan" in s.lower(): return np.nan
     try:
+        # Handle speedup "12x"
+        if s.endswith("x"):
+             return float(s[:-1])
+             
         parts = s.split()
         # Handle "X unit" or "X ± Y unit"
         if len(parts) >= 2:
