@@ -263,6 +263,9 @@ def run_full_benchmark(args):
                         "Speedup (vs Python)": engine_format_to_float(item['Speedup (vs Python)']),
                         "Speedup (vs Raw COSY)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['S-COSY Time']) if engine_format_to_float(item['S-COSY Time']) > 0 else np.nan
                     })
+            
+            except Exception as e:
+                print(f"Error in sweep (v={v}, o={o}): {e}")
 
     # Generate report
     engine = BenchmarkEngine(10, 6)
