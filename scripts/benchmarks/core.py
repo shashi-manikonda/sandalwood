@@ -394,6 +394,7 @@ END;
                             <li><b>Speedup (vs Raw COSY):</b> <code>Time(Raw COSY) / Time(S-Cosy)</code>. Higher is better. Values near 1.0 indicate S-Cosy matches native performance.</li>
                         </ul>
                     </li>
+                    <li><strong>Note on Power Operation:</strong> For the <code>Pow</code> benchmark, the standard power operator <code>^</code> is not supported for DA objects in the available COSY binary. Therefore, <code>(1+x)**3</code> is implemented using explicit multiplication: <code>(1+x)*(1+x)*(1+x)</code>.</li>
                 </ul>
             </div>
 
