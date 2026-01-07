@@ -368,20 +368,20 @@ END;
                 .summary, .sysinfo, .methodology {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
                 .sysinfo table {{ width: auto; min-width: 50%; border: none; box-shadow: none; margin: 0; }}
             /* Sortable Table Styles */
-            th { cursor: pointer; position: relative; }
-            th:hover { background-color: #2980b9; }
-            th::after { content: '↕'; position: absolute; right: 5px; opacity: 0.5; font-size: 0.8em; }
+            th {{ cursor: pointer; position: relative; }}
+            th:hover {{ background-color: #2980b9; }}
+            th::after {{ content: '↕'; position: absolute; right: 5px; opacity: 0.5; font-size: 0.8em; }}
             </style>
             <script>
-            function sortTable(n) {
+            function sortTable(n) {{
               var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
               table = document.getElementById("benchmarkTable");
               switching = true;
               dir = "asc"; 
-              while (switching) {
+              while (switching) {{
                 switching = false;
                 rows = table.rows;
-                for (i = 1; i < (rows.length - 1); i++) {
+                for (i = 1; i < (rows.length - 1); i++) {{
                   shouldSwitch = false;
                   x = rows[i].getElementsByTagName("TD")[n];
                   y = rows[i + 1].getElementsByTagName("TD")[n];
@@ -393,26 +393,26 @@ END;
                   
                   var xNum = parseFloat(xVal);
                   var yNum = parseFloat(yVal);
-                  if (!isNaN(xNum) && !isNaN(yNum)) { xVal = xNum; yVal = yNum; }
+                  if (!isNaN(xNum) && !isNaN(yNum)) {{ xVal = xNum; yVal = yNum; }}
 
-                  if (dir == "asc") {
-                    if (xVal > yVal) { shouldSwitch = true; break; }
-                  } else if (dir == "desc") {
-                    if (xVal < yVal) { shouldSwitch = true; break; }
-                  }
-                }
-                if (shouldSwitch) {
+                  if (dir == "asc") {{
+                    if (xVal > yVal) {{ shouldSwitch = true; break; }}
+                  }} else if (dir == "desc") {{
+                    if (xVal < yVal) {{ shouldSwitch = true; break; }}
+                  }}
+                }}
+                if (shouldSwitch) {{
                   rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
                   switching = true;
                   switchcount ++;      
-                } else {
-                  if (switchcount == 0 && dir == "asc") {
+                }} else {{
+                  if (switchcount == 0 && dir == "asc") {{
                     dir = "desc";
                     switching = true;
-                  }
-                }
-              }
-            }
+                  }}
+                }}
+              }}
+            }}
             </script>
         </head>
         <body>
