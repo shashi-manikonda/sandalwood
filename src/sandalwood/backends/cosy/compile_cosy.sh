@@ -13,7 +13,7 @@ echo "Compiling COSY sources from $COSY_SRC and wrapper.f from $DIR/wrapper.f...
 ls -l "$DIR/wrapper.f"
 
 # Non-monolithic build with -fcommon
-gfortran -shared -fPIC -fcommon -std=legacy -g -O2 \
+gfortran -shared -fPIC -fcommon -std=legacy -g -O3 -march=native -ffixed-form \
     "$COSY_SRC/dafox.f" \
     "$COSY_SRC/foxfit.f" \
     "$COSY_SRC/foxgraf.f" \

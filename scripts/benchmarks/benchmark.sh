@@ -47,7 +47,7 @@ COSY_SRC_DIR="$ROOT_DIR/src/sandalwood/backends/cosy/cosy_src"
 if [ ! -f "$COSY_BIN" ]; then
     echo "Compiling COSY binary..."
     if command -v gfortran &> /dev/null; then
-        gfortran -std=legacy -ffixed-form -O2 -o "$COSY_BIN" \
+        gfortran -std=legacy -ffixed-form -O3 -march=native -o "$COSY_BIN" \
             "$COSY_SRC_DIR/foxy.f" \
             "$COSY_SRC_DIR/dafox.f" \
             "$COSY_SRC_DIR/foxfit.f" \
