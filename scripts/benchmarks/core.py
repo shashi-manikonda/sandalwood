@@ -144,15 +144,24 @@ END;
                     last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
                 
                 # Parse TIME_SEC from output
-                output_lines = last_process.stdout.split('\n')
+                output_lines = last_process.stdout.strip().split('\n')
                 run_time = None
-                for line in output_lines:
+                for i, line in enumerate(output_lines):
                     if "TIME_SEC" in line:
                          parts = line.strip().split()
-                         # Format: TIME_SEC 1.234E-02
+                         # Case 1: TIME_SEC 1.23E-02 (Same line)
                          if len(parts) >= 2:
-                             run_time = float(parts[1])
-                             break
+                             try:
+                                 run_time = float(parts[1])
+                                 break
+                             except: pass
+                         # Case 2: TIME_SEC \n 1.23E-02 (Next line)
+                         if i + 1 < len(output_lines):
+                             try:
+                                 next_line = output_lines[i+1].strip()
+                                 run_time = float(next_line)
+                                 break
+                             except: pass
                 
                 if run_time is not None:
                     timings.append(run_time)
