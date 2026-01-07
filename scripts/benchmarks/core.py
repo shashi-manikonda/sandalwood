@@ -253,15 +253,63 @@ END;
             
         return plots
 
+    def get_system_info(self):
+        """Returns a dictionary containing system information."""
+        import platform
+        import psutil
+        import subprocess
+        from datetime import datetime
+        
+        # Get GCC/GFortran version
+        try:
+            gcc_v = subprocess.check_output(["gfortran", "--version"]).decode().split('\n')[0]
+        except:
+            gcc_v = "gfortran not found"
+            
+        info = {
+            "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Host": platform.node(),
+            "OS": f"{platform.system()} {platform.release()}",
+            "CPU": platform.processor(),
+            "CPU Cores": f"{psutil.cpu_count(logical=False)}C / {psutil.cpu_count(logical=True)}T",
+            "RAM": f"{psutil.virtual_memory().total / (1024**3):.2f} GB",
+            "Python": platform.python_version(),
+            "Compiler": gcc_v,
+            "Compiler Flags": "-O3 -march=native -ffixed-form -flto -funroll-loops -std=legacy",
+        }
+        return info
+
+    def format_dataframe_for_display(self, df):
+        """Formats the dataframe values (times to ms/us, speedups to 2f) for HTML display."""
+        df_disp = df.copy()
+        time_cols = [c for c in df.columns if "Time" in c]
+        
+        for col in time_cols:
+            # Convert seconds float to readable string
+            df_disp[col] = df_disp[col].apply(lambda x: self.format_time(x))
+            # Rename column to remove (s)
+            new_name = col.replace(" (s)", "")
+            df_disp.rename(columns={col: new_name}, inplace=True)
+            
+        # Format Speedup columns
+        speed_cols = [c for c in df_disp.columns if "Speedup" in c]
+        for col in speed_cols:
+            df_disp[col] = df_disp[col].apply(lambda x: self.format_speedup(x))
+            
+        return df_disp
+
     def generate_html_report(self, full_results, plots):
         """Generates a styled HTML report with tables and embedded plots."""
         df = pd.DataFrame(full_results)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         sys_info = self.get_system_info()
 
-        sys_html = "".join([f"<li><strong>{k}:</strong> {v}</li>" for k, v in sys_info.items()])
+        # Format DF for display
+        df_display = self.format_dataframe_for_display(df)
         
-        # Export CSV
+        # System Info Table
+        sys_rows = "".join([f"<tr><td><strong>{k}</strong></td><td>{v}</td></tr>" for k, v in sys_info.items()])
+        
+        # Export CSV (raw numbers)
         csv_path = os.path.join(ARTIFACTS_DIR, f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
         df.to_csv(csv_path, index=False)
         print(f"Raw CSV exported to: {csv_path}")
@@ -282,18 +330,26 @@ END;
                 .plot-container {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px; }}
                 .plot-item {{ background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }}
                 .plot-item img {{ max-width: 100%; height: auto; }}
-                .summary {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+                .summary, .sysinfo {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+                .sysinfo table {{ width: auto; min-width: 50%; border: none; box-shadow: none; margin: 0; }}
             </style>
         </head>
         <body>
             <h1>Sandalwood Benchmark Report</h1>
+            
+            <div class="sysinfo">
+                <h2>System Configuration</h2>
+                <table>
+                    {sys_rows}
+                </table>
+            </div>
+
             <div class="summary">
-                <p><strong>Generated on:</strong> {timestamp}</p>
                 <p><strong>Summary:</strong> This report compares the performance of Sandalwood's Python backend, Sandalwood's COSY backend (S-Cosy), and direct COSY script execution (Raw-Cosy) across various expansion orders and variables.</p>
             </div>
 
             <h2>Performance Comparison Table</h2>
-            {df.to_html(index=False, classes='table')}
+            {df_display.to_html(index=False, classes='table')}
 
             <h2>Performance Visualizations (Log Scale)</h2>
             <div class="plot-container">
