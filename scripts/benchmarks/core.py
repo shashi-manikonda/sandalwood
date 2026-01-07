@@ -99,6 +99,14 @@ class BenchmarkEngine:
         if os.path.exists(src_fox) and not os.path.exists(dst_fox):
              import shutil
              shutil.copy(src_fox, dst_fox)
+        
+        # Also copy COSY.bin and DAINI.DAT if available
+        for fname in ["COSY.bin", "DAINI.DAT"]:
+            src = os.path.join(BASE_DIR, fname)
+            dst = os.path.join(ARTIFACTS_DIR, fname)
+            if os.path.exists(src) and not os.path.exists(dst):
+                 import shutil
+                 shutil.copy(src, dst)
 
         cosy_script = f"""
 INCLUDE 'COSY';

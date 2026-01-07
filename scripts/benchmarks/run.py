@@ -54,14 +54,7 @@ def measure_memory(func, *args, **kwargs):
 
 def run_ops_benchmark(engine, args):
     """Benchmarks individual operations (Python vs COSY Backend)."""
-    ops = [
-        ("Add", "x + y", "DA(1)+DA(2)"),
-        ("Mul", "x * y", "DA(1)*DA(2)"),
-        ("Pow", "(x+y)**3", "(DA(1)+DA(2))*(DA(1)+DA(2))*(DA(1)+DA(2))"),
-        ("Sin", "mtf.sin(x)", "SIN(DA(1))"),
-        ("Exp", "mtf.exp(x)", "EXP(DA(1))"),
-        ("Log", "mtf.log(1+x)", "LOG(1+DA(1))"),
-    ]
+    ops = FULL_OPS
     
     if args.filter:
         ops = [op for op in ops if args.filter.lower() in op[0].lower()]
