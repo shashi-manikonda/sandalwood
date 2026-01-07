@@ -5,6 +5,26 @@ import time
 import tracemalloc
 import pandas as pd
 import numpy as np
+import signal
+
+class TimeLimit:
+    """Context manager for limiting execution time."""
+    def __init__(self, seconds):
+        self.seconds = seconds
+    
+    def __enter__(self):
+        if self.seconds:
+            signal.signal(signal.SIGALRM, self._handle_timeout)
+            signal.alarm(int(self.seconds))
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        if self.seconds:
+            signal.alarm(0)
+            
+    def _handle_timeout(self, signum, frame):
+        raise TimeoutError(f"Execution exceeded {self.seconds}s")
+
 from core import BenchmarkEngine, ARTIFACTS_DIR
 
 # Ensure we can import sandalwood from the parent src directory
@@ -121,36 +141,47 @@ def run_raw_comparison(engine, args):
     for name, mtf_expr, cosy_expr in cases:
         print(f"Comparing {name} with Raw COSY...")
 
-        if args.memory:
-             (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
-             (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
-        else:
-             c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-             c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
-             mem_py, mem_sc = 0, 0
+        try:
+            with TimeLimit(args.timeout):
+                if args.memory:
+                     (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
+                     (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
+                else:
+                     c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+                     c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+                     mem_py, mem_sc = 0, 0
 
-        c_raw, t_raw, s_raw = engine.run_raw_cosy(name, cosy_expr, args.iters)
+                c_raw, t_raw, s_raw = engine.run_raw_cosy(name, cosy_expr, args.iters, timeout=args.timeout)
+                
+                # Check for Raw COSY timeout/failure
+                if pd.isna(t_raw):
+                    print(f"Skipping {name} - Raw COSY timed out")
+                    continue
+                
+                rmse_py = engine.calculate_rmse(c_py, c_raw)
+                rmse_sc = engine.calculate_rmse(c_sc, c_raw)
+                
+                row = {
+                    "Operation": name,
+                    "Python Time": engine.format_time(t_py, s_py),
+                    "S-COSY Time": engine.format_time(t_sc, s_sc),
+                    "Raw COSY Time": engine.format_time(t_raw, s_raw),
+                    "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
+                    "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
+                    "Speedup (vs Python)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0),
+                    "Python Expr": mtf_expr,
+                    "COSY Expr": cosy_expr
+                }
+
+                if args.memory:
+                    row["Py Mem"] = format_memory(mem_py)
+                    row["S-COSY Mem"] = format_memory(mem_sc)
+
+                results.append(row)
         
-        rmse_py = engine.calculate_rmse(c_py, c_raw)
-        rmse_sc = engine.calculate_rmse(c_sc, c_raw)
-        
-        row = {
-            "Operation": name,
-            "Python Time": engine.format_time(t_py, s_py),
-            "S-COSY Time": engine.format_time(t_sc, s_sc),
-            "Raw COSY Time": engine.format_time(t_raw, s_raw),
-            "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
-            "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
-            "Speedup (vs Python)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0),
-            "Python Expr": mtf_expr,
-            "COSY Expr": cosy_expr
-        }
-
-        if args.memory:
-            row["Py Mem"] = format_memory(mem_py)
-            row["S-COSY Mem"] = format_memory(mem_sc)
-
-        results.append(row)
+        except TimeoutError:
+            print(f"Skipping {name} - Execution timed out")
+            continue
         
     df = pd.DataFrame(results)
     if args.json:
@@ -254,7 +285,7 @@ def run_full_benchmark(args):
             print(f"\n>>> Sweep: Variables={v}, Order={o} <<<")
             
             # Use data from raw comparison which now covers EVERYTHING
-            cmd_raw = [python_bin, script_path, "--mode", "raw", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--json"]
+            cmd_raw = [python_bin, script_path, "--mode", "raw", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--timeout", str(args.timeout), "--json"]
             try:
                 res_raw = subprocess.run(cmd_raw, capture_output=True, text=True, check=True)
                 out = res_raw.stdout
@@ -317,6 +348,7 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output results in JSON format")
     parser.add_argument("--memory", action="store_true", help="Enable memory profiling")
     parser.add_argument("--filter", type=str, help="Filter benchmarks by name pattern")
+    parser.add_argument("--timeout", type=int, default=30, help="Benchmark timeout in seconds")
     
     args = parser.parse_args()
     
