@@ -111,22 +111,23 @@ class BenchmarkEngine:
         timings = []
         last_process = None
 
-        # Differential Timing Strategy to cancel out startup overhead
-        # Time(N)   = Overhead + N * OpCost
-        # Time(2N)  = Overhead + 2N * OpCost
-        # Diff      = N * OpCost (Pure computation time for N ops)
+        # Use internal COSY CPUSEC timing to measure computation directly
+        # This avoids process startup overhead completely
         
         try:
             for _ in range(repeats):
-                # Run with N iterations
-                t1_script = f"""
+                cosy_script = f"""
 INCLUDE 'COSY';
 PROCEDURE RUN;
 VARIABLE ORDER 1; VARIABLE DIM 1; VARIABLE NM1 1;
 PROCEDURE TESTEXP NM1;
     VARIABLE TEMP NM1; VARIABLE I 1;
-    WRITE 6 '{name}_1x';
+    VARIABLE T1 1; VARIABLE T2 1;
+    WRITE 6 '{name}';
+    CPUSEC T1;
     LOOP I 1 {iterations}; TEMP:={cosy_expr}; ENDLOOP;
+    CPUSEC T2;
+    WRITE 6 'TIME_SEC ' T2-T1;
     WRITE 6 TEMP;
 ENDPROCEDURE;
 ORDER := {self.order}; DIM := {self.dimension};
@@ -136,44 +137,28 @@ ENDPROCEDURE;
 RUN;
 END;
 """
-                with open(fox_path, "w") as f: f.write(t1_script)
+                with open(fox_path, "w") as f: f.write(cosy_script)
                 with open(dat_path, "w") as f_dat: f_dat.write(os.path.splitext(script_name)[0])
                 
-                st = time.perf_counter()
-                with open(dat_path, 'r') as dat_file:
-                    subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, check=True, cwd=ARTIFACTS_DIR)
-                t1 = time.perf_counter() - st
-
-                # Run with 2*N iterations
-                t2_script = f"""
-INCLUDE 'COSY';
-PROCEDURE RUN;
-VARIABLE ORDER 1; VARIABLE DIM 1; VARIABLE NM1 1;
-PROCEDURE TESTEXP NM1;
-    VARIABLE TEMP NM1; VARIABLE I 1;
-    WRITE 6 '{name}_2x';
-    LOOP I 1 {2*iterations}; TEMP:={cosy_expr}; ENDLOOP;
-    WRITE 6 TEMP;
-ENDPROCEDURE;
-ORDER := {self.order}; DIM := {self.dimension};
-DAINI ORDER DIM 0 NM1;
-TESTEXP NM1;
-ENDPROCEDURE;
-RUN;
-END;
-"""
-                with open(fox_path, "w") as f: f.write(t2_script)
-                
-                # Capture output of the 2x run for validation/parsing
-                st = time.perf_counter()
                 with open(dat_path, 'r') as dat_file:
                     last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
-                t2 = time.perf_counter() - st
                 
-                # Net time for N iterations
-                net_time = max(0.0, t2 - t1)
-                timings.append(net_time)
+                # Parse TIME_SEC from output
+                output_lines = last_process.stdout.split('\n')
+                run_time = None
+                for line in output_lines:
+                    if "TIME_SEC" in line:
+                         parts = line.strip().split()
+                         # Format: TIME_SEC 1.234E-02
+                         if len(parts) >= 2:
+                             run_time = float(parts[1])
+                             break
+                
+                if run_time is not None:
+                    timings.append(run_time)
 
+            if not timings: return None, None, None
+            
             avg_time = np.mean(timings)
             std_time = np.std(timings)
             return self.parse_cosy_output(last_process.stdout), avg_time, std_time
@@ -393,7 +378,7 @@ END;
                 <h2>Benchmark Methodology</h2>
                 <ul>
                     <li><strong>Iterations:</strong> Each operation is executed <b>{iters}</b> times inside the benchmark loop to average out jitter.</li>
-                    <li><strong>Raw COSY Overhead Compensation:</strong> To eliminate process startup overhead (~50ms) and reduce jitter, we use a <b>Differential Timing</b> strategy. We measure the time for <code>N</code> iterations and <code>2*N</code> iterations. The difference <code>Time(2N) - Time(N)</code> yields the pure computation time for <code>N</code> iterations, perfectly canceling out the constant startup cost.</li>
+                    <li><strong>Raw COSY Overhead Compensation:</strong> We use the COSY internal procedure <code>CPUSEC</code> to measure the CPU time directly around the benchmark loop inside the compiled script. This completely excludes process startup/shutdown time and compilation overhead, providing a highly accurate measurement of the computation itself without need for external compensation.</li>
                     <li><strong>Metrics:</strong> 
                         <ul>
                             <li><b>Speedup (vs Python):</b> <code>Time(Python) / Time(S-Cosy)</code>. Higher is better.</li>
