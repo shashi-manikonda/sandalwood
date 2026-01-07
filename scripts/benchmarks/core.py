@@ -367,10 +367,57 @@ END;
                 .plot-item img {{ max-width: 100%; height: auto; }}
                 .summary, .sysinfo, .methodology {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
                 .sysinfo table {{ width: auto; min-width: 50%; border: none; box-shadow: none; margin: 0; }}
+            /* Sortable Table Styles */
+            th { cursor: pointer; position: relative; }
+            th:hover { background-color: #2980b9; }
+            th::after { content: '↕'; position: absolute; right: 5px; opacity: 0.5; font-size: 0.8em; }
             </style>
+            <script>
+            function sortTable(n) {
+              var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+              table = document.getElementById("benchmarkTable");
+              switching = true;
+              dir = "asc"; 
+              while (switching) {
+                switching = false;
+                rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                  shouldSwitch = false;
+                  x = rows[i].getElementsByTagName("TD")[n];
+                  y = rows[i + 1].getElementsByTagName("TD")[n];
+                  
+                  var xVal = x.getAttribute("data-val");
+                  var yVal = y.getAttribute("data-val");
+                  if (xVal === null) xVal = x.innerHTML.toLowerCase();
+                  if (yVal === null) yVal = y.innerHTML.toLowerCase();
+                  
+                  var xNum = parseFloat(xVal);
+                  var yNum = parseFloat(yVal);
+                  if (!isNaN(xNum) && !isNaN(yNum)) { xVal = xNum; yVal = yNum; }
+
+                  if (dir == "asc") {
+                    if (xVal > yVal) { shouldSwitch = true; break; }
+                  } else if (dir == "desc") {
+                    if (xVal < yVal) { shouldSwitch = true; break; }
+                  }
+                }
+                if (shouldSwitch) {
+                  rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                  switching = true;
+                  switchcount ++;      
+                } else {
+                  if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                  }
+                }
+              }
+            }
+            </script>
         </head>
         <body>
             <h1>Sandalwood Benchmark Report</h1>
+            <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             
             <div class="sysinfo">
                 <h2>System Configuration</h2>
@@ -399,8 +446,47 @@ END;
             </div>
 
             <h2>Performance Comparison Table</h2>
-            {df_display.to_html(index=False, classes='table')}
-
+            <p><em>Click column headers to sort.</em></p>
+            """
+        
+        # Build Custom Sortable Table
+        cols = [
+            ("Operation", "Operation"),
+            ("Variables", "Variables"),
+            ("Order", "Order"),
+            ("Python Time (s)", "Python Time"),
+            ("SCosy Time (s)", "S-COSY Time"),
+            ("Raw-Cosy Time (s)", "Raw COSY Time"),
+            ("Speedup (vs Python)", "Speedup (vs Py)"),
+            ("Speedup (vs Raw COSY)", "Speedup (vs Raw)"),
+            ("Python Expr", "Py Expr"),
+            ("COSY Expr", "COSY Expr")
+        ]
+        
+        html += "<table id='benchmarkTable'><thead><tr>"
+        for i, (key, label) in enumerate(cols):
+            html += f"<th onclick='sortTable({i})'>{label}</th>"
+        html += "</tr></thead><tbody>"
+        
+        for row in full_results:
+            html += "<tr>"
+            for key, label in cols:
+                val = row.get(key, "")
+                display_val = val
+                sort_val = val
+                
+                if "Time" in key:
+                    display_val = self.format_time(val)
+                    if pd.isna(val): sort_val = 999999
+                elif "Speedup" in key:
+                    display_val = self.format_speedup(val)
+                    if pd.isna(val): sort_val = -1
+                
+                html += f"<td data-val='{sort_val}'>{display_val}</td>"
+            html += "</tr>"
+        html += "</tbody></table>"
+        
+        html += """
             <h2>Performance Visualizations (Log Scale)</h2>
             <div class="plot-container">
         """
