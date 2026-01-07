@@ -52,9 +52,18 @@ def measure_memory(func, *args, **kwargs):
         tracemalloc.stop()
     return result, peak
 
+
+COMPLEX_CASES = [
+    ("mul_intensive", "(x + y + z + u)**2", "(DA(1)+DA(2)+DA(3)+DA(4))*(DA(1)+DA(2)+DA(3)+DA(4))"),
+    ("sin_complex", "mtf.sin(0.5 + x + y)", "SIN(0.5 + DA(1) + DA(2))"),
+    ("exp_test", "mtf.exp(x - 0.5)", "EXP(DA(1) - 0.5)"),
+]
+
+ALL_BENCHMARKS = FULL_OPS + COMPLEX_CASES
+
 def run_ops_benchmark(engine, args):
     """Benchmarks individual operations (Python vs COSY Backend)."""
-    ops = FULL_OPS
+    ops = ALL_BENCHMARKS
     
     if args.filter:
         ops = [op for op in ops if args.filter.lower() in op[0].lower()]
@@ -96,11 +105,7 @@ def run_ops_benchmark(engine, args):
 
 def run_raw_comparison(engine, args):
     """Compares Sandalwood (Python/COSY) with Raw COSY execution."""
-    cases = [
-        ("mul_intensive", "(x + y + z + u)**2", "(DA(1)+DA(2)+DA(3)+DA(4))*(DA(1)+DA(2)+DA(3)+DA(4))"),
-        ("sin_complex", "mtf.sin(0.5 + x + y)", "SIN(0.5 + DA(1) + DA(2))"),
-        ("exp_test", "mtf.exp(x - 0.5)", "EXP(DA(1) - 0.5)"),
-    ]
+    cases = ALL_BENCHMARKS
     
     if args.filter:
         cases = [c for c in cases if args.filter.lower() in c[0].lower()]
@@ -123,9 +128,9 @@ def run_raw_comparison(engine, args):
         rmse_sc = engine.calculate_rmse(c_sc, c_raw)
         
         row = {
-            "Case": name,
+            "Operation": name,
             "Python Time": engine.format_time(t_py, s_py),
-            "SCosy Time": engine.format_time(t_sc, s_sc),
+            "S-COSY Time": engine.format_time(t_sc, s_sc),
             "Raw COSY Time": engine.format_time(t_raw, s_raw),
             "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
             "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
@@ -239,64 +244,29 @@ def run_full_benchmark(args):
         for o in orders:
             print(f"\n>>> Sweep: Variables={v}, Order={o} <<<")
             
-            # Use subprocess to run the ops and raw comparisons for this (v, o)
-            # Ops
-            cmd_ops = [python_bin, script_path, "--mode", "ops", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--json"]
+            # Use data from raw comparison which now covers EVERYTHING
+            cmd_raw = [python_bin, script_path, "--mode", "raw", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--json"]
             try:
-                res_ops = subprocess.run(cmd_ops, capture_output=True, text=True, check=True)
-                # JSON might be mixed with other output (initialization prints)
-                # We search for the JSON part (starting with [ and ending with ])
-                out = res_ops.stdout
-                json_part = out[out.find('['):out.rfind(']')+1]
-                ops_data = json.loads(json_part)
-                
-                # Raw
-                cmd_raw = [python_bin, script_path, "--mode", "raw", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--json"]
                 res_raw = subprocess.run(cmd_raw, capture_output=True, text=True, check=True)
                 out = res_raw.stdout
                 json_part = out[out.find('['):out.rfind(']')+1]
                 raw_data = json.loads(json_part)
                 
-                # Combine data for this (v, o)
-                # Map operation name to timings
-                raw_map = {item['Case']: item for item in raw_data}
-                
-                # Merge into full results
-                # We have 17 operations total. 
-                # (Some are in ops, some in raw. Actually core.py's run_ops_benchmark and run_raw_comparison have hardcoded sublists.)
-                # I should probably unify these or handle them both.
-                
-                # Let's just collect everything from the subprocesses
-                # Each item will have 'Operation' or 'Case' key.
-                
-                # We need clean data for the HTML report.
-                for item in ops_data:
+                for item in raw_data:
                     full_results.append({
                         "Operation": item['Operation'],
                         "Variables": v,
                         "Order": o,
                         "Python Time (s)": engine_format_to_float(item['Python Time']),
                         "SCosy Time (s)": engine_format_to_float(item['S-COSY Time']),
-                        "Raw-Cosy Time (s)": np.nan,
-                        "Speedup (S-Cosy)": item['Speedup']
-                    })
-                
-                for item in raw_data:
-                    full_results.append({
-                        "Operation": item['Case'],
-                        "Variables": v,
-                        "Order": o,
-                        "Python Time (s)": engine_format_to_float(item['Python Time']),
-                        "SCosy Time (s)": engine_format_to_float(item['SCosy Time']),
                         "Raw-Cosy Time (s)": engine_format_to_float(item['Raw COSY Time']),
                         "Speedup (S-Cosy)": item['Speedup (Py/SCosy)'],
-                        "Efficiency (vs Raw)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['SCosy Time']) if engine_format_to_float(item['SCosy Time']) > 0 else np.nan
+                        "Efficiency (vs Raw)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['S-COSY Time']) if engine_format_to_float(item['S-COSY Time']) > 0 else np.nan
                     })
                     
             except Exception as e:
                 print(f"Error in sweep (v={v}, o={o}): {e}")
-                if 'res_ops' in locals(): print(res_ops.stderr)
-    
+                
     # Generate report
     engine = BenchmarkEngine(10, 6)
     plots = engine.generate_plots(full_results)
