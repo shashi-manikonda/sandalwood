@@ -11,27 +11,43 @@ from core import BenchmarkEngine, ARTIFACTS_DIR
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src")))
 from sandalwood import TaylorMap, mtf
 
-FULL_OPS = [
-    # Arithmetic
-    ("Add", "x + y", "DA(1)+DA(2)"),
-    ("Sub", "x - y", "DA(1)-DA(2)"),
-    ("Mul", "x * y", "DA(1)*DA(2)"),
-    ("Div", "(1+x)/(1+y)", "(1+DA(1))/(1+DA(2))"),
-    ("Pow", "(1+x)**3", "(1+DA(1))*(1+DA(1))*(1+DA(1))"),
-    # Elementary Functions
-    ("Sin", "mtf.sin(x)", "SIN(DA(1))"),
-    ("Cos", "mtf.cos(x)", "COS(DA(1))"),
-    ("Tan", "mtf.tan(x)", "TAN(DA(1))"),
-    ("Exp", "mtf.exp(x)", "EXP(DA(1))"),
-    ("Log", "mtf.log(1+x)", "LOG(1+DA(1))"),
-    ("Sqrt", "mtf.sqrt(1+x)", "SQRT(1+DA(1))"),
-    ("Asin", "mtf.arcsin(0.5*x)", "ASIN(0.5*DA(1))"),
-    ("Acos", "mtf.arccos(0.5*x)", "ACOS(0.5*DA(1))"),
-    ("Atan", "mtf.arctan(x)", "ATAN(DA(1))"),
-    ("Sinh", "mtf.sinh(x)", "SINH(DA(1))"),
-    ("Cosh", "mtf.cosh(x)", "COSH(DA(1))"),
-    ("Tanh", "mtf.tanh(x)", "TANH(DA(1))"),
-]
+def generate_benchmark_cases(dims):
+    """Generates benchmark cases string that use all available variables."""
+    var_names = ["x", "y", "z", "u", "v", "w", "a", "b"][:dims]
+    
+    py_sum = " + ".join(var_names)
+    cosy_sum = " + ".join([f"DA({i+1})" for i in range(dims)])
+
+    cases = [
+        # Arithmetic
+        # Note: Using ALL variables in expressions as requested
+        ("Add", f"({py_sum}) + ({py_sum})", f"({cosy_sum})+({cosy_sum})"),
+        ("Sub", f"({py_sum}) - ({py_sum})", f"({cosy_sum})-({cosy_sum})"),
+        ("Mul", f"({py_sum}) * ({py_sum})", f"({cosy_sum})*({cosy_sum})"),
+        ("Div", f"(1+{py_sum})/(1+{py_sum})", f"(1+{cosy_sum})/(1+{cosy_sum})"),
+        # Pow: (1+sum)*(1+sum)*(1+sum) - Explicit multiplication to avoid COSY ^ operator issues on DA
+        ("Pow", f"(1+{py_sum})**3", f"(1+{cosy_sum})*(1+{cosy_sum})*(1+{cosy_sum})"),
+        
+        # Elementary Functions
+        ("Sin", f"mtf.sin({py_sum})", f"SIN({cosy_sum})"),
+        ("Cos", f"mtf.cos({py_sum})", f"COS({cosy_sum})"),
+        ("Tan", f"mtf.tan({py_sum})", f"TAN({cosy_sum})"),
+        ("Exp", f"mtf.exp({py_sum})", f"EXP({cosy_sum})"),
+        ("Log", f"mtf.log(1+{py_sum})", f"LOG(1+{cosy_sum})"),
+        ("Sqrt", f"mtf.sqrt(1+{py_sum})", f"SQRT(1+{cosy_sum})"),
+        ("Asin", f"mtf.arcsin(0.5*({py_sum}))", f"ASIN(0.5*({cosy_sum}))"),
+        ("Acos", f"mtf.arccos(0.5*({py_sum}))", f"ACOS(0.5*({cosy_sum}))"),
+        ("Atan", f"mtf.arctan({py_sum})", f"ATAN({cosy_sum})"),
+        ("Sinh", f"mtf.sinh({py_sum})", f"SINH({cosy_sum})"),
+        ("Cosh", f"mtf.cosh({py_sum})", f"COSH({cosy_sum})"),
+        ("Tanh", f"mtf.tanh({py_sum})", f"TANH({cosy_sum})"),
+        
+        # Complex Cases
+        ("mul_intensive", f"({py_sum})**2", f"({cosy_sum})*({cosy_sum})"),
+        ("sin_complex", f"mtf.sin(0.5 + {py_sum})", f"SIN(0.5 + {cosy_sum})"),
+        ("exp_test", f"mtf.exp({py_sum} - 0.5)", f"EXP({cosy_sum} - 0.5)"),
+    ]
+    return cases
 
 def format_memory(bytes_val):
     """Formats bytes to human-readable string."""
@@ -52,18 +68,9 @@ def measure_memory(func, *args, **kwargs):
         tracemalloc.stop()
     return result, peak
 
-
-COMPLEX_CASES = [
-    ("mul_intensive", "(x + y + z + u)**2", "(DA(1)+DA(2)+DA(3)+DA(4))*(DA(1)+DA(2)+DA(3)+DA(4))"),
-    ("sin_complex", "mtf.sin(0.5 + x + y)", "SIN(0.5 + DA(1) + DA(2))"),
-    ("exp_test", "mtf.exp(x - 0.5)", "EXP(DA(1) - 0.5)"),
-]
-
-ALL_BENCHMARKS = FULL_OPS + COMPLEX_CASES
-
 def run_ops_benchmark(engine, args):
     """Benchmarks individual operations (Python vs COSY Backend)."""
-    ops = ALL_BENCHMARKS
+    ops = generate_benchmark_cases(args.dims)
     
     if args.filter:
         ops = [op for op in ops if args.filter.lower() in op[0].lower()]
@@ -105,7 +112,7 @@ def run_ops_benchmark(engine, args):
 
 def run_raw_comparison(engine, args):
     """Compares Sandalwood (Python/COSY) with Raw COSY execution."""
-    cases = ALL_BENCHMARKS
+    cases = generate_benchmark_cases(args.dims)
     
     if args.filter:
         cases = [c for c in cases if args.filter.lower() in c[0].lower()]
