@@ -125,9 +125,13 @@ while [[ $# -gt 0 ]]; do
       FILTER_ARG="$2"
       shift 2
       ;;
+    --timeout)
+      TIMEOUT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [ops|raw|batch|profile] [--order N] [--dims N] [--iters N] [--npoints N] [--memory] [--filter pattern]"
+      echo "Usage: $0 [ops|raw|batch|profile] [--order N] [--dims N] [--iters N] [--npoints N] [--memory] [--filter pattern] [--timeout N]"
       exit 1
       ;;
   esac
@@ -137,6 +141,7 @@ echo "--- Sandalwood Benchmark: $MODE ---"
 echo "Parameters: Order=$ORDER, Dims=$DIMS, Iters=$ITERS, Points=$NPOINTS"
 if [ ! -z "$MEMORY_FLAG" ]; then echo "Memory Profiling: Enabled"; fi
 if [ ! -z "$FILTER_ARG" ]; then echo "Filter: $FILTER_ARG"; fi
+if [ ! -z "$TIMEOUT" ]; then echo "Timeout: $TIMEOUT"; fi
 echo "---"
 
 # Execute the runner
@@ -149,6 +154,8 @@ CMD=("$PYTHON_BIN" "$BENCH_DIR/run.py" \
 
 if [ ! -z "$MEMORY_FLAG" ]; then CMD+=("--memory"); fi
 if [ ! -z "$FILTER_ARG" ]; then CMD+=("--filter" "$FILTER_ARG"); fi
+if [ ! -z "$TIMEOUT" ]; then CMD+=("--timeout" "$TIMEOUT"); fi
+
 
 "${CMD[@]}"
 
