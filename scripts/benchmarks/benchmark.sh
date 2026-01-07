@@ -47,7 +47,14 @@ COSY_SRC_DIR="$ROOT_DIR/src/sandalwood/backends/cosy/cosy_src"
 if [ ! -f "$COSY_BIN" ]; then
     echo "Compiling COSY binary..."
     if command -v gfortran &> /dev/null; then
-        gfortran -std=legacy -ffixed-form -O3 -march=native -o "$COSY_BIN" \
+        # Compilation Flags Explanation:
+        # -std=legacy: Downgrade modern strictness to support older Fortran constructs
+        # -ffixed-form: Treat source as fixed-form Fortran 77
+        # -O3: Maximum stable optimization level
+        # -march=native: Optimize for host architecture
+        # -flto: Link Time Optimization for cross-file inlining
+        # -funroll-loops: Aggressive loop unrolling
+        gfortran -std=legacy -ffixed-form -O3 -march=native -flto -funroll-loops -o "$COSY_BIN" \
             "$COSY_SRC_DIR/foxy.f" \
             "$COSY_SRC_DIR/dafox.f" \
             "$COSY_SRC_DIR/foxfit.f" \
