@@ -108,47 +108,24 @@ class BenchmarkEngine:
                  import shutil
                  shutil.copy(src, dst)
 
-        # Measure overhead (start process, compile, empty loop)
-        # We run a dummy script with 1 iteration of NO-OP or simple assignment
-        overhead_script = f"""
+        timings = []
+        last_process = None
+
+        # Differential Timing Strategy to cancel out startup overhead
+        # Time(N)   = Overhead + N * OpCost
+        # Time(2N)  = Overhead + 2N * OpCost
+        # Diff      = N * OpCost (Pure computation time for N ops)
+        
+        try:
+            for _ in range(repeats):
+                # Run with N iterations
+                t1_script = f"""
 INCLUDE 'COSY';
 PROCEDURE RUN;
 VARIABLE ORDER 1; VARIABLE DIM 1; VARIABLE NM1 1;
 PROCEDURE TESTEXP NM1;
     VARIABLE TEMP NM1; VARIABLE I 1;
-    WRITE 6 '{name}_overhead';
-    LOOP I 1 1; TEMP:=DA(1); ENDLOOP;
-    WRITE 6 TEMP;
-ENDPROCEDURE;
-ORDER := {self.order}; DIM := {self.dimension};
-DAINI ORDER DIM 0 NM1;
-TESTEXP NM1;
-ENDPROCEDURE;
-RUN;
-END;
-"""
-        overhead_fox = os.path.join(ARTIFACTS_DIR, "overhead.fox")
-        
-        # Write overhead script
-        with open(overhead_fox, "w") as f: f.write(overhead_script)
-        
-        overhead_times = []
-        for _ in range(3): # Run 3 times to get stable overhead
-            with open(dat_path, "w") as f: f.write("overhead") # Point foxyinp.dat to overhead.fox
-            st = time.perf_counter()
-            with open(dat_path, 'r') as dat:
-                 subprocess.run([COSY_BIN], stdin=dat, capture_output=True, cwd=ARTIFACTS_DIR)
-            overhead_times.append(time.perf_counter() - st)
-        avg_overhead = np.min(overhead_times) # Use min to represent "clean" startup
-        
-        # Now run actual benchmark
-        cosy_script = f"""
-INCLUDE 'COSY';
-PROCEDURE RUN;
-VARIABLE ORDER 1; VARIABLE DIM 1; VARIABLE NM1 1;
-PROCEDURE TESTEXP NM1;
-    VARIABLE TEMP NM1; VARIABLE I 1;
-    WRITE 6 '{name}';
+    WRITE 6 '{name}_1x';
     LOOP I 1 {iterations}; TEMP:={cosy_expr}; ENDLOOP;
     WRITE 6 TEMP;
 ENDPROCEDURE;
@@ -159,25 +136,42 @@ ENDPROCEDURE;
 RUN;
 END;
 """
-        with open(fox_path, "w") as f: f.write(cosy_script)
-        with open(dat_path, "w") as f_dat: f_dat.write(os.path.splitext(script_name)[0])
+                with open(fox_path, "w") as f: f.write(t1_script)
+                with open(dat_path, "w") as f_dat: f_dat.write(os.path.splitext(script_name)[0])
+                
+                st = time.perf_counter()
+                with open(dat_path, 'r') as dat_file:
+                    subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, check=True, cwd=ARTIFACTS_DIR)
+                t1 = time.perf_counter() - st
 
-        # Warmup (not fully applicable since it's a process, but good for disk cache)
-        for _ in range(warmup):
-             with open(dat_path, 'r') as dat_file:
-                subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, cwd=ARTIFACTS_DIR)
-
-        timings = []
-        last_process = None
-
-        try:
-            for _ in range(repeats):
-                start = time.perf_counter()
+                # Run with 2*N iterations
+                t2_script = f"""
+INCLUDE 'COSY';
+PROCEDURE RUN;
+VARIABLE ORDER 1; VARIABLE DIM 1; VARIABLE NM1 1;
+PROCEDURE TESTEXP NM1;
+    VARIABLE TEMP NM1; VARIABLE I 1;
+    WRITE 6 '{name}_2x';
+    LOOP I 1 {2*iterations}; TEMP:={cosy_expr}; ENDLOOP;
+    WRITE 6 TEMP;
+ENDPROCEDURE;
+ORDER := {self.order}; DIM := {self.dimension};
+DAINI ORDER DIM 0 NM1;
+TESTEXP NM1;
+ENDPROCEDURE;
+RUN;
+END;
+"""
+                with open(fox_path, "w") as f: f.write(t2_script)
+                
+                # Capture output of the 2x run for validation/parsing
+                st = time.perf_counter()
                 with open(dat_path, 'r') as dat_file:
                     last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
-                elapsed = time.perf_counter() - start
-                # Subtract overhead
-                net_time = max(0.0, elapsed - avg_overhead)
+                t2 = time.perf_counter() - st
+                
+                # Net time for N iterations
+                net_time = max(0.0, t2 - t1)
                 timings.append(net_time)
 
             avg_time = np.mean(timings)
@@ -399,7 +393,7 @@ END;
                 <h2>Benchmark Methodology</h2>
                 <ul>
                     <li><strong>Iterations:</strong> Each operation is executed <b>{iters}</b> times inside the benchmark loop to average out jitter.</li>
-                    <li><strong>Raw COSY Overhead Compensation:</strong> Measurements for <code>Raw COSY</code> are corrected by measuring the startup time of a minimal "NO-OP" script (~50ms typical) and subtracting this from the total execution time. This isolates the computation time from the process startup overhead.</li>
+                    <li><strong>Raw COSY Overhead Compensation:</strong> To eliminate process startup overhead (~50ms) and reduce jitter, we use a <b>Differential Timing</b> strategy. We measure the time for <code>N</code> iterations and <code>2*N</code> iterations. The difference <code>Time(2N) - Time(N)</code> yields the pure computation time for <code>N</code> iterations, perfectly canceling out the constant startup cost.</li>
                     <li><strong>Metrics:</strong> 
                         <ul>
                             <li><b>Speedup (vs Python):</b> <code>Time(Python) / Time(S-Cosy)</code>. Higher is better.</li>
