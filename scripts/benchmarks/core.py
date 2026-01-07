@@ -341,8 +341,9 @@ END;
             
         return df_disp
 
-    def generate_html_report(self, full_results, plots):
+    def generate_html_report(self, full_results, plots, method_info=None):
         """Generates a styled HTML report with tables and embedded plots."""
+        if method_info is None: method_info = {}
         df = pd.DataFrame(full_results)
         sys_info = self.get_system_info()
 
@@ -351,6 +352,9 @@ END;
         
         # System Info Table
         sys_rows = "".join([f"<tr><td><strong>{k}</strong></td><td>{v}</td></tr>" for k, v in sys_info.items()])
+        
+        # Methodology Text
+        iters = method_info.get("iterations", "N/A")
         
         # Export CSV (raw numbers)
         csv_path = os.path.join(ARTIFACTS_DIR, f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
@@ -373,7 +377,7 @@ END;
                 .plot-container {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px; }}
                 .plot-item {{ background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }}
                 .plot-item img {{ max-width: 100%; height: auto; }}
-                .summary, .sysinfo {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+                .summary, .sysinfo, .methodology {{ background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
                 .sysinfo table {{ width: auto; min-width: 50%; border: none; box-shadow: none; margin: 0; }}
             </style>
         </head>
@@ -389,6 +393,20 @@ END;
 
             <div class="summary">
                 <p><strong>Summary:</strong> This report compares the performance of Sandalwood's Python backend, Sandalwood's COSY backend (S-Cosy), and direct COSY script execution (Raw-Cosy) across various expansion orders and variables.</p>
+            </div>
+            
+            <div class="methodology">
+                <h2>Benchmark Methodology</h2>
+                <ul>
+                    <li><strong>Iterations:</strong> Each operation is executed <b>{iters}</b> times inside the benchmark loop to average out jitter.</li>
+                    <li><strong>Raw COSY Overhead Compensation:</strong> Measurements for <code>Raw COSY</code> are corrected by measuring the startup time of a minimal "NO-OP" script (~50ms typical) and subtracting this from the total execution time. This isolates the computation time from the process startup overhead.</li>
+                    <li><strong>Metrics:</strong> 
+                        <ul>
+                            <li><b>Speedup (vs Python):</b> <code>Time(Python) / Time(S-Cosy)</code>. Higher is better.</li>
+                            <li><b>Speedup (vs Raw COSY):</b> <code>Time(Raw COSY) / Time(S-Cosy)</code>. Higher is better. Values near 1.0 indicate S-Cosy matches native performance.</li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
 
             <h2>Performance Comparison Table</h2>

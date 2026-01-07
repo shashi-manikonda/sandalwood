@@ -270,7 +270,7 @@ def run_full_benchmark(args):
     # Generate report
     engine = BenchmarkEngine(10, 6)
     plots = engine.generate_plots(full_results)
-    report_path = engine.generate_html_report(full_results, plots)
+    report_path = engine.generate_html_report(full_results, plots, method_info={"iterations": iters})
     
     print(f"\nFull benchmark complete!")
     print(f"HTML Report: {report_path}")
