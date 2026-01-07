@@ -108,6 +108,40 @@ class BenchmarkEngine:
                  import shutil
                  shutil.copy(src, dst)
 
+        # Measure overhead (start process, compile, empty loop)
+        # We run a dummy script with 1 iteration of NO-OP or simple assignment
+        overhead_script = f"""
+INCLUDE 'COSY';
+PROCEDURE RUN;
+VARIABLE ORDER 1; VARIABLE DIM 1; VARIABLE NM1 1;
+PROCEDURE TESTEXP NM1;
+    VARIABLE TEMP NM1; VARIABLE I 1;
+    WRITE 6 '{name}_overhead';
+    LOOP I 1 1; TEMP:=DA(1); ENDLOOP;
+    WRITE 6 TEMP;
+ENDPROCEDURE;
+ORDER := {self.order}; DIM := {self.dimension};
+DAINI ORDER DIM 0 NM1;
+TESTEXP NM1;
+ENDPROCEDURE;
+RUN;
+END;
+"""
+        overhead_fox = os.path.join(ARTIFACTS_DIR, "overhead.fox")
+        
+        # Write overhead script
+        with open(overhead_fox, "w") as f: f.write(overhead_script)
+        
+        overhead_times = []
+        for _ in range(3): # Run 3 times to get stable overhead
+            with open(dat_path, "w") as f: f.write("overhead") # Point foxyinp.dat to overhead.fox
+            st = time.perf_counter()
+            with open(dat_path, 'r') as dat:
+                 subprocess.run([COSY_BIN], stdin=dat, capture_output=True, cwd=ARTIFACTS_DIR)
+            overhead_times.append(time.perf_counter() - st)
+        avg_overhead = np.min(overhead_times) # Use min to represent "clean" startup
+        
+        # Now run actual benchmark
         cosy_script = f"""
 INCLUDE 'COSY';
 PROCEDURE RUN;
@@ -142,7 +176,9 @@ END;
                 with open(dat_path, 'r') as dat_file:
                     last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
                 elapsed = time.perf_counter() - start
-                timings.append(elapsed)
+                # Subtract overhead
+                net_time = max(0.0, elapsed - avg_overhead)
+                timings.append(net_time)
 
             avg_time = np.mean(timings)
             std_time = np.std(timings)
@@ -236,8 +272,15 @@ END;
             
             for vars_count in op_df['Variables'].unique():
                 v_df = op_df[op_df['Variables'] == vars_count]
-                plt.plot(v_df['Order'], v_df['Python Time (s)'], marker='o', label=f'Python (v={vars_count})')
-                plt.plot(v_df['Order'], v_df['SCosy Time (s)'], marker='s', label=f'S-Cosy (v={vars_count})')
+                # Filter out NaNs for plotting
+                v_df_py = v_df.dropna(subset=['Python Time (s)'])
+                v_df_sc = v_df.dropna(subset=['SCosy Time (s)'])
+                v_df_raw = v_df.dropna(subset=['Raw-Cosy Time (s)'])
+
+                plt.plot(v_df_py['Order'], v_df_py['Python Time (s)'], marker='o', label=f'Python (v={vars_count})')
+                plt.plot(v_df_sc['Order'], v_df_sc['SCosy Time (s)'], marker='s', label=f'S-Cosy (v={vars_count})')
+                if not v_df_raw.empty:
+                    plt.plot(v_df_raw['Order'], v_df_raw['Raw-Cosy Time (s)'], marker='^', linestyle='--', label=f'Raw-Cosy (v={vars_count})')
             
             plt.title(f'Timing vs Order: {op}')
             plt.xlabel('Order')
