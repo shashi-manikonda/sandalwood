@@ -84,7 +84,7 @@ def run_ops_benchmark(engine, args):
             "Operation": name,
             "Python Time": engine.format_time(t_py, s_py),
             "S-COSY Time": engine.format_time(t_sc, s_sc),
-            "Speedup": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
+            "Speedup (vs Python)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
         }
 
         if args.memory:
@@ -134,7 +134,7 @@ def run_raw_comparison(engine, args):
             "Raw COSY Time": engine.format_time(t_raw, s_raw),
             "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
             "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
-            "Speedup (Py/SCosy)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
+            "Speedup (vs Python)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0)
         }
 
         if args.memory:
@@ -260,8 +260,8 @@ def run_full_benchmark(args):
                         "Python Time (s)": engine_format_to_float(item['Python Time']),
                         "SCosy Time (s)": engine_format_to_float(item['S-COSY Time']),
                         "Raw-Cosy Time (s)": engine_format_to_float(item['Raw COSY Time']),
-                        "Speedup (S-Cosy)": item['Speedup (Py/SCosy)'],
-                        "Efficiency (vs Raw)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['S-COSY Time']) if engine_format_to_float(item['S-COSY Time']) > 0 else np.nan
+                        "Speedup (vs Python)": item['Speedup (vs Python)'],
+                        "Speedup (vs Raw COSY)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['S-COSY Time']) if engine_format_to_float(item['S-COSY Time']) > 0 else np.nan
                     })
                     
             except Exception as e:
