@@ -86,7 +86,7 @@ class BenchmarkEngine:
         coeffs = res.coeffs
         return {tuple(exp): c for exp, c in zip(exponents, coeffs)}, avg_time, std_time
 
-    def run_raw_cosy(self, name, cosy_expr, iterations, repeats=5, warmup=1):
+    def run_raw_cosy(self, name, cosy_expr, iterations, repeats=5, warmup=1, timeout=None):
         """Runs a benchmark using Raw COSY script execution with statistics."""
         script_name = f"tmp_{name}.fox"
         fox_path = os.path.join(ARTIFACTS_DIR, script_name)
@@ -141,7 +141,11 @@ END;
                 with open(dat_path, "w") as f_dat: f_dat.write(os.path.splitext(script_name)[0])
                 
                 with open(dat_path, 'r') as dat_file:
-                    last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR)
+                    try:
+                        last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR, timeout=timeout)
+                    except subprocess.TimeoutExpired:
+                        print(f"  [Raw COSY] Timed out after {timeout}s")
+                        return {}, np.nan, np.nan
                 
                 # Parse TIME_SEC from output
                 output_lines = last_process.stdout.strip().split('\n')
@@ -441,6 +445,8 @@ END;
                             <li><b>Speedup (vs Raw COSY):</b> <code>Time(Raw COSY) / Time(S-Cosy)</code>. Higher is better. Values near 1.0 indicate S-Cosy matches native performance.</li>
                         </ul>
                     </li>
+                    <li><strong>Dynamic Expressions:</strong> Expressions now utilize all active variables (e.g., for 4 variables and <code>Sin</code>, we compute <code>sin(x+y+z+u)</code>). This ensures complexity scales with dimensionality.</li>
+                    <li><strong>Execution Timeout:</strong> Benchmarks exceeding the configured timeout (default 30s) are skipped to prevent hanging on excessively complex cases.</li>
                     <li><strong>Note on Power Operation:</strong> For the <code>Pow</code> benchmark, the standard power operator <code>^</code> is not supported for DA objects in the available COSY binary. Therefore, <code>(1+x)**3</code> is implemented using explicit multiplication: <code>(1+x)*(1+x)*(1+x)</code>.</li>
                 </ul>
             </div>
