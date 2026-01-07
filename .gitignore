@@ -215,9 +215,10 @@ DAS.DAT
 *.txt
 scripts/benchmark_archived/
 scripts/benchmarks/artifacts/
+
 *.lis
 *.bin
 *.o
-cosy
+
 cosy_bin
 COSY.bin
