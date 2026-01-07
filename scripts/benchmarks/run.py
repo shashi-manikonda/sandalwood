@@ -276,15 +276,20 @@ def run_full_benchmark(args):
     print(f"HTML Report: {report_path}")
 
 def engine_format_to_float(s):
-    """Converts formatted timing string (e.g. '1.5 ms') back to float in seconds."""
+    """Converts formatted timing string (e.g. '1.5 ms' or '1.5 ± 0.1 ms') back to float in seconds."""
     if not isinstance(s, str) or s == "N/A" or "nan" in s.lower(): return np.nan
     try:
-        val, unit = s.split()
-        val = float(val)
-        if unit == "ms": return val * 1e-3
-        if unit == "µs": return val * 1e-6
-        if unit == "ns": return val * 1e-9
-        return val
+        parts = s.split()
+        # Handle "X unit" or "X ± Y unit"
+        if len(parts) >= 2:
+             val = float(parts[0])
+             unit = parts[-1]
+             
+             if unit == "ms": return val * 1e-3
+             if unit == "µs": return val * 1e-6
+             if unit == "ns": return val * 1e-9
+             if unit == "s": return val
+        return float(parts[0]) # Fallback if just number
     except: return np.nan
 
 def main():
