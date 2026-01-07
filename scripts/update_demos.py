@@ -23,10 +23,7 @@ def update_notebook(filepath):
                         line = line.replace('"python"', '"cosy"')
                     if "'python'" in line:
                         line = line.replace("'python'", "'cosy'")
-                    if '"cpp"' in line:
-                        line = line.replace('"cpp"', '"cosy"')
-                    if "'cpp'" in line:
-                        line = line.replace("'cpp'", "'cosy'")
+
                 
                 # If explicit backend print is hardcoded in specific demo text, we might leave it
                 # or rely on the actual print output updating.
