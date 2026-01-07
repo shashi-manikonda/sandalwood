@@ -17,7 +17,7 @@ FULL_OPS = [
     ("Sub", "x - y", "DA(1)-DA(2)"),
     ("Mul", "x * y", "DA(1)*DA(2)"),
     ("Div", "(1+x)/(1+y)", "(1+DA(1))/(1+DA(2))"),
-    ("Pow", "(1+x)**3", "(1+DA(1))**3"),
+    ("Pow", "(1+x)**3", "(1+DA(1))^3"),
     # Elementary Functions
     ("Sin", "mtf.sin(x)", "SIN(DA(1))"),
     ("Cos", "mtf.cos(x)", "COS(DA(1))"),
