@@ -233,7 +233,7 @@ def run_full_benchmark(args):
     """Performs a comprehensive parametric sweep across orders and variables."""
     orders = [2, 4, 6, 8, 10]
     vars_list = [4, 6]
-    iters = args.iters if args.iters != 100 else 10
+    iters = args.iters
     
     full_results = []
     
