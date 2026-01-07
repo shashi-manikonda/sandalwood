@@ -139,49 +139,69 @@ def run_raw_comparison(engine, args):
 
     results = []
     for name, mtf_expr, cosy_expr in cases:
-        print(f"Comparing {name} with Raw COSY...")
+        print(f"Comparing {name} with Raw COSY...", file=sys.stderr)
 
+        c_py, t_py, s_py = {}, np.nan, np.nan
+        c_sc, t_sc, s_sc = {}, np.nan, np.nan
+        mem_py, mem_sc = 0, 0
+        
+        # 1. Run Python Benchmark
         try:
             with TimeLimit(args.timeout):
                 if args.memory:
                      (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
-                     (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
                 else:
                      c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-                     c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
-                     mem_py, mem_sc = 0, 0
-
-                c_raw, t_raw, s_raw = engine.run_raw_cosy(name, cosy_expr, args.iters, timeout=args.timeout)
-                
-                # Check for Raw COSY timeout/failure
-                if pd.isna(t_raw):
-                    print(f"Skipping {name} - Raw COSY timed out")
-                    continue
-                
-                rmse_py = engine.calculate_rmse(c_py, c_raw)
-                rmse_sc = engine.calculate_rmse(c_sc, c_raw)
-                
-                row = {
-                    "Operation": name,
-                    "Python Time": engine.format_time(t_py, s_py),
-                    "S-COSY Time": engine.format_time(t_sc, s_sc),
-                    "Raw COSY Time": engine.format_time(t_raw, s_raw),
-                    "RMSE (Py vs Raw)": f"{rmse_py:.2e}",
-                    "RMSE (SCosy vs Raw)": f"{rmse_sc:.2e}",
-                    "Speedup (vs Python)": engine.format_speedup(t_py / t_sc if t_sc > 0 else 0),
-                    "Python Expr": mtf_expr,
-                    "COSY Expr": cosy_expr
-                }
-
-                if args.memory:
-                    row["Py Mem"] = format_memory(mem_py)
-                    row["S-COSY Mem"] = format_memory(mem_sc)
-
-                results.append(row)
-        
         except TimeoutError:
-            print(f"Skipping {name} - Execution timed out")
+            print(f"  [Python] Timed out (>{args.timeout}s)", file=sys.stderr)
+        except Exception as e:
+            print(f"  [Python] Failed: {e}", file=sys.stderr)
+
+        # 2. Run S-COSY Benchmark
+        try:
+            with TimeLimit(args.timeout):
+                if args.memory:
+                     (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
+                else:
+                     c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+        except TimeoutError:
+            print(f"  [S-COSY] Timed out (>{args.timeout}s)", file=sys.stderr)
+        except Exception as e:
+            print(f"  [S-COSY] Failed: {e}", file=sys.stderr)
+
+        # 3. Run Raw COSY Benchmark (Handles its own timeout)
+        c_raw, t_raw, s_raw = engine.run_raw_cosy(name, cosy_expr, args.iters, timeout=args.timeout)
+        
+        # If S-COSY AND Raw COSY failed, there is no point in reporting (we need at least one COSY metric)
+        if pd.isna(t_sc) and pd.isna(t_raw):
+            print(f"Skipping {name} - Both S-COSY and Raw COSY failed/timed out", file=sys.stderr)
             continue
+
+        # Calculate RMSE/Speedup relative to whatever is available
+        rmse_py = engine.calculate_rmse(c_py, c_raw) if not pd.isna(t_py) and not pd.isna(t_raw) else np.nan
+        rmse_sc = engine.calculate_rmse(c_sc, c_raw) if not pd.isna(t_sc) and not pd.isna(t_raw) else np.nan
+        
+        speedup_py = t_py / t_sc if (not pd.isna(t_py) and not pd.isna(t_sc) and t_sc > 0) else np.nan
+        
+        def safe_fmt(val): return f"{val:.2e}" if not pd.isna(val) else "N/A"
+
+        row = {
+            "Operation": name,
+            "Python Time": engine.format_time(t_py, s_py) if not pd.isna(t_py) else "N/A",
+            "S-COSY Time": engine.format_time(t_sc, s_sc) if not pd.isna(t_sc) else "N/A",
+            "Raw COSY Time": engine.format_time(t_raw, s_raw) if not pd.isna(t_raw) else "N/A",
+            "RMSE (Py vs Raw)": safe_fmt(rmse_py),
+            "RMSE (SCosy vs Raw)": safe_fmt(rmse_sc),
+            "Speedup (vs Python)": engine.format_speedup(speedup_py) if not pd.isna(speedup_py) else "N/A",
+            "Python Expr": mtf_expr,
+            "COSY Expr": cosy_expr
+        }
+
+        if args.memory:
+            row["Py Mem"] = format_memory(mem_py) if mem_py > 0 else "N/A"
+            row["S-COSY Mem"] = format_memory(mem_sc) if mem_sc > 0 else "N/A"
+
+        results.append(row)
         
     df = pd.DataFrame(results)
     if args.json:
