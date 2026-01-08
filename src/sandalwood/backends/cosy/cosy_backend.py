@@ -52,62 +52,62 @@ def bind_cosy_func(name, argtypes):
              return None
 
 # Core
-bind_cosy_func("setup_cosy_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("get_da_coeff_", [POINTER(c_int), POINTER(c_int), POINTER(c_double)])
-bind_cosy_func("create_da_var_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
-bind_cosy_func("create_da_const_", [POINTER(c_int), POINTER(c_double)])
-bind_cosy_func("get_da_coeff_by_index_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
-bind_cosy_func("cosy_free_", [POINTER(c_int)])
-bind_cosy_func("cosy_set_coeffs_", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("eval_da_", [POINTER(c_int), POINTER(c_double), POINTER(c_double)])
+bind_cosy_func("setup_cosy", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("get_da_coeff", [POINTER(c_int), POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("create_da_var", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("create_da_const", [POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("get_da_coeff_by_index", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("cosy_free", [POINTER(c_int)])
+bind_cosy_func("cosy_set_coeffs", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("eval_da", [POINTER(c_int), POINTER(c_double), POINTER(c_double)])
 
 # Arithmetic
-bind_cosy_func("compute_da_add_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_sub_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_mul_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_div_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_add", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sub", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_mul", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_div", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 
 # Differential Operators
-bind_cosy_func("compute_da_der_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_int_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_poi_", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_der", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_int", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_poi", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 
 # Mixed-Mode Arithmetic
-bind_cosy_func("compute_da_add_const_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
-bind_cosy_func("compute_da_sub_const_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
-bind_cosy_func("compute_da_sub_r_const_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
-bind_cosy_func("compute_da_mul_const_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
-bind_cosy_func("compute_da_div_const_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
-bind_cosy_func("compute_da_div_r_const_", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_add_const", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_sub_const", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_sub_r_const", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_mul_const", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_div_const", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
+bind_cosy_func("compute_da_div_r_const", [POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 
 # Elementary Functions
-bind_cosy_func("compute_da_sin_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_cos_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_exp_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_log_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_sinh_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_cosh_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_tanh_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_tan_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_sqr_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_sqrt_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_isrt_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_cot_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_asin_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_acos_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_atan_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
-bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
-bind_cosy_func("compute_da_coth_", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sin", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_cos", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_exp", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_log", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sinh", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_cosh", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_tanh", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_tan", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sqr", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sqrt", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_isrt", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_cot", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_asin", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_acos", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_atan", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_daest", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("compute_da_daest", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("compute_da_coth", [POINTER(c_int), POINTER(c_int)])
 
 # Batch Operations
-bind_cosy_func("compute_da_add_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_sub_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_mul_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_div_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_minv_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_isrt3_", [POINTER(c_int), POINTER(c_int)])
-bind_cosy_func("compute_da_norm_", [POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("compute_da_add_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sub_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_mul_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_div_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_minv", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_isrt3", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_norm", [POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("compute_da_wnorm_", [POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 
 # Complex wrappers
@@ -165,11 +165,11 @@ class CosyScope:
     def __enter__(self):
         if not CosyBackend.is_initialized():
             raise RuntimeError("COSY backend not initialized")
-        libcosy.get_mem_state_(byref(self.ivar), byref(self.imem))
+        libcosy.get_mem_state(byref(self.ivar), byref(self.imem))
         return self
         
     def __exit__(self, exc_type, exc_val, exc_tb):
-        libcosy.set_mem_state_(byref(self.ivar), byref(self.imem))
+        libcosy.set_mem_state(byref(self.ivar), byref(self.imem))
         return False
 
 class CosyBackend:
@@ -188,9 +188,9 @@ class CosyBackend:
         c_order = c_int(order)
         c_dim = c_int(dim)
         c_nmmax = c_int(0)
-        if not hasattr(libcosy, "setup_cosy_"):
+        if not hasattr(libcosy, "setup_cosy"):
             raise RuntimeError(f"COSY library not found at {LIB_PATH}")
-        libcosy.setup_cosy_(byref(c_order), byref(c_dim), byref(c_nmmax))
+        libcosy.setup_cosy(byref(c_order), byref(c_dim), byref(c_nmmax))
         CosyBackend._initialized = True
 
     @staticmethod
@@ -213,7 +213,7 @@ class CosyDA:
         elif create_new:
             self.owned = True
             res_idx = c_int(0)
-            libcosy.create_da_const_(byref(res_idx), byref(c_double(0.0)))
+            libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
             self.idx = res_idx.value
         elif var_id is not None:
             self.owned = True
@@ -221,7 +221,7 @@ class CosyDA:
             # Use 0.0 as default value for variables (Monomial x_i)
             # Convert 0-based Python index to 1-based COSY index
             # Use safe NDA creation to avoid NST issues
-            libcosy.create_nda_var_(byref(res_idx), byref(c_double(0.0)), byref(c_int(var_id + 1)))
+            libcosy.create_nda_var(byref(res_idx), byref(c_double(0.0)), byref(c_int(var_id + 1)))
             self.idx = res_idx.value
         else:
             raise ValueError("Must provide idx, create_new=True, or var_id")
@@ -249,7 +249,7 @@ class CosyDA:
         c_exps = (c_int * (max_len.value * CosyBackend._dim))()
         actual_len = c_int(0)
         
-        libcosy.get_all_coeffs_flat_(byref(c_int(self.idx)), c_vals, c_exps, byref(max_len), byref(actual_len))
+        libcosy.get_all_coeffs_flat(byref(c_int(self.idx)), c_vals, c_exps, byref(max_len), byref(actual_len))
         
         n_terms = actual_len.value
         coeffs = []
@@ -265,13 +265,13 @@ class CosyDA:
     def get_constant(self):
         c_exponents = (c_int * 1000)()
         c_val = c_double()
-        libcosy.get_da_coeff_(byref(c_int(self.idx)), c_exponents, byref(c_val))
+        libcosy.get_da_coeff(byref(c_int(self.idx)), c_exponents, byref(c_val))
         return c_val.value
 
     @classmethod
     def from_const(cls, val):
         res_idx = c_int(0)
-        libcosy.create_da_const_(byref(res_idx), byref(c_double(float(val))))
+        libcosy.create_da_const(byref(res_idx), byref(c_double(float(val))))
         return cls(idx=res_idx.value, owned=True)
 
     def _should_promote(self, other):
@@ -282,12 +282,12 @@ class CosyDA:
              return self.to_complex() + other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
-            libcosy.compute_da_add_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_da_add(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, (int, float, np.number)):
-             libcosy.compute_da_add_const_(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
+             libcosy.compute_da_add_const(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
         else:
             con = CosyDA.from_const(other)
-            libcosy.compute_da_add_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+            libcosy.compute_da_add(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __radd__(self, other):
@@ -298,12 +298,12 @@ class CosyDA:
              return self.to_complex() - other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
-            libcosy.compute_da_sub_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_da_sub(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, (int, float, np.number)):
-             libcosy.compute_da_sub_const_(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
+             libcosy.compute_da_sub_const(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
         else:
             con = CosyDA.from_const(other)
-            libcosy.compute_da_sub_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+            libcosy.compute_da_sub(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __rsub__(self, other):
@@ -311,10 +311,10 @@ class CosyDA:
              return CosyCDA.from_const(other) - self
         res_idx = c_int(0)
         if isinstance(other, (int, float, np.number)):
-             libcosy.compute_da_sub_r_const_(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
+             libcosy.compute_da_sub_r_const(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
         else:
             con = CosyDA.from_const(other)
-            libcosy.compute_da_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
+            libcosy.compute_da_sub(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __neg__(self):
@@ -322,12 +322,12 @@ class CosyDA:
              return self.to_complex() * -1.0
         res_idx = c_int(0)
         con = CosyDA.from_const(0.0)
-        libcosy.compute_da_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_sub(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def to_complex(self):
         res_idx = c_int(0)
-        libcosy.compute_da_to_cd_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_to_cd(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __mul__(self, other):
@@ -335,10 +335,10 @@ class CosyDA:
              return self.to_complex() * other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
-            libcosy.compute_da_mul_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_da_mul(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, (int, float, np.number)):
             # Optimized
-            libcosy.compute_da_mul_const_(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
+            libcosy.compute_da_mul_const(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
         else:
             return NotImplemented
         return CosyDA(idx=res_idx.value, owned=True)
@@ -351,12 +351,12 @@ class CosyDA:
              return self.to_complex() / other
         res_idx = c_int(0)
         if isinstance(other, CosyDA):
-            libcosy.compute_da_div_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_da_div(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, (int, float, np.number)):
-            libcosy.compute_da_div_const_(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
+            libcosy.compute_da_div_const(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
         else:
             con = CosyDA.from_const(other)
-            libcosy.compute_da_div_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+            libcosy.compute_da_div(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __rtruediv__(self, other):
@@ -364,10 +364,10 @@ class CosyDA:
              return CosyCDA.from_const(other) / self
         res_idx = c_int(0)
         if isinstance(other, (int, float, np.number)):
-             libcosy.compute_da_div_r_const_(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
+             libcosy.compute_da_div_r_const(byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx))
         else:
             con = CosyDA.from_const(other)
-            libcosy.compute_da_div_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
+            libcosy.compute_da_div(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def deriv(self, var_id):
@@ -375,7 +375,7 @@ class CosyDA:
         c_var = c_int(var_id + 1)
         c_idx = c_int(self.idx)
         print(f"DEBUG PYTHON deriv (pre): var_id={var_id}, idx={self.idx}, res_idx={res_idx.value}")
-        libcosy.da_deriv_safe_(byref(c_var), byref(c_idx), byref(res_idx))
+        libcosy.da_deriv_safe(byref(c_var), byref(c_idx), byref(res_idx))
         print(f"DEBUG PYTHON deriv (post): res_idx={res_idx.value}")
         return CosyDA(idx=res_idx.value, owned=True)
 
@@ -384,7 +384,7 @@ class CosyDA:
         c_var = c_int(var_id + 1)
         c_idx = c_int(self.idx)
         print(f"DEBUG PYTHON integral (pre): var_id={var_id}, idx={self.idx}, res_idx={res_idx.value}")
-        libcosy.da_integ_(byref(c_var), byref(c_idx), byref(res_idx))
+        libcosy.da_integ(byref(c_var), byref(c_idx), byref(res_idx))
         print(f"DEBUG PYTHON integral (post): res_idx={res_idx.value}")
         return CosyDA(idx=res_idx.value, owned=True)
 
@@ -398,104 +398,104 @@ class CosyDA:
         # Or better: check wrapper.
         c_zero_val = c_double(0.0)
         c_zero_int = c_int(0)
-        libcosy.create_da_var_(byref(res_idx), byref(c_zero_val), byref(c_zero_int))
+        libcosy.create_da_var(byref(res_idx), byref(c_zero_val), byref(c_zero_int))
         
         if isinstance(other, CosyDA):
             c_idx_self = c_int(self.idx)
             c_idx_other = c_int(other.idx)
-            libcosy.da_poisson_(byref(c_idx_self), byref(c_idx_other), byref(res_idx))
+            libcosy.da_poisson(byref(c_idx_self), byref(c_idx_other), byref(res_idx))
         else:
-            libcosy.create_da_const_(byref(res_idx), byref(c_double(0.0)))
+            libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sin(self):
         res_idx = c_int(0)
-        libcosy.compute_da_sin_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_sin(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def cos(self):
         res_idx = c_int(0)
-        libcosy.compute_da_cos_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_cos(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def exp(self):
         res_idx = c_int(0)
-        libcosy.compute_da_exp_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_exp(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def log(self):
         res_idx = c_int(0)
-        libcosy.compute_da_log_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_log(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sinh(self):
         res_idx = c_int(0)
-        libcosy.compute_da_sinh_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_sinh(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def cosh(self):
         res_idx = c_int(0)
-        libcosy.compute_da_cosh_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_cosh(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def tanh(self):
         res_idx = c_int(0)
-        libcosy.compute_da_tanh_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_tanh(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def tan(self):
         res_idx = c_int(0)
-        libcosy.compute_da_tan_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_tan(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sqrt(self):
         res_idx = c_int(0)
-        libcosy.compute_da_sqrt_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_sqrt(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def arcsin(self):
         res_idx = c_int(0)
-        libcosy.compute_da_asin_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_asin(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def arccos(self):
         res_idx = c_int(0)
-        libcosy.compute_da_acos_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_acos(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def arctan(self):
         res_idx = c_int(0)
-        libcosy.compute_da_atan_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_atan(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inv_sqrt(self):
         res_idx = c_int(0)
-        libcosy.compute_da_isrt_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_isrt(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inv_cbrt(self):
         res_idx = c_int(0)
-        libcosy.compute_da_isrt3_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_isrt3(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def coth(self):
         res_idx = c_int(0)
-        libcosy.compute_da_coth_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_coth(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def cot(self):
         res_idx = c_int(0)
-        libcosy.compute_da_cot_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_cot(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def norm(self):
         val = c_double(0.0)
-        libcosy.compute_da_norm_(byref(c_int(self.idx)), byref(val))
+        libcosy.compute_da_norm(byref(c_int(self.idx)), byref(val))
         return val.value
 
     def weighted_norm(self, weight_da):
         val = c_double(0.0)
-        libcosy.compute_da_wnorm_(byref(c_int(self.idx)), byref(c_int(weight_da.idx)), byref(val))
+        libcosy.compute_da_wnorm(byref(c_int(self.idx)), byref(c_int(weight_da.idx)), byref(val))
         return val.value
 
     def estimate_stability(self, var_id=0, order=None):
@@ -507,7 +507,7 @@ class CosyDA:
         if order is None:
             order = CosyBackend._order
         val = c_double(0.0)
-        libcosy.compute_da_daest_(byref(c_int(self.idx)), byref(c_int(var_id)), byref(c_int(order)), byref(val))
+        libcosy.compute_da_daest(byref(c_int(self.idx)), byref(c_int(var_id)), byref(c_int(order)), byref(val))
         return val.value
 
     def compose_polval(self, args_da_list):
@@ -523,20 +523,20 @@ class CosyDA:
             args_indices[i] = arg.idx
         
         res_idx = c_int(0)
-        libcosy.compute_da_polval_(byref(res_idx), byref(c_int(self.idx)), args_indices, byref(c_int(n_args)))
+        libcosy.compute_da_polval(byref(res_idx), byref(c_int(self.idx)), args_indices, byref(c_int(n_args)))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inverse(self):
         res_idx = c_int(0)
-        libcosy.compute_da_mui_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_da_mui(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __pow__(self, exponent):
         res_idx = c_int(0)
         if isinstance(exponent, int):
-            libcosy.compute_da_pep_(byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx))
+            libcosy.compute_da_pep(byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx))
         elif isinstance(exponent, float):
-            libcosy.compute_da_pkp_(byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx))
+            libcosy.compute_da_pkp(byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx))
         else:
              return NotImplemented
         return CosyDA(idx=res_idx.value, owned=True)
@@ -553,19 +553,19 @@ class CosyCDA(CosyDA):
         elif create_new:
             self.owned = True
             res_idx = c_int(0)
-            libcosy.create_cda_const_(byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0)))
+            libcosy.create_cda_const(byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0)))
             self.idx = res_idx.value
         elif from_var:
             var_id, real_val = from_var
             self.owned = True
             res_idx = c_int(0)
-            libcosy.create_cda_var_(byref(res_idx), byref(c_int(var_id)), byref(c_double(real_val)))
+            libcosy.create_cda_var(byref(res_idx), byref(c_int(var_id)), byref(c_double(real_val)))
             self.idx = res_idx.value
         elif from_const:
             re_val, im_val = from_const
             self.owned = True
             res_idx = c_int(0)
-            libcosy.create_cda_const_(byref(res_idx), byref(c_double(re_val)), byref(c_double(im_val)))
+            libcosy.create_cda_const(byref(res_idx), byref(c_double(re_val)), byref(c_double(im_val)))
             self.idx = res_idx.value
         else:
             raise ValueError("Must provide idx, create_new=True, from_var, or from_const")
@@ -575,8 +575,8 @@ class CosyCDA(CosyDA):
     def get_constant(self):
         re_da = CosyDA(create_new=True)
         im_da = CosyDA(create_new=True)
-        libcosy.get_cda_re_(byref(c_int(self.idx)), byref(c_int(re_da.idx)))
-        libcosy.get_cda_im_(byref(c_int(self.idx)), byref(c_int(im_da.idx)))
+        libcosy.get_cda_re(byref(c_int(self.idx)), byref(c_int(re_da.idx)))
+        libcosy.get_cda_im(byref(c_int(self.idx)), byref(c_int(im_da.idx)))
         return complex(re_da.get_constant(), im_da.get_constant())
 
     def _ensure_cd(self, other):
@@ -591,7 +591,7 @@ class CosyCDA(CosyDA):
         b = self._ensure_cd(other)
         if b is NotImplemented: return NotImplemented
         res_idx = c_int(0)
-        libcosy.compute_cd_div_(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
+        libcosy.compute_cd_div(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __rtruediv__(self, other):
@@ -601,62 +601,62 @@ class CosyCDA(CosyDA):
 
     def inverse(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_mui_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_mui(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __pow__(self, exponent):
         res_idx = c_int(0)
         if isinstance(exponent, int):
-             libcosy.compute_cd_pei_(byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx))
+             libcosy.compute_cd_pei(byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx))
         elif isinstance(exponent, float):
-             libcosy.compute_cd_pkp_(byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx))
+             libcosy.compute_cd_pkp(byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx))
         else:
              return NotImplemented
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def exp(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_exp_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_exp(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def log(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_log_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_log(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def sin(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_sin_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_sin(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def cos(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_cos_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_cos(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def tan(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_tan_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_tan(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def sinh(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_sinh_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_sinh(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def cosh(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_cosh_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_cosh(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def tanh(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_tanh_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_tanh(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def sqrt(self):
         res_idx = c_int(0)
-        libcosy.compute_cd_sqrt_(byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_sqrt(byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
 
@@ -672,7 +672,7 @@ class CosyCDA(CosyDA):
         c_val_re = c_double()
         c_val_im = c_double()
         for i in range(1, n_coeffs + 1):
-            libcosy.get_cda_coeff_by_index_(byref(c_int(self.idx)), byref(c_int(i)), c_exps, byref(c_val_re), byref(c_val_im))
+            libcosy.get_cda_coeff_by_index(byref(c_int(self.idx)), byref(c_int(i)), c_exps, byref(c_val_re), byref(c_val_im))
             re, im = c_val_re.value, c_val_im.value
             if abs(re) > 1e-15 or abs(im) > 1e-15:
                 exps = tuple(c_exps[k] for k in range(dim))
@@ -682,15 +682,15 @@ class CosyCDA(CosyDA):
     def __add__(self, other):
         res_idx = c_int(0)
         if isinstance(other, CosyCDA):
-            libcosy.compute_cd_add_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_cd_add(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, CosyDA):
             other_cd = other.to_complex()
-            libcosy.compute_cd_add_(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
+            libcosy.compute_cd_add(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
         else:
             re_v = float(other.real) if hasattr(other, 'real') else float(other)
             im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
             con = CosyCDA(from_const=(re_v, im_v))
-            libcosy.compute_cd_add_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+            libcosy.compute_cd_add(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __radd__(self, other):
@@ -699,15 +699,15 @@ class CosyCDA(CosyDA):
     def __sub__(self, other):
         res_idx = c_int(0)
         if isinstance(other, CosyCDA):
-            libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_cd_sub(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, CosyDA):
             other_cd = other.to_complex()
-            libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
+            libcosy.compute_cd_sub(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
         else:
             re_v = float(other.real) if hasattr(other, 'real') else float(other)
             im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
             con = CosyCDA(from_const=(re_v, im_v))
-            libcosy.compute_cd_sub_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+            libcosy.compute_cd_sub(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __rsub__(self, other):
@@ -715,21 +715,21 @@ class CosyCDA(CosyDA):
         re_v = float(other.real) if hasattr(other, 'real') else float(other)
         im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
         con = CosyCDA(from_const=(re_v, im_v))
-        libcosy.compute_cd_sub_(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_sub(byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __mul__(self, other):
         res_idx = c_int(0)
         if isinstance(other, CosyCDA):
-            libcosy.compute_cd_mul_(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
+            libcosy.compute_cd_mul(byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx))
         elif isinstance(other, CosyDA):
             other_cd = other.to_complex()
-            libcosy.compute_cd_mul_(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
+            libcosy.compute_cd_mul(byref(c_int(self.idx)), byref(c_int(other_cd.idx)), byref(res_idx))
         else:
             re_v = float(other.real) if hasattr(other, 'real') else float(other)
             im_v = float(other.imag) if hasattr(other, 'imag') else 0.0
             con = CosyCDA(from_const=(re_v, im_v))
-            libcosy.compute_cd_mul_(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
+            libcosy.compute_cd_mul(byref(c_int(self.idx)), byref(c_int(con.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __rmul__(self, other):
@@ -738,7 +738,7 @@ class CosyCDA(CosyDA):
     def deriv(self, var_id):
         res_idx = c_int(0)
         c_var = c_int(var_id + 1)
-        libcosy.compute_cd_der_(byref(c_var), byref(c_int(self.idx)), byref(res_idx))
+        libcosy.compute_cd_der(byref(c_var), byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
 
 
@@ -819,11 +819,11 @@ class CosyMtfData:
             if not hasattr(libcosy, 'cosy_set_cd_coeffs_'):
                  bind_cosy_func("cosy_set_cd_coeffs_", [POINTER(c_int), POINTER(c_double), POINTER(c_double), POINTER(c_int), POINTER(c_int)])
             
-            libcosy.cosy_set_cd_coeffs_(byref(c_int(self.da.idx)), c_re, c_im, c_exps, byref(c_int(len(coeffs))))
+            libcosy.cosy_set_cd_coeffs(byref(c_int(self.da.idx)), c_re, c_im, c_exps, byref(c_int(len(coeffs))))
         else:
             flat_coeffs = coeffs.astype(np.float64)
             c_coeffs = (c_double * len(flat_coeffs))(*flat_coeffs)
-            libcosy.cosy_set_coeffs_(byref(c_int(self.da.idx)), c_coeffs, c_exps, byref(c_int(len(coeffs))))
+            libcosy.cosy_set_coeffs(byref(c_int(self.da.idx)), c_coeffs, c_exps, byref(c_int(len(coeffs))))
 
     def get_constant(self):
         return self.da.get_constant()
@@ -911,7 +911,7 @@ class CosyMtfData:
             c_vals = (c_double * len(vals)).from_buffer(vals)
             c_n_points = c_int(n_points)
             
-            libcosy.eval_da_batch_(byref(c_int(self.da.idx)), 
+            libcosy.eval_da_batch(byref(c_int(self.da.idx)), 
                                    c_points, 
                                    byref(c_n_points), 
                                    c_vals,
@@ -1064,7 +1064,7 @@ def da_mat_inv(matrix_flat, n):
     mat_arr = (c_double * (n * n))(*matrix_flat)
     inv_arr = (c_double * (n * n))()
     
-    libcosy.da_mat_inv_(mat_arr, inv_arr, byref(c_int(n)))
+    libcosy.da_mat_inv(mat_arr, inv_arr, byref(c_int(n)))
     
     return [inv_arr[i] for i in range(n * n)]
 
@@ -1073,9 +1073,9 @@ def da_lin_comb(da1, c1, da2, c2):
     Compute Linear Combination: res = c1*da1 + c2*da2
     """
     res_idx = c_int(0)
-    libcosy.create_da_var_(byref(res_idx), byref(c_double(0.0)), byref(c_int(0)))
+    libcosy.create_da_var(byref(res_idx), byref(c_double(0.0)), byref(c_int(0)))
     
-    libcosy.da_lin_comb_(
+    libcosy.da_lin_comb(
         byref(c_int(da1.idx)), byref(c_double(c1)),
         byref(c_int(da2.idx)), byref(c_double(c2)),
         byref(res_idx)
@@ -1100,7 +1100,7 @@ def _prepare_batch_args(idx_arr_a, idx_arr_b):
 
 def batch_add(idx_arr_a, idx_arr_b):
     n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
-    libcosy.compute_da_add_batch_(
+    libcosy.compute_da_add_batch(
         byref(c_int(n)),
         a_ptr.ctypes.data_as(POINTER(c_int)),
         b_ptr.ctypes.data_as(POINTER(c_int)),
@@ -1110,7 +1110,7 @@ def batch_add(idx_arr_a, idx_arr_b):
 
 def batch_sub(idx_arr_a, idx_arr_b):
     n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
-    libcosy.compute_da_sub_batch_(
+    libcosy.compute_da_sub_batch(
         byref(c_int(n)),
         a_ptr.ctypes.data_as(POINTER(c_int)),
         b_ptr.ctypes.data_as(POINTER(c_int)),
@@ -1120,7 +1120,7 @@ def batch_sub(idx_arr_a, idx_arr_b):
 
 def batch_mul(idx_arr_a, idx_arr_b):
     n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
-    libcosy.compute_da_mul_batch_(
+    libcosy.compute_da_mul_batch(
         byref(c_int(n)),
         a_ptr.ctypes.data_as(POINTER(c_int)),
         b_ptr.ctypes.data_as(POINTER(c_int)),
@@ -1130,7 +1130,7 @@ def batch_mul(idx_arr_a, idx_arr_b):
 
 def batch_div(idx_arr_a, idx_arr_b):
     n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
-    libcosy.compute_da_div_batch_(
+    libcosy.compute_da_div_batch(
         byref(c_int(n)),
         a_ptr.ctypes.data_as(POINTER(c_int)),
         b_ptr.ctypes.data_as(POINTER(c_int)),

@@ -23,7 +23,8 @@ ls -l "$DIR/wrapper.f"
 # -ffixed-form: Treat source as fixed-form Fortran 77 (required for .f files)
 # -flto: Link Time Optimization (cross-file inlining)
 # -funroll-loops: Aggressive loop unrolling (efficient for large coefficient arrays)
-gfortran -shared -fPIC -fcommon -std=legacy -O3 -march=native -ffixed-form -flto -funroll-loops \
+# -fallow-argument-mismatch: Allow legacy rank mismatches (required for GCC 10+)
+gfortran -shared -fPIC -fcommon -std=legacy -O3 -march=native -ffixed-form -flto -funroll-loops -fallow-argument-mismatch \
     "$COSY_SRC/dafox.f" \
     "$COSY_SRC/foxfit.f" \
     "$COSY_SRC/foxgraf.f" \
