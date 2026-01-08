@@ -99,13 +99,21 @@ def run_ops_benchmark(engine, args):
     for name, mtf_expr, cosy_expr in ops:
         print(f"Benchmarking {name}...")
         
-        if args.memory:
-            (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
-            (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
-        else:
-            c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-            c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
-            mem_py, mem_sc = 0, 0
+        try:
+            with TimeLimit(args.timeout):
+                if args.memory:
+                    (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
+                    (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
+                else:
+                    c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+                    c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+                    mem_py, mem_sc = 0, 0
+        except TimeoutError:
+            print(f"Skipping {name} - Timed out (>{args.timeout}s)", file=sys.stderr)
+            continue
+        except Exception as e:
+            print(f"Skipping {name} - Failed: {e}", file=sys.stderr)
+            continue
 
         row = {
             "Operation": name,
