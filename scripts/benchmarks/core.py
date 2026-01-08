@@ -127,7 +127,7 @@ PROCEDURE TESTEXP NM1;
     VARIABLE T1 1; VARIABLE T2 1;
     WRITE 6 '{name}';
     CPUSEC T1;
-    LOOP I 1 {iterations}; TEMP:={cosy_expr}; ENDLOOP;
+    LOOP I 1 {iterations}; TEMP:={cosy_expr} + DA(1)*0; ENDLOOP;
     CPUSEC T2;
     WRITE 6 'TIME_SEC ' T2-T1;
     WRITE 6 TEMP;

@@ -44,9 +44,9 @@ def generate_benchmark_cases(dims):
         ("Add", f"({py_sum}) + ({py_sum})", f"({cosy_sum})+({cosy_sum})"),
         ("Sub", f"({py_sum}) - ({py_sum})", f"({cosy_sum})-({cosy_sum})"),
         ("Mul", f"({py_sum}) * ({py_sum})", f"({cosy_sum})*({cosy_sum})"),
-        ("Div", f"(1+{py_sum})/(1+{py_sum})", f"(1+{cosy_sum})/(1+{cosy_sum})"),
+        ("Div", f"({py_sum}) / ({py_sum} + 0.01)", f"({cosy_sum}) / ({cosy_sum} + 0.01)"),
         # Pow: (1+sum)*(1+sum)*(1+sum) - Explicit multiplication to avoid COSY ^ operator issues on DA
-        ("Pow", f"(1+{py_sum})**3", f"(1+{cosy_sum})*(1+{cosy_sum})*(1+{cosy_sum})"),
+        ("Cube (Mul)", f"({py_sum})**3", f"({cosy_sum})*(({cosy_sum})*({cosy_sum}))"),
         
         # Elementary Functions
         ("Sin", f"mtf.sin({py_sum})", f"SIN({cosy_sum})"),
@@ -200,33 +200,52 @@ def run_raw_comparison(engine, args):
         
         def safe_fmt(val): return f"{val:.2e}" if not pd.isna(val) else "N/A"
 
+        # Raw data for JSON/Analysis
         row = {
+            "Operation": name,
+            "Python Time": t_py if not pd.isna(t_py) else None,
+            "S-COSY Time": t_sc if not pd.isna(t_sc) else None,
+            "Raw COSY Time": t_raw if not pd.isna(t_raw) else None,
+            "RMSE (Py vs Raw)": rmse_py if not pd.isna(rmse_py) else None,
+            "RMSE (SCosy vs Raw)": rmse_sc if not pd.isna(rmse_sc) else None,
+            "Speedup (vs Python)": speedup_py if not pd.isna(speedup_py) else None,
+            "Python Expr": mtf_expr,
+            "COSY Expr": cosy_expr
+        }
+        
+        # Formatted data for Console Display
+        disp_row = {
             "Operation": name,
             "Python Time": engine.format_time(t_py, s_py) if not pd.isna(t_py) else "N/A",
             "S-COSY Time": engine.format_time(t_sc, s_sc) if not pd.isna(t_sc) else "N/A",
             "Raw COSY Time": engine.format_time(t_raw, s_raw) if not pd.isna(t_raw) else "N/A",
-            "RMSE (Py vs Raw)": safe_fmt(rmse_py),
-            "RMSE (SCosy vs Raw)": safe_fmt(rmse_sc),
-            "Speedup (vs Python)": engine.format_speedup(speedup_py) if not pd.isna(speedup_py) else "N/A",
-            "Python Expr": mtf_expr,
-            "COSY Expr": cosy_expr
+            "RMSE (Py)": safe_fmt(rmse_py),
+            "RMSE (SC)": safe_fmt(rmse_sc),
+            "Speedup": engine.format_speedup(speedup_py) if not pd.isna(speedup_py) else "N/A",
         }
 
         if args.memory:
-            row["Py Mem"] = format_memory(mem_py) if mem_py > 0 else "N/A"
-            row["S-COSY Mem"] = format_memory(mem_sc) if mem_sc > 0 else "N/A"
+            row["Py Mem"] = mem_py
+            row["S-COSY Mem"] = mem_sc
+            disp_row["Py Mem"] = format_memory(mem_py) if mem_py > 0 else "N/A"
+            disp_row["S-COSY Mem"] = format_memory(mem_sc) if mem_sc > 0 else "N/A"
 
         results.append(row)
+        display_results.append(disp_row)
         
     df = pd.DataFrame(results)
+    df_disp = pd.DataFrame(display_results)
+    
     if args.json:
+        # JSON output must be pure raw data
         print(df.to_json(orient='records'))
     else:
         try:
-             print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+             print("\n" + df_disp.to_markdown(index=False, tablefmt="grid"))
         except ImportError:
-             print("\n" + df.to_string(index=False))
-    engine.save_markdown_results(df, "Raw COSY Comparison")
+             print("\n" + df_disp.to_string(index=False))
+             
+    engine.save_markdown_results(df_disp, "Raw COSY Comparison")
 
 def run_batch_eval(engine, args):
     """Benchmarks batch evaluation performance."""
@@ -338,15 +357,30 @@ def run_full_benchmark(args):
                 raw_data = json.loads(json_part)
                 
                 for item in raw_data:
+                    t_py = item.get('Python Time')
+                    t_sc = item.get('S-COSY Time')
+                    t_raw = item.get('Raw COSY Time')
+                    
+                    # Handle NaNs from JSON (which might come as None)
+                    if t_py is None: t_py = np.nan
+                    if t_sc is None: t_sc = np.nan
+                    if t_raw is None: t_raw = np.nan
+
+                    speedup_py = item.get('Speedup (vs Python)')
+                    if speedup_py is None: speedup_py = np.nan
+                    
+                    # Recompute raw speedup if needed, or trust child
+                    speedup_raw = t_raw / t_sc if (t_sc > 0 and not np.isnan(t_sc) and not np.isnan(t_raw)) else np.nan
+
                     full_results.append({
                         "Operation": item['Operation'],
                         "Variables": v,
                         "Order": o,
-                        "Python Time (s)": engine_format_to_float(item['Python Time']),
-                        "SCosy Time (s)": engine_format_to_float(item['S-COSY Time']),
-                        "Raw-Cosy Time (s)": engine_format_to_float(item['Raw COSY Time']),
-                        "Speedup (vs Python)": engine_format_to_float(item['Speedup (vs Python)']),
-                        "Speedup (vs Raw COSY)": engine_format_to_float(item['Raw COSY Time']) / engine_format_to_float(item['S-COSY Time']) if engine_format_to_float(item['S-COSY Time']) > 0 else np.nan,
+                        "Python Time (s)": t_py,
+                        "SCosy Time (s)": t_sc,
+                        "Raw-Cosy Time (s)": t_raw,
+                        "Speedup (vs Python)": speedup_py,
+                        "Speedup (vs Raw COSY)": speedup_raw,
                         "Python Expr": item.get('Python Expr', ''),
                         "COSY Expr": item.get('COSY Expr', '')
                     })
@@ -364,27 +398,6 @@ def run_full_benchmark(args):
     
     print(f"\nFull benchmark complete!")
     print(f"HTML Report: {report_path}")
-
-def engine_format_to_float(s):
-    """Converts formatted timing string (e.g. '1.5 ms' or '1.5 ± 0.1 ms') back to float in seconds."""
-    if not isinstance(s, str) or s == "N/A" or "nan" in s.lower(): return np.nan
-    try:
-        # Handle speedup "12x"
-        if s.endswith("x"):
-             return float(s[:-1])
-             
-        parts = s.split()
-        # Handle "X unit" or "X ± Y unit"
-        if len(parts) >= 2:
-             val = float(parts[0])
-             unit = parts[-1]
-             
-             if unit == "ms": return val * 1e-3
-             if unit == "µs": return val * 1e-6
-             if unit == "ns": return val * 1e-9
-             if unit == "s": return val
-        return float(parts[0]) # Fallback if just number
-    except: return np.nan
 
 def main():
     parser = argparse.ArgumentParser(description="Unified Sandalwood Benchmark Suite")
