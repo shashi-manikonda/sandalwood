@@ -1,13 +1,14 @@
+import base64
 import os
-import sys
-import time
 import subprocess
+import time
+from datetime import datetime
+from io import BytesIO
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import base64
-from io import BytesIO
-from datetime import datetime
+
 from sandalwood import mtf
 
 # Local COSY configuration
@@ -36,6 +37,7 @@ class BenchmarkEngine:
     def get_system_info(self):
         """Returns a dictionary containing system information."""
         import platform
+
         import psutil
 
         info = {
@@ -294,9 +296,10 @@ END;
     def get_system_info(self):
         """Returns a dictionary containing system information."""
         import platform
-        import psutil
         import subprocess
         from datetime import datetime
+
+        import psutil
         
         # Get GCC/GFortran version
         try:

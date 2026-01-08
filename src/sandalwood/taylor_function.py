@@ -9,9 +9,9 @@ Algebra (DA) vector, and the operations defined on it form a Truncated
 Power Series Algebra (TPSA).
 """
 
+import cmath
 import json
 import math
-import cmath
 import numbers
 from collections import defaultdict
 from functools import reduce
@@ -2181,7 +2181,87 @@ class MultivariateTaylorFunction:
         }
 
         if method == "__call__":
-            # The inputs can be (scalar, mtf) or (mtf, scalar) or (mtf, mtf)
+            # -----------------------------------------------------------------
+            # Batch / Vectorized Path
+            # -----------------------------------------------------------------
+            has_array = any(isinstance(x, np.ndarray) for x in inputs)
+            if has_array and self._IMPLEMENTATION == "cosy":
+                # Only support basic binary arithmetic for now in batch mode
+                BATCH_UFUNC_MAP = {
+                    np.add: cosy_backend.batch_add,
+                    np.subtract: cosy_backend.batch_sub,
+                    np.multiply: cosy_backend.batch_mul,
+                    np.divide: cosy_backend.batch_div,
+                    np.true_divide: cosy_backend.batch_div,
+                }
+                
+                if ufunc in BATCH_UFUNC_MAP and len(inputs) == 2:
+                    # Helper to get indices
+                    def get_indices(x, size):
+                        if isinstance(x, np.ndarray):
+                            # Assume array of MTFs
+                            # Fast extraction: we assume they are initialized and synced
+                            # Validating every element is slow, we trust the array for speed
+                            try:
+                                return [m.mtf_data.da.idx for m in x.flat]
+                            except AttributeError:
+                                # Fallback if elements aren't MTFs (e.g. array of floats)
+                                # Convert to constants?
+                                # This is slow path: array(float) -> array(MTF)
+                                return [self.to_mtf(v, self.dimension).mtf_data.da.idx for v in x.flat]
+                        elif isinstance(x, MultivariateTaylorFunction):
+                            # Broadcast scalar MTF
+                            return [x.mtf_data.da.idx] * size
+                        else:
+                            # Scalar number
+                            c_mtf = self.to_mtf(x, self.dimension)
+                            return [c_mtf.mtf_data.da.idx] * size
+
+                    # Determine result size (simple broadcasting check)
+                    a_is_arr = isinstance(inputs[0], np.ndarray)
+                    b_is_arr = isinstance(inputs[1], np.ndarray)
+                    
+                    if a_is_arr and b_is_arr:
+                        if inputs[0].size != inputs[1].size:
+                            return NotImplemented # Let numpy handle complex broadcasting if shapes mismatch
+                        size = inputs[0].size
+                        shape = inputs[0].shape
+                    elif a_is_arr:
+                        size = inputs[0].size
+                        shape = inputs[0].shape
+                    else:
+                        size = inputs[1].size
+                        shape = inputs[1].shape
+
+                    try:
+                        idx_a = get_indices(inputs[0], size)
+                        idx_b = get_indices(inputs[1], size)
+                        
+                        # Call Fortran Batch Routine
+                        res_indices = BATCH_UFUNC_MAP[ufunc](idx_a, idx_b)
+                        
+                        # Wrap results back to MTF array
+                        # This creation loop is Python-side overhead but necessary
+                        res_flat = np.empty(size, dtype=object)
+                        for i, idx in enumerate(res_indices):
+                            # Create MTF wrapping the result index
+                            # Note: owned=True by default in CosyMtfData/CosyDA logic?
+                            # We need to construct CosyMtfData manually to inject the index
+                            cda = cosy_backend.CosyDA(idx=idx, owned=True)
+                            c_data = cosy_backend.CosyMtfData(self.dimension, is_complex=False) # Complex? logic needed
+                            c_data.da = cda
+                            res_flat[i] = type(self)(mtf_data=c_data, dimension=self.dimension)
+                            
+                        return res_flat.reshape(shape)
+
+                    except Exception:
+                        # If anything fails (dimensions, types), fallback to slow loop
+                        # print(f"Batch optimization failed: {e}")
+                        pass
+
+            # -----------------------------------------------------------------
+            # Scalar / Fallback Path
+            # -----------------------------------------------------------------
             mtf_inputs = []
             for i in inputs:
                 if isinstance(i, MultivariateTaylorFunction):

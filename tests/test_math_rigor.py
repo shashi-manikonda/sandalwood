@@ -1,10 +1,7 @@
-import math
-import sys
 import numpy as np
 import pytest
 
 from sandalwood.taylor_function import MultivariateTaylorFunction as mtf
-from sandalwood.complex_taylor_function import ComplexMultivariateTaylorFunction as cmtf
 
 # --- Fixtures & Setup ---
 

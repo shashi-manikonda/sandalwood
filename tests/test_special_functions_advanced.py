@@ -1,7 +1,10 @@
-import pytest
-import numpy as np
 import math
+
+import numpy as np
+import pytest
+
 from sandalwood import MultivariateTaylorFunction as mtf
+
 
 def safe_initialize(order, dim, implementation="cosy"):
     try:

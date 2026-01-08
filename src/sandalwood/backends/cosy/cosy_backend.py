@@ -97,7 +97,14 @@ bind_cosy_func("compute_da_asin_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_acos_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_atan_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
+bind_cosy_func("compute_da_daest_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("compute_da_coth_", [POINTER(c_int), POINTER(c_int)])
+
+# Batch Operations
+bind_cosy_func("compute_da_add_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_sub_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_mul_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_div_batch_", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_minv_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_isrt3_", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_norm_", [POINTER(c_int), POINTER(c_double)])
@@ -1074,3 +1081,59 @@ def da_lin_comb(da1, c1, da2, c2):
         byref(res_idx)
     )
     return CosyDA(idx=res_idx.value, owned=True)
+
+# -----------------------------------------------------------------------------
+# Batch Operations Helpers
+# -----------------------------------------------------------------------------
+
+def _prepare_batch_args(idx_arr_a, idx_arr_b):
+    """Helper to ensure contiguous int32 arrays for batch ops."""
+    n = len(idx_arr_a)
+    if len(idx_arr_b) != n:
+        raise ValueError("Batch operation dimension mismatch")
+        
+    a_ptr = np.ascontiguousarray(idx_arr_a, dtype=np.int32)
+    b_ptr = np.ascontiguousarray(idx_arr_b, dtype=np.int32)
+    res_ptr = np.zeros(n, dtype=np.int32)
+    
+    return n, a_ptr, b_ptr, res_ptr
+
+def batch_add(idx_arr_a, idx_arr_b):
+    n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
+    libcosy.compute_da_add_batch_(
+        byref(c_int(n)),
+        a_ptr.ctypes.data_as(POINTER(c_int)),
+        b_ptr.ctypes.data_as(POINTER(c_int)),
+        res_ptr.ctypes.data_as(POINTER(c_int))
+    )
+    return res_ptr
+
+def batch_sub(idx_arr_a, idx_arr_b):
+    n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
+    libcosy.compute_da_sub_batch_(
+        byref(c_int(n)),
+        a_ptr.ctypes.data_as(POINTER(c_int)),
+        b_ptr.ctypes.data_as(POINTER(c_int)),
+        res_ptr.ctypes.data_as(POINTER(c_int))
+    )
+    return res_ptr
+
+def batch_mul(idx_arr_a, idx_arr_b):
+    n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
+    libcosy.compute_da_mul_batch_(
+        byref(c_int(n)),
+        a_ptr.ctypes.data_as(POINTER(c_int)),
+        b_ptr.ctypes.data_as(POINTER(c_int)),
+        res_ptr.ctypes.data_as(POINTER(c_int))
+    )
+    return res_ptr
+
+def batch_div(idx_arr_a, idx_arr_b):
+    n, a_ptr, b_ptr, res_ptr = _prepare_batch_args(idx_arr_a, idx_arr_b)
+    libcosy.compute_da_div_batch_(
+        byref(c_int(n)),
+        a_ptr.ctypes.data_as(POINTER(c_int)),
+        b_ptr.ctypes.data_as(POINTER(c_int)),
+        res_ptr.ctypes.data_as(POINTER(c_int))
+    )
+    return res_ptr

@@ -1,8 +1,10 @@
-import pytest
-import numpy as np
 import cmath
+
+import pytest
+
 from sandalwood import ComplexMultivariateTaylorFunction as CMTF
 from sandalwood import MultivariateTaylorFunction as MTF
+
 
 def safe_initialize(order, dim, backend):
     try:
