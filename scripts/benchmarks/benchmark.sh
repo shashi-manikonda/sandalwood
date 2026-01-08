@@ -11,11 +11,12 @@
 #   ./benchmark.sh [mode] [options]
 #
 # Modes:
-#   ops     - Individual operation benchmarks (Python vs COSY backend).
-#   raw     - Three-way comparison (Python vs COSY backend vs Raw COSY).
-#   batch   - Performance of evaluating many points via neval().
-#   profile - Run cProfile on core operations.
-#   full    - Comprehensive parametric sweep (Orders 2-10, Vars 4-6) + HTML Report.
+#   ops       - Individual operation benchmarks (Python vs COSY backend).
+#   raw       - Three-way comparison (Python vs COSY backend vs Raw COSY).
+#   batch     - Performance of evaluating many points via neval().
+#   profile   - Run cProfile on core operations.
+#   full      - Comprehensive parametric sweep (Orders 2-10, Vars 4-6) + HTML Report.
+#   full_cosy - Same as full, but skips Python backend (COSY vs Raw COSY).
 #
 # Options:
 #   --order N   - The Taylor expansion order (default: 8).
@@ -93,11 +94,12 @@ ITERS=100
 NPOINTS=10000
 MEMORY_FLAG=""
 FILTER_ARG=""
+TIMEOUT=""
 
 # Simple argument parsing
 while [[ $# -gt 0 ]]; do
   case $1 in
-    ops|raw|batch|profile|full)
+    ops|raw|batch|profile|full|full_cosy)
       MODE="$1"
       shift
       ;;
@@ -131,7 +133,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [ops|raw|batch|profile] [--order N] [--dims N] [--iters N] [--npoints N] [--memory] [--filter pattern] [--timeout N]"
+      echo "Usage: $0 [ops|raw|batch|profile|full|full_cosy] [--order N] [--dims N] [--iters N] [--npoints N] [--memory] [--filter pattern] [--timeout N]"
       exit 1
       ;;
   esac
