@@ -324,7 +324,14 @@ def run_full_benchmark(args):
             try:
                 res_raw = subprocess.run(cmd_raw, capture_output=True, text=True, check=True)
                 out = res_raw.stdout
-                json_part = out[out.find('['):out.rfind(']')+1]
+                
+                start_idx = out.find('[')
+                end_idx = out.rfind(']')
+                
+                if start_idx == -1 or end_idx == -1:
+                    raise ValueError(f"No JSON found in output. Output was:\n{out}")
+                    
+                json_part = out[start_idx:end_idx+1]
                 raw_data = json.loads(json_part)
                 
                 for item in raw_data:
