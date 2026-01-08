@@ -154,16 +154,20 @@ def run_raw_comparison(engine, args):
         mem_py, mem_sc = 0, 0
         
         # 1. Run Python Benchmark
-        try:
-            with TimeLimit(args.timeout):
-                if args.memory:
-                     (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
-                else:
-                     c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-        except TimeoutError:
-            print(f"  [Python] Timed out (>{args.timeout}s)", file=sys.stderr)
-        except Exception as e:
-            print(f"  [Python] Failed: {e}", file=sys.stderr)
+        if args.mode == "cosy_raw":
+             # Skip Python benchmark in dedicated COSY mode
+             c_py, t_py, s_py = {}, np.nan, np.nan
+        else:
+            try:
+                with TimeLimit(args.timeout):
+                    if args.memory:
+                         (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
+                    else:
+                         c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+            except TimeoutError:
+                print(f"  [Python] Timed out (>{args.timeout}s)", file=sys.stderr)
+            except Exception as e:
+                print(f"  [Python] Failed: {e}", file=sys.stderr)
 
         # 2. Run S-COSY Benchmark
         try:
@@ -313,7 +317,10 @@ def run_full_benchmark(args):
             print(f"\n>>> Sweep: Variables={v}, Order={o} <<<")
             
             # Use data from raw comparison which now covers EVERYTHING
-            cmd_raw = [python_bin, script_path, "--mode", "raw", "--order", str(o), "--dims", str(v), "--iters", str(iters), "--timeout", str(args.timeout), "--json"]
+            mode_flag = "raw"
+            if args.mode == "full_cosy": mode_flag = "cosy_raw"
+
+            cmd_raw = [python_bin, script_path, "--mode", mode_flag, "--order", str(o), "--dims", str(v), "--iters", str(iters), "--timeout", str(args.timeout), "--json"]
             try:
                 res_raw = subprocess.run(cmd_raw, capture_output=True, text=True, check=True)
                 out = res_raw.stdout
@@ -337,10 +344,13 @@ def run_full_benchmark(args):
             except Exception as e:
                 print(f"Error in sweep (v={v}, o={o}): {e}")
 
-    # Generate report
+    # Generate report title based on mode
+    report_title = "Benchmark Report"
+    if args.mode == "full_cosy": report_title = "COSY Backend Performance Report"
+
     engine = BenchmarkEngine(10, 6)
     plots = engine.generate_plots(full_results)
-    report_path = engine.generate_html_report(full_results, plots, method_info={"iterations": iters})
+    report_path = engine.generate_html_report(full_results, plots, method_info={"iterations": iters, "title": report_title})
     
     print(f"\nFull benchmark complete!")
     print(f"HTML Report: {report_path}")
@@ -368,7 +378,7 @@ def engine_format_to_float(s):
 
 def main():
     parser = argparse.ArgumentParser(description="Unified Sandalwood Benchmark Suite")
-    parser.add_argument("--mode", choices=["ops", "raw", "batch", "profile", "full"], default="ops")
+    parser.add_argument("--mode", choices=["ops", "raw", "batch", "profile", "full", "full_cosy", "cosy_raw"], default="ops")
     parser.add_argument("--order", type=int, default=8)
     parser.add_argument("--dims", type=int, default=4)
     parser.add_argument("--iters", type=int, default=100)
@@ -380,7 +390,7 @@ def main():
     
     args = parser.parse_args()
     
-    if args.mode == "full":
+    if args.mode in ["full", "full_cosy"]:
         run_full_benchmark(args)
         return
 
@@ -388,7 +398,7 @@ def main():
     
     if args.mode == "ops":
         run_ops_benchmark(engine, args)
-    elif args.mode == "raw":
+    elif args.mode in ["raw", "cosy_raw"]:
         run_raw_comparison(engine, args)
     elif args.mode == "batch":
         run_batch_eval(engine, args)

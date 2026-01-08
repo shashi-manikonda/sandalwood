@@ -348,18 +348,20 @@ END;
         sys_rows = "".join([f"<tr><td><strong>{k}</strong></td><td>{v}</td></tr>" for k, v in sys_info.items()])
         
         # Methodology Text
-        iters = method_info.get("iterations", "N/A")
         
         # Export CSV (raw numbers)
         csv_path = os.path.join(ARTIFACTS_DIR, f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
         df.to_csv(csv_path, index=False)
         print(f"Raw CSV exported to: {csv_path}")
+        iters = method_info.get("iterations", 100)
+        report_title = method_info.get("title", "Sandalwood Benchmark Report")
 
+        # HTML Template
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Sandalwood Comprehensive Benchmark Report</title>
+            <title>{report_title}</title>
             <style>
                 body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background: #f8f9fa; color: #333; }}
                 h1, h2 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
@@ -422,7 +424,7 @@ END;
             </script>
         </head>
         <body>
-            <h1>Sandalwood Benchmark Report</h1>
+            <h1>{report_title}</h1>
             <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             
             <div class="sysinfo">
