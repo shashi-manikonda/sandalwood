@@ -1,11 +1,13 @@
 import argparse
-import sys
 import os
+import signal
+import sys
 import time
 import tracemalloc
-import pandas as pd
+
 import numpy as np
-import signal
+import pandas as pd
+
 
 class TimeLimit:
     """Context manager for limiting execution time."""
@@ -25,11 +27,12 @@ class TimeLimit:
     def _handle_timeout(self, signum, frame):
         raise TimeoutError(f"Execution exceeded {self.seconds}s")
 
-from core import BenchmarkEngine, ARTIFACTS_DIR
+from core import ARTIFACTS_DIR, BenchmarkEngine
 
 # Ensure we can import sandalwood from the parent src directory
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src")))
 from sandalwood import TaylorMap, mtf
+
 
 def generate_benchmark_cases(dims):
     """Generates benchmark cases string that use all available variables."""
@@ -289,13 +292,77 @@ def run_batch_eval(engine, args):
          print("\n" + df.to_string(index=False))
     engine.save_markdown_results(df, "Batch Evaluation Benchmarks")
 
+def run_batch_math(engine, args):
+    """Benchmarks vectorized arithmetic (Batch Operations)."""
+    print(f"Benchmarking batch arithmetic (Vector[MTF] + Vector[MTF]) with N={args.iters}...")
+    globals_dict = engine.setup_mtf("cosy")
+    import numpy as np
+    
+    x = globals_dict['x']
+    y = globals_dict['y']
+    
+    # Create N distinct MTFs
+    print("Creating test vectors...")
+    # Using small constants to prevent optimization/caching if any
+    vec_a = np.array([x + i * 1e-5 for i in range(args.iters)], dtype=object)
+    vec_b = np.array([y + i * 1e-5 for i in range(args.iters)], dtype=object)
+    
+    # 1. Vectorized (Batch) Add
+    print("Running Vectorized Add...")
+    start = time.process_time()
+    res_vec_add = vec_a + vec_b
+    t_vec_add = (time.process_time() - start)
+    
+    # 2. Loop Add
+    print("Running Loop Add...")
+    start = time.process_time()
+    res_loop_add = [a + b for a, b in zip(vec_a, vec_b)]
+    t_loop_add = (time.process_time() - start)
+    
+    # 3. Vectorized (Batch) Mul
+    print("Running Vectorized Mul...")
+    start = time.process_time()
+    res_vec_mul = vec_a * vec_b
+    t_vec_mul = (time.process_time() - start)
+    
+    # 4. Loop Mul
+    print("Running Loop Mul...")
+    start = time.process_time()
+    res_loop_mul = [a * b for a, b in zip(vec_a, vec_b)]
+    t_loop_mul = (time.process_time() - start)
+    
+    results = [
+        {
+            "Type": "Add",
+            "Operations": args.iters,
+            "Vectorized Time": engine.format_time(t_vec_add),
+            "Loop Time": engine.format_time(t_loop_add),
+            "Speedup": f"{t_loop_add / t_vec_add:.1f}x" if t_vec_add > 0 else "N/A"
+        },
+        {
+            "Type": "Mul",
+            "Operations": args.iters,
+            "Vectorized Time": engine.format_time(t_vec_mul),
+            "Loop Time": engine.format_time(t_loop_mul),
+            "Speedup": f"{t_loop_mul / t_vec_mul:.1f}x" if t_vec_mul > 0 else "N/A"
+        }
+    ]
+    
+    df = pd.DataFrame(results)
+    try:
+         print("\n" + df.to_markdown(index=False, tablefmt="grid"))
+    except ImportError:
+         print("\n" + df.to_string(index=False))
+    engine.save_markdown_results(df, "Batch Math Benchmarks")
+
 def run_profile(engine, args):
     """Runs a cProfile on core operations."""
-    import cProfile, pstats, io
+    import cProfile
+    import io
+    import pstats
     print("Running cProfile on complex arithmetic and mapping...")
     
     globals_dict = engine.setup_mtf("cosy")
-    from sandalwood import TaylorMap
     x, y, z, u = globals_dict['x'], globals_dict['y'], globals_dict['z'], globals_dict['u']
     
     pr = cProfile.Profile()
@@ -324,6 +391,7 @@ def run_profile(engine, args):
 
 import json
 import subprocess
+
 
 def run_full_benchmark(args):
     """Performs a comprehensive parametric sweep across orders and variables."""
@@ -398,12 +466,12 @@ def run_full_benchmark(args):
     plots = engine.generate_plots(full_results)
     report_path = engine.generate_html_report(full_results, plots, method_info={"iterations": iters, "title": report_title})
     
-    print(f"\nFull benchmark complete!")
+    print("\nFull benchmark complete!")
     print(f"HTML Report: {report_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="Unified Sandalwood Benchmark Suite")
-    parser.add_argument("--mode", choices=["ops", "raw", "batch", "profile", "full", "full_cosy", "cosy_raw"], default="ops")
+    parser.add_argument("--mode", choices=["ops", "raw", "batch", "batch_math", "profile", "full", "full_cosy", "cosy_raw"], default="ops")
     parser.add_argument("--order", type=int, default=8)
     parser.add_argument("--dims", type=int, default=4)
     parser.add_argument("--iters", type=int, default=100)
@@ -427,6 +495,8 @@ def main():
         run_raw_comparison(engine, args)
     elif args.mode == "batch":
         run_batch_eval(engine, args)
+    elif args.mode == "batch_math":
+        run_batch_math(engine, args)
     elif args.mode == "profile":
         run_profile(engine, args)
 

@@ -1,8 +1,10 @@
+import math
+
 import numpy as np
 import pytest
-import math
-import sandalwood.taylor_function as mtf_lib
+
 from sandalwood import mtf
+
 
 @pytest.fixture(autouse=True)
 def implementation(request):

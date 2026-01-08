@@ -99,7 +99,7 @@ TIMEOUT=""
 # Simple argument parsing
 while [[ $# -gt 0 ]]; do
   case $1 in
-    ops|raw|batch|profile|full|full_cosy)
+    ops|raw|batch|batch_math|profile|full|full_cosy)
       MODE="$1"
       shift
       ;;

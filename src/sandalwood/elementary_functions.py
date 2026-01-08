@@ -8,8 +8,8 @@ arithmetic operations in `MultivariateTaylorFunction`, form a complete
 Differential Algebra (DA).
 """
 
-import math
 import cmath
+import math
 from typing import Optional
 
 import numpy as np
