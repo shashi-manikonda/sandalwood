@@ -62,19 +62,21 @@ class BenchmarkEngine:
         """Runs a benchmark on a Sandalwood expression with statistics."""
         globals_dict = self.setup_mtf(implementation)
         
-        # Compile expression first to avoid parsing overhead during timing
-        code = compile(expression, "<string>", "eval")
+        # Wrap expression in a lambda and compile to avoid eval() overhead in loop
+        # This converts "x + y" into a callable function object
+        code = compile(f"lambda: {expression}", "<string>", "eval")
+        func = eval(code, globals_dict)
 
         # Warmup
         for _ in range(warmup):
             for _ in range(iterations):
-                _ = eval(code, globals_dict)
+                _ = func()
 
         timings = []
         for _ in range(repeats):
             start = time.perf_counter()
             for _ in range(iterations):
-                res = eval(code, globals_dict)
+                res = func()
             elapsed = time.perf_counter() - start
             timings.append(elapsed)
 
