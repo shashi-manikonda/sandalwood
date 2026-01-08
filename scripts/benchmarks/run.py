@@ -148,6 +148,8 @@ def run_raw_comparison(engine, args):
         cases = [c for c in cases if args.filter.lower() in c[0].lower()]
 
     results = []
+    display_results = []
+    
     for name, mtf_expr, cosy_expr in cases:
         print(f"Comparing {name} with Raw COSY...", file=sys.stderr)
 
