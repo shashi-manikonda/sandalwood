@@ -101,13 +101,15 @@ def run_ops_benchmark(engine, args):
         
         try:
             with TimeLimit(args.timeout):
+                # Always run timing first (without memory overhead)
+                c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+                c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+                
+                mem_py, mem_sc = 0, 0
                 if args.memory:
-                    (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
-                    (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
-                else:
-                    c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
-                    c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
-                    mem_py, mem_sc = 0, 0
+                     # Run separately for memory profile if requested
+                     _, mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
+                     _, mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
         except TimeoutError:
             print(f"Skipping {name} - Timed out (>{args.timeout}s)", file=sys.stderr)
             continue
@@ -153,17 +155,17 @@ def run_raw_comparison(engine, args):
         c_sc, t_sc, s_sc = {}, np.nan, np.nan
         mem_py, mem_sc = 0, 0
         
-        # 1. Run Python Benchmark
         if args.mode == "cosy_raw":
              # Skip Python benchmark in dedicated COSY mode
              c_py, t_py, s_py = {}, np.nan, np.nan
         else:
             try:
                 with TimeLimit(args.timeout):
+                    # Timing run first
+                    c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
                     if args.memory:
-                         (c_py, t_py, s_py), mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
-                    else:
-                         c_py, t_py, s_py = engine.run_sandalwood(mtf_expr, "python", args.iters)
+                        # Memory run second
+                         _, mem_py = measure_memory(engine.run_sandalwood, mtf_expr, "python", args.iters)
             except TimeoutError:
                 print(f"  [Python] Timed out (>{args.timeout}s)", file=sys.stderr)
             except Exception as e:
@@ -172,10 +174,11 @@ def run_raw_comparison(engine, args):
         # 2. Run S-COSY Benchmark
         try:
             with TimeLimit(args.timeout):
+                # Timing run first
+                c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
                 if args.memory:
-                     (c_sc, t_sc, s_sc), mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
-                else:
-                     c_sc, t_sc, s_sc = engine.run_sandalwood(mtf_expr, "cosy", args.iters)
+                    # Memory run second
+                     _, mem_sc = measure_memory(engine.run_sandalwood, mtf_expr, "cosy", args.iters)
         except TimeoutError:
             print(f"  [S-COSY] Timed out (>{args.timeout}s)", file=sys.stderr)
         except Exception as e:

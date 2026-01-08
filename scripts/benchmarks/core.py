@@ -74,11 +74,11 @@ class BenchmarkEngine:
 
         timings = []
         for _ in range(repeats):
-            start = time.perf_counter()
+            start = time.process_time()
             for _ in range(iterations):
                 res = func()
-            elapsed = time.perf_counter() - start
-            timings.append(elapsed)
+            elapsed = time.process_time() - start
+            timings.append(elapsed / iterations)
 
         avg_time = np.mean(timings)
         std_time = np.std(timings)
@@ -170,7 +170,8 @@ END;
                              except: pass
                 
                 if run_time is not None:
-                    timings.append(run_time)
+                    # Normalize by iterations to get time per operation
+                    timings.append(run_time / iterations)
 
             if not timings: return None, None, None
             
