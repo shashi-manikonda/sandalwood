@@ -1315,10 +1315,11 @@ C     Allocate Scratchpad (20 slots)
       END
 
       SUBROUTINE DA_INTEG(IIV, INA, INC)
-*     **********************************
-*     WRAPPER FOR DAINT: INC = INT(INA) D(VAR(IIV))
+     *  BIND(C, NAME='da_integ')
+      USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IIV, INA, INC, IVAR_DA
+      INTEGER(C_INT) IIV, INA, INC
+      INTEGER IVAR_DA
       INTEGER IC(1)
 
 *     MEMORY COMMONS
@@ -1369,10 +1370,11 @@ C     Allocate Scratchpad (20 slots)
 
 
       SUBROUTINE DA_POISSON(INA, INB, INC)
-*     ************************************
-*     WRAPPER FOR DAPOI: INC = [INA, INB] (Poisson Bracket)
+     *  BIND(C, NAME='da_poisson')
+      USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER INA, INB, INC, ND, I, I1, I2, IVAR_DA, DAQ, DBP, DAP, DBQ
+      INTEGER(C_INT) INA, INB, INC
+      INTEGER ND, I, I1, I2, IVAR_DA, DAQ, DBP, DAP, DBQ
       INTEGER IT1, IT2, ISUM
       INTEGER IS(8), IC(1), IS_INC(1)
       
@@ -1493,11 +1495,11 @@ C     Allocate Scratchpad (20 slots)
 
 
       SUBROUTINE DA_DERIV_SAFE(IIV, INA, INC)
-*     ***************************************
-*     WRAPPER FOR DADER: INC = D(INA)/D(VAR(IIV))
-*     SAFE VERSION WITH PROPER INIT AND TYPE WRAPPING
+     *  BIND(C, NAME='da_deriv_safe')
+      USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IIV, INA, INC, IVAR_DA
+      INTEGER(C_INT) IIV, INA, INC
+      INTEGER IVAR_DA
       INTEGER IC(1)
 
 *     MEMORY COMMONS
@@ -1544,10 +1546,10 @@ C     Allocate Scratchpad (20 slots)
       END
 
       SUBROUTINE CREATE_NDA_VAR(INA, CKON, I)
-*     ***************************************
-*     SAFE DA VAR CREATION USING NATIVE DAVAR
+     *  BIND(C, NAME='create_nda_var')
+      USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER INA, I
+      INTEGER(C_INT) INA, I
       DOUBLE PRECISION CKON
       INTEGER IC(1)
 
@@ -1579,9 +1581,11 @@ C     Allocate Scratchpad (20 slots)
       END
 
       SUBROUTINE COMPUTE_DA_POLVAL(IDX_RES, IDX_POLY, IDXS_ARGS, N_ARGS)
+     *  BIND(C, NAME='compute_da_polval')
+      USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER IDX_RES, IDX_POLY, N_ARGS
-      INTEGER IDXS_ARGS(N_ARGS)
+      INTEGER(C_INT) IDX_RES, IDX_POLY, N_ARGS
+      INTEGER(C_INT) IDXS_ARGS(N_ARGS)
       INTEGER ILT, INP, INA, INR, IMP, IMA, IMR
       INTEGER IC(1), IC_TEMPS(100)
       INTEGER I
