@@ -1088,7 +1088,14 @@ def test_cleanup_default_behavior(setup_function):
     assert f.extract_coefficient(tuple([0] * mtf.get_max_dimension())).item() == 0.0
 
 
-def test_disable_cleanup(setup_function):
+@pytest.fixture
+def clean_truncation_state():
+    """Safely handles the global truncation flag."""
+    original_state = mtf._TRUNCATE_AFTER_OPERATION
+    yield
+    mtf.set_truncate_after_operation(original_state)
+
+def test_disable_cleanup(setup_function, clean_truncation_state):
     """
     Tests that coefficient cleanup can be disabled.
     """
@@ -1103,9 +1110,6 @@ def test_disable_cleanup(setup_function):
     # The negligible term should NOT be removed
     assert len(f.coeffs) == 2
     assert abs(f.extract_coefficient(tuple([0] * mtf.get_max_dimension())).item()) > 0
-
-    # Reset for other tests
-    mtf.set_truncate_after_operation(True)
 
 
 def test_set_truncate_after_operation_validation(setup_function):
