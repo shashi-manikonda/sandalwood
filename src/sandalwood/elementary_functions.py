@@ -499,7 +499,7 @@ def _arctan_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorF
     constant_arctan_C = cmath.atan(constant_term_C_value)
     denominator_mtf = MultivariateTaylorFunction.from_constant(
         1.0 + constant_term_C_value**2
-    ) + (float(constant_term_C_value) * polynomial_part_B_mtf)
+    ) + (constant_term_C_value * polynomial_part_B_mtf)
     argument_mtf = polynomial_part_B_mtf / denominator_mtf
     arctan_argument_mtf = arctan_taylor_1D_expansion(argument_mtf, order=order)
     result_mtf = constant_arctan_C + arctan_argument_mtf
