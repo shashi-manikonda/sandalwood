@@ -431,7 +431,7 @@ def run_profile(engine, args):
 
     print("Running cProfile on complex arithmetic and mapping...")
 
-    globals_dict = engine.setup_mtf("cosy")
+    globals_dict = engine.setup_mtf("python")
     x, y, z, u = (
         globals_dict["x"],
         globals_dict["y"],
@@ -573,6 +573,32 @@ def run_full_benchmark(args):
     print(f"HTML Report: {report_path}")
 
 
+
+def run_neval_benchmark(engine, args):
+    """Benchmarks neval performance."""
+    import time
+    print(f"Benchmarking neval with N={args.iters} points...")
+    
+    # Setup: High order polynomial to stress memory
+    globals_dict = engine.setup_mtf("python")
+    x, y, z, u = globals_dict["x"], globals_dict["y"], globals_dict["z"], globals_dict["u"]
+    
+    # (x+y+z+u)^8 has 495 terms
+    print("Creating polynomial...")
+    poly = (x + y + z + u)**8
+    print(f"Polynomial terms: {len(poly.coeffs)}")
+    
+    # Points
+    points = np.random.rand(args.iters, 4)
+    
+    print("Running neval...")
+    start = time.time()
+    res = poly.neval(points)
+    end = time.time()
+    
+    print(f"Time: {end - start:.4f} s")
+    print(f"Throughput: {args.iters / (end - start):.2f} pts/s")
+
 def main():
     parser = argparse.ArgumentParser(description="Unified Sandalwood Benchmark Suite")
     parser.add_argument(
@@ -586,6 +612,7 @@ def main():
             "full",
             "full_cosy",
             "cosy_raw",
+            "neval",
         ],
         default="ops",
     )
@@ -616,6 +643,8 @@ def main():
         run_raw_comparison(engine, args)
     elif args.mode == "batch":
         run_batch_eval(engine, args)
+    elif args.mode == "neval":
+        run_neval_benchmark(engine, args)
     elif args.mode == "batch_math":
         run_batch_math(engine, args)
     elif args.mode == "profile":

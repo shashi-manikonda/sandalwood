@@ -49,6 +49,11 @@ class NumpyBackend:
         return np.zeros(shape, dtype=dtype)
 
     @staticmethod
+    def ones(shape, dtype=None):
+        """Wraps `np.ones`."""
+        return np.ones(shape, dtype=dtype)
+
+    @staticmethod
     def atleast_2d(a):
         """Wraps `np.atleast_2d`."""
         return np.atleast_2d(a)
@@ -100,6 +105,11 @@ if _TORCH_AVAILABLE:
         def zeros(shape, dtype=None):
             """Wraps `torch.zeros`."""
             return torch.zeros(shape, dtype=dtype)
+
+        @staticmethod
+        def ones(shape, dtype=None):
+            """Wraps `torch.ones`."""
+            return torch.ones(shape, dtype=dtype)
 
         @staticmethod
         def atleast_2d(a):
