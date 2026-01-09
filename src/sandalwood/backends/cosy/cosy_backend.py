@@ -31,6 +31,9 @@ except OSError as e:
             return func
 
     libcosy = DummyLib()
+    COSY_AVAILABLE = False
+else:
+    COSY_AVAILABLE = True
 
 # --- Wrapper Signatures ---
 

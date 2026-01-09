@@ -17,6 +17,10 @@ def safe_initialize(order, dim, implementation="cosy"):
         mtf.initialize_mtf(
             max_order=order, max_dimension=dim, implementation=implementation
         )
+    
+    if mtf._IMPLEMENTATION != implementation:
+        pytest.skip(f"Implementation {implementation} not available")
+
 
 
 @pytest.fixture(autouse=True)

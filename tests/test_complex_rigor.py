@@ -10,8 +10,10 @@ def safe_initialize(order, dim, backend):
     try:
         MTF.initialize_mtf(max_order=order, max_dimension=dim, implementation=backend)
     except RuntimeError:
-        # Already initialized, that's fine for these tests
-        pass
+        # Re-initialize with new settings
+        MTF._INITIALIZED = False
+        MTF.initialize_mtf(max_order=order, max_dimension=dim, implementation=backend)
+
 
 
 @pytest.mark.parametrize("backend", ["python", "cosy"])
