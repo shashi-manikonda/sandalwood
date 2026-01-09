@@ -1,3 +1,24 @@
+"""
+populate_notebooks.py
+======================
+Purpose: 
+    Automated execution and validation of all Jupyter notebooks in the 'demos/' directory.
+    This ensures that all demos are runnable and their outputs are up-to-date.
+
+Logic:
+    1. Recursively traverses the 'demos/' directory to find all .ipynb files.
+    2. Optional: Installs necessary dependencies (currently commented out).
+    3. Executes each notebook in-place using 'jupyter nbconvert --execute'.
+    4. Sets KMP_DUPLICATE_LIB_OK=TRUE to handle potential OpenMP conflicts during execution.
+    5. Captures and reports failures if any notebook execution errors out.
+
+Input/Arguments:
+    - None. The script assumes it is executed from the project root directory.
+
+Output:
+    - In-place updates to .ipynb files with new execution outputs.
+    - Console logs indicating success or failure of each notebook.
+"""
 import os
 import shutil
 import subprocess
