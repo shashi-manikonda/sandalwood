@@ -77,6 +77,31 @@ Standard DA libraries often serialize coefficients into complex objects. Sandalw
 * **Benefit:** Zero-copy overhead for large coefficient transfers (bidirectional).
 * **Format:** The wrapper flattens the multi-dimensional exponent array into a 1D C-integer array, minimizing marshalling and transition costs.
 
+Memory Configuration
+--------------------
+
+For advanced users, the COSY backend's internal memory limits (e.g., the size of the storage stack or the maximum number of variables) can be customized without modifying the core Fortran source files.
+
+### Configuration File (`cosy_config.env`)
+
+A configuration file is provided at ``src/sandalwood/backends/cosy/cosy_config.env``. You can modify the following parameters:
+
+* **COSY_LMEM**: Length of the main storage stack (Default: 140,000,000).
+* **COSY_LVAR**: Maximum number of variables (Default: 10,000,000).
+* **COSY_LEA**: Maximum number of monomials. Increase this for extremely high-order calculations.
+* **COSY_LNO**: Maximum supported Taylor order (Default: 99).
+* **COSY_LNV**: Maximum number of variables (Default: 40).
+
+### Applying Changes
+
+After modifying the ``cosy_config.env`` file, you must recompile the backend using the provided script:
+
+.. code-block:: bash
+
+   bash src/sandalwood/backends/cosy/compile_cosy.sh
+
+The script automatically creates a temporary build directory, patches the Fortran sources with your new limits, and links the updated ``libcosy.so``. This ensures the original COSY source files in the repository remain un-modified.
+
 3. Static "Scratchpad" Allocation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
