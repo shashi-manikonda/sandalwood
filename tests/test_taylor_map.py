@@ -10,8 +10,8 @@ def setup_mtf_module(backend_implementation):
     """Initializes sandalwood globals for the test module."""
     implementation = backend_implementation
     # Reset to allow re-initialization per test/param
-    mtf._INITIALIZED = False 
-    
+    mtf._INITIALIZED = False
+
     mtf.initialize_mtf(max_order=5, max_dimension=3, implementation=implementation)
     yield
     mtf._INITIALIZED = False
@@ -181,9 +181,9 @@ def test_variable_creation_bug():
     # A variable should not have a constant term.
     # The constant term corresponds to an exponent tuple of all zeros.
     constant_term = y.extract_coefficient(tuple([0, 0])).item()
-    assert (
-        constant_term == 0.0
-    ), "A variable created with var should not have a constant term."
+    assert constant_term == 0.0, (
+        "A variable created with var should not have a constant term."
+    )
 
     x = mtf.var(1, 2)
     prod = x * y

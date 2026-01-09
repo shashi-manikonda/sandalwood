@@ -21,12 +21,21 @@ COSY_FOX_SRC = os.path.join(BASE_DIR, "COSY.fox")
 os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
 MTF_TO_COSY = {
-    "mtf.sin": "SIN", "mtf.cos": "COS", "mtf.exp": "EXP",
-    "mtf.sqrt": "SQRT", "mtf.log": "LOG", "mtf.arctan": "ATAN",
-    "mtf.tan": "TAN", "mtf.arcsin": "ASIN", "mtf.arccos": "ACOS",
-    "mtf.sinh": "SINH", "mtf.cosh": "COSH", "mtf.tanh": "TANH",
-    "mtf.gaussian": "EXP(-(DA(1)**2))", # Custom handling
+    "mtf.sin": "SIN",
+    "mtf.cos": "COS",
+    "mtf.exp": "EXP",
+    "mtf.sqrt": "SQRT",
+    "mtf.log": "LOG",
+    "mtf.arctan": "ATAN",
+    "mtf.tan": "TAN",
+    "mtf.arcsin": "ASIN",
+    "mtf.arccos": "ACOS",
+    "mtf.sinh": "SINH",
+    "mtf.cosh": "COSH",
+    "mtf.tanh": "TANH",
+    "mtf.gaussian": "EXP(-(DA(1)**2))",  # Custom handling
 }
+
 
 class BenchmarkEngine:
     def __init__(self, order, dimension):
@@ -48,22 +57,28 @@ class BenchmarkEngine:
             "Python Version": platform.python_version(),
             "CPU Count (Physical)": psutil.cpu_count(logical=False),
             "CPU Count (Logical)": psutil.cpu_count(logical=True),
-            "Total RAM": f"{psutil.virtual_memory().total / (1024**3):.2f} GB"
+            "Total RAM": f"{psutil.virtual_memory().total / (1024**3):.2f} GB",
         }
         return info
-        
+
     def setup_mtf(self, implementation):
         """Initializes Sandalwood MTF with the specified backend."""
-        mtf.initialize_mtf(max_order=self.order, max_dimension=self.dimension, implementation=implementation)
+        mtf.initialize_mtf(
+            max_order=self.order,
+            max_dimension=self.dimension,
+            implementation=implementation,
+        )
         globals_dict = {"mtf": mtf}
         for i, vn in enumerate(self.variable_names):
-            globals_dict[vn] = mtf.var(i+1)
+            globals_dict[vn] = mtf.var(i + 1)
         return globals_dict
 
-    def run_sandalwood(self, expression, implementation, iterations, repeats=5, warmup=1):
+    def run_sandalwood(
+        self, expression, implementation, iterations, repeats=5, warmup=1
+    ):
         """Runs a benchmark on a Sandalwood expression with statistics."""
         globals_dict = self.setup_mtf(implementation)
-        
+
         # Wrap expression in a lambda and compile to avoid eval() overhead in loop
         # This converts "x + y" into a callable function object
         code = compile(f"lambda: {expression}", "<string>", "eval")
@@ -90,34 +105,38 @@ class BenchmarkEngine:
         coeffs = res.coeffs
         return {tuple(exp): c for exp, c in zip(exponents, coeffs)}, avg_time, std_time
 
-    def run_raw_cosy(self, name, cosy_expr, iterations, repeats=5, warmup=1, timeout=None):
+    def run_raw_cosy(
+        self, name, cosy_expr, iterations, repeats=5, warmup=1, timeout=None
+    ):
         """Runs a benchmark using Raw COSY script execution with statistics."""
         script_name = f"tmp_{name}.fox"
         fox_path = os.path.join(ARTIFACTS_DIR, script_name)
         dat_path = os.path.join(ARTIFACTS_DIR, "foxyinp.dat")
-        
+
         # Prepare system files in artifacts dir if they don't exist
         # COSY needs COSY.fox to be present to run properly
         src_fox = os.path.join(BASE_DIR, "COSY.fox")
         dst_fox = os.path.join(ARTIFACTS_DIR, "COSY.fox")
         if os.path.exists(src_fox) and not os.path.exists(dst_fox):
-             import shutil
-             shutil.copy(src_fox, dst_fox)
-        
+            import shutil
+
+            shutil.copy(src_fox, dst_fox)
+
         # Also copy COSY.bin and DAINI.DAT if available
         for fname in ["COSY.bin", "DAINI.DAT"]:
             src = os.path.join(BASE_DIR, fname)
             dst = os.path.join(ARTIFACTS_DIR, fname)
             if os.path.exists(src) and not os.path.exists(dst):
-                 import shutil
-                 shutil.copy(src, dst)
+                import shutil
+
+                shutil.copy(src, dst)
 
         timings = []
         last_process = None
 
         # Use internal COSY CPUSEC timing to measure computation directly
         # This avoids process startup overhead completely
-        
+
         try:
             for _ in range(repeats):
                 cosy_script = f"""
@@ -141,42 +160,55 @@ ENDPROCEDURE;
 RUN;
 END;
 """
-                with open(fox_path, "w") as f: f.write(cosy_script)
-                with open(dat_path, "w") as f_dat: f_dat.write(os.path.splitext(script_name)[0])
-                
-                with open(dat_path, 'r') as dat_file:
+                with open(fox_path, "w") as f:
+                    f.write(cosy_script)
+                with open(dat_path, "w") as f_dat:
+                    f_dat.write(os.path.splitext(script_name)[0])
+
+                with open(dat_path, "r") as dat_file:
                     try:
-                        last_process = subprocess.run([COSY_BIN], stdin=dat_file, capture_output=True, text=True, check=True, cwd=ARTIFACTS_DIR, timeout=timeout)
+                        last_process = subprocess.run(
+                            [COSY_BIN],
+                            stdin=dat_file,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                            cwd=ARTIFACTS_DIR,
+                            timeout=timeout,
+                        )
                     except subprocess.TimeoutExpired:
                         print(f"  [Raw COSY] Timed out after {timeout}s")
                         return {}, np.nan, np.nan
-                
+
                 # Parse TIME_SEC from output
-                output_lines = last_process.stdout.strip().split('\n')
+                output_lines = last_process.stdout.strip().split("\n")
                 run_time = None
                 for i, line in enumerate(output_lines):
                     if "TIME_SEC" in line:
-                         parts = line.strip().split()
-                         # Case 1: TIME_SEC 1.23E-02 (Same line)
-                         if len(parts) >= 2:
-                             try:
-                                 run_time = float(parts[1])
-                                 break
-                             except: pass
-                         # Case 2: TIME_SEC \n 1.23E-02 (Next line)
-                         if i + 1 < len(output_lines):
-                             try:
-                                 next_line = output_lines[i+1].strip()
-                                 run_time = float(next_line)
-                                 break
-                             except: pass
-                
+                        parts = line.strip().split()
+                        # Case 1: TIME_SEC 1.23E-02 (Same line)
+                        if len(parts) >= 2:
+                            try:
+                                run_time = float(parts[1])
+                                break
+                            except:
+                                pass
+                        # Case 2: TIME_SEC \n 1.23E-02 (Next line)
+                        if i + 1 < len(output_lines):
+                            try:
+                                next_line = output_lines[i + 1].strip()
+                                run_time = float(next_line)
+                                break
+                            except:
+                                pass
+
                 if run_time is not None:
                     # Normalize by iterations to get time per operation
                     timings.append(run_time / iterations)
 
-            if not timings: return None, None, None
-            
+            if not timings:
+                return None, None, None
+
             avg_time = np.mean(timings)
             std_time = np.std(timings)
             return self.parse_cosy_output(last_process.stdout), avg_time, std_time
@@ -187,7 +219,8 @@ END;
     @staticmethod
     def format_time(seconds, std_dev=None):
         """Formats time in seconds to a string with appropriate units (s, ms, µs)."""
-        if pd.isna(seconds): return "N/A"
+        if pd.isna(seconds):
+            return "N/A"
 
         unit = "s"
         factor = 1.0
@@ -208,37 +241,47 @@ END;
     @staticmethod
     def format_speedup(ratio):
         """Formats a speedup ratio to a meaningful string."""
-        if pd.isna(ratio) or ratio == 0: return "N/A"
-        if ratio == float('inf'): return "Inf"
+        if pd.isna(ratio) or ratio == 0:
+            return "N/A"
+        if ratio == float("inf"):
+            return "Inf"
         if ratio >= 10:
-             return f"{int(ratio)}x"
+            return f"{int(ratio)}x"
         return f"{ratio:.2f}x"
 
     def parse_cosy_output(self, output):
         """Parses COSY output to extract coefficients dictionary."""
         coefficients = {}
-        lines = output.strip().split('\n')
+        lines = output.strip().split("\n")
         start = False
         for line in lines:
             line = line.strip()
-            if line.startswith("I  COEFFICIENT"): start = True; continue
-            if line.startswith("----") and start: break
+            if line.startswith("I  COEFFICIENT"):
+                start = True
+                continue
+            if line.startswith("----") and start:
+                break
             if start and line:
                 parts = line.split()
                 try:
                     coeff = float(parts[1])
                     exp = tuple(int(e) for e in parts[3:])
                     coefficients[exp] = coeff
-                except: continue
+                except:
+                    continue
         return coefficients
 
     @staticmethod
     def calculate_rmse(coeffs_a, coeffs_b):
         """Calculates RMSE between two coefficient dictionaries."""
-        if not coeffs_a or not coeffs_b: return np.nan
+        if not coeffs_a or not coeffs_b:
+            return np.nan
         all_keys = set(coeffs_a.keys()) | set(coeffs_b.keys())
-        if not all_keys: return 0.0
-        sq_errors = [(coeffs_a.get(k, 0.0) - coeffs_b.get(k, 0.0))**2 for k in all_keys]
+        if not all_keys:
+            return 0.0
+        sq_errors = [
+            (coeffs_a.get(k, 0.0) - coeffs_b.get(k, 0.0)) ** 2 for k in all_keys
+        ]
         return np.sqrt(np.mean(sq_errors))
 
     @staticmethod
@@ -247,12 +290,12 @@ END;
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"results_{title.lower().replace(' ', '_')}_{timestamp}.md"
         filepath = os.path.join(ARTIFACTS_DIR, filename)
-        
+
         with open(filepath, "w") as f:
             f.write(f"# {title} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
             f.write(df.to_markdown(index=False))
             f.write("\n")
-            
+
         print(f"Results saved to {filepath}")
         return filepath
 
@@ -260,37 +303,53 @@ END;
         """Generates plots for timing vs order and returns as base64 strings."""
         plots = {}
         df = pd.DataFrame(full_results)
-        
+
         # Plot 1: Timing vs Order for different variants (Python vs S-Cosy)
         # We'll pick a few representative ops or just average all
-        for op in df['Operation'].unique():
+        for op in df["Operation"].unique():
             plt.figure(figsize=(10, 6))
-            op_df = df[df['Operation'] == op]
-            
-            for vars_count in op_df['Variables'].unique():
-                v_df = op_df[op_df['Variables'] == vars_count]
-                # Filter out NaNs for plotting
-                v_df_py = v_df.dropna(subset=['Python Time (s)'])
-                v_df_sc = v_df.dropna(subset=['SCosy Time (s)'])
-                v_df_raw = v_df.dropna(subset=['Raw-Cosy Time (s)'])
+            op_df = df[df["Operation"] == op]
 
-                plt.plot(v_df_py['Order'], v_df_py['Python Time (s)'], marker='o', label=f'Python (v={vars_count})')
-                plt.plot(v_df_sc['Order'], v_df_sc['SCosy Time (s)'], marker='s', label=f'S-Cosy (v={vars_count})')
+            for vars_count in op_df["Variables"].unique():
+                v_df = op_df[op_df["Variables"] == vars_count]
+                # Filter out NaNs for plotting
+                v_df_py = v_df.dropna(subset=["Python Time (s)"])
+                v_df_sc = v_df.dropna(subset=["SCosy Time (s)"])
+                v_df_raw = v_df.dropna(subset=["Raw-Cosy Time (s)"])
+
+                plt.plot(
+                    v_df_py["Order"],
+                    v_df_py["Python Time (s)"],
+                    marker="o",
+                    label=f"Python (v={vars_count})",
+                )
+                plt.plot(
+                    v_df_sc["Order"],
+                    v_df_sc["SCosy Time (s)"],
+                    marker="s",
+                    label=f"S-Cosy (v={vars_count})",
+                )
                 if not v_df_raw.empty:
-                    plt.plot(v_df_raw['Order'], v_df_raw['Raw-Cosy Time (s)'], marker='^', linestyle='--', label=f'Raw-Cosy (v={vars_count})')
-            
-            plt.title(f'Timing vs Order: {op}')
-            plt.xlabel('Order')
-            plt.ylabel('Time (s)')
-            plt.yscale('log')
+                    plt.plot(
+                        v_df_raw["Order"],
+                        v_df_raw["Raw-Cosy Time (s)"],
+                        marker="^",
+                        linestyle="--",
+                        label=f"Raw-Cosy (v={vars_count})",
+                    )
+
+            plt.title(f"Timing vs Order: {op}")
+            plt.xlabel("Order")
+            plt.ylabel("Time (s)")
+            plt.yscale("log")
             plt.grid(True, which="both", ls="-", alpha=0.5)
             plt.legend()
-            
+
             buf = BytesIO()
-            plt.savefig(buf, format='png')
+            plt.savefig(buf, format="png")
             plt.close()
-            plots[op] = base64.b64encode(buf.getvalue()).decode('utf-8')
-            
+            plots[op] = base64.b64encode(buf.getvalue()).decode("utf-8")
+
         return plots
 
     def get_system_info(self):
@@ -300,13 +359,18 @@ END;
         from datetime import datetime
 
         import psutil
-        
+
         # Get GCC/GFortran version
         try:
-            gcc_v = subprocess.check_output(["gfortran", "--version"]).decode().split('\n')[0]
+            gcc_v = (
+                subprocess
+                .check_output(["gfortran", "--version"])
+                .decode()
+                .split("\n")[0]
+            )
         except:
             gcc_v = "gfortran not found"
-            
+
         info = {
             "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Host": platform.node(),
@@ -324,37 +388,44 @@ END;
         """Formats the dataframe values (times to ms/us, speedups to 2f) for HTML display."""
         df_disp = df.copy()
         time_cols = [c for c in df.columns if "Time" in c]
-        
+
         for col in time_cols:
             # Convert seconds float to readable string
             df_disp[col] = df_disp[col].apply(lambda x: self.format_time(x))
             # Rename column to remove (s)
             new_name = col.replace(" (s)", "")
             df_disp.rename(columns={col: new_name}, inplace=True)
-            
+
         # Format Speedup columns
         speed_cols = [c for c in df_disp.columns if "Speedup" in c]
         for col in speed_cols:
             df_disp[col] = df_disp[col].apply(lambda x: self.format_speedup(x))
-            
+
         return df_disp
 
     def generate_html_report(self, full_results, plots, method_info=None):
         """Generates a styled HTML report with tables and embedded plots."""
-        if method_info is None: method_info = {}
+        if method_info is None:
+            method_info = {}
         df = pd.DataFrame(full_results)
         sys_info = self.get_system_info()
 
         # Format DF for display
         df_display = self.format_dataframe_for_display(df)
-        
+
         # System Info Table
-        sys_rows = "".join([f"<tr><td><strong>{k}</strong></td><td>{v}</td></tr>" for k, v in sys_info.items()])
-        
+        sys_rows = "".join([
+            f"<tr><td><strong>{k}</strong></td><td>{v}</td></tr>"
+            for k, v in sys_info.items()
+        ])
+
         # Methodology Text
-        
+
         # Export CSV (raw numbers)
-        csv_path = os.path.join(ARTIFACTS_DIR, f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        csv_path = os.path.join(
+            ARTIFACTS_DIR,
+            f"benchmark_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        )
         df.to_csv(csv_path, index=False)
         print(f"Raw CSV exported to: {csv_path}")
         iters = method_info.get("iterations", 100)
@@ -429,7 +500,7 @@ END;
         </head>
         <body>
             <h1>{report_title}</h1>
-            <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <p>Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
             
             <div class="sysinfo">
                 <h2>System Configuration</h2>
@@ -462,7 +533,7 @@ END;
             <h2>Performance Comparison Table</h2>
             <p><em>Click column headers to sort.</em></p>
             """
-        
+
         # Build Custom Sortable Table
         cols = [
             ("Operation", "Operation"),
@@ -474,37 +545,39 @@ END;
             ("Speedup (vs Python)", "Speedup (vs Py)"),
             ("Speedup (vs Raw COSY)", "Speedup (vs Raw)"),
             ("Python Expr", "Py Expr"),
-            ("COSY Expr", "COSY Expr")
+            ("COSY Expr", "COSY Expr"),
         ]
-        
+
         html += "<table id='benchmarkTable'><thead><tr>"
         for i, (key, label) in enumerate(cols):
             html += f"<th onclick='sortTable({i})'>{label}</th>"
         html += "</tr></thead><tbody>"
-        
+
         for row in full_results:
             html += "<tr>"
             for key, label in cols:
                 val = row.get(key, "")
                 display_val = val
                 sort_val = val
-                
+
                 if "Time" in key:
                     display_val = self.format_time(val)
-                    if pd.isna(val): sort_val = 999999
+                    if pd.isna(val):
+                        sort_val = 999999
                 elif "Speedup" in key:
                     display_val = self.format_speedup(val)
-                    if pd.isna(val): sort_val = -1
-                
+                    if pd.isna(val):
+                        sort_val = -1
+
                 html += f"<td data-val='{sort_val}'>{display_val}</td>"
             html += "</tr>"
         html += "</tbody></table>"
-        
+
         html += """
             <h2>Performance Visualizations (Log Scale)</h2>
             <div class="plot-container">
         """
-        
+
         for op, img_data in plots.items():
             html += f"""
                 <div class="plot-item">
@@ -512,16 +585,16 @@ END;
                     <img src="data:image/png;base64,{img_data}" alt="{op} plot">
                 </div>
             """
-            
+
         html += """
             </div>
         </body>
         </html>
         """
-        
+
         filepath = os.path.join(ARTIFACTS_DIR, "benchmark_report.html")
         with open(filepath, "w") as f:
             f.write(html)
-        
+
         print(f"HTML Report generated at {filepath}")
         return filepath

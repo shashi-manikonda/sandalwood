@@ -1,4 +1,3 @@
-
 import json
 import os
 import subprocess
@@ -20,6 +19,7 @@ def find_demos():
                 demos.append(os.path.join(root, f))
     return demos
 
+
 @pytest.mark.parametrize("backend", ["python", "cosy"])
 @pytest.mark.parametrize("demo_path", find_demos())
 def test_demo_quick(demo_path, backend):
@@ -30,31 +30,38 @@ def test_demo_quick(demo_path, backend):
     if backend == "cosy":
         try:
             from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
+
             if not _COSY_BACKEND_AVAILABLE:
                 pytest.skip("COSY backend not available")
         except ImportError:
             pytest.skip("Could not check COSY availability")
 
     fname = os.path.basename(demo_path)
-    
+
     def patch_line(line, backend):
         if "mtf.initialize_mtf(max_order=" in line:
             if "implementation=" in line:
-                line = line.replace('implementation="cosy"', f'implementation="{backend}"')
-                line = line.replace('implementation="python"', f'implementation="{backend}"')
-                line = line.replace('implementation="cpp"', f'implementation="{backend}"')
+                line = line.replace(
+                    'implementation="cosy"', f'implementation="{backend}"'
+                )
+                line = line.replace(
+                    'implementation="python"', f'implementation="{backend}"'
+                )
+                line = line.replace(
+                    'implementation="cpp"', f'implementation="{backend}"'
+                )
             else:
                 line = line.replace(")", f', implementation="{backend}")')
         return line
 
     with tempfile.TemporaryDirectory() as temp_dir:
         exec_path = os.path.join(temp_dir, "run_demo.py")
-        
+
         if demo_path.endswith(".ipynb"):
             # Extract code from notebook
             with open(demo_path, "r", encoding="utf-8") as f:
                 nb = json.load(f)
-            
+
             code_lines = []
             for cell in nb.get("cells", []):
                 if cell.get("cell_type") == "code":
@@ -65,10 +72,10 @@ def test_demo_quick(demo_path, backend):
                         for line in source:
                             code_lines.append(patch_line(line, backend))
                     code_lines.append("\n")
-            
+
             with open(exec_path, "w", encoding="utf-8") as f:
                 f.write("import matplotlib\n")
-                f.write("matplotlib.use('Agg')\n") # Disable GUI
+                f.write("matplotlib.use('Agg')\n")  # Disable GUI
                 # Mock IPython for environments where it is missing
                 f.write("import sys, types\n")
                 f.write("if 'IPython' not in sys.modules:\n")
@@ -80,7 +87,7 @@ def test_demo_quick(demo_path, backend):
                 f.write("    mock_ipython.version_info = (8, 24, 0)\n")
                 f.write("    sys.modules['IPython'] = mock_ipython\n")
                 f.write("    sys.modules['IPython.display'] = mock_display\n")
-                
+
                 # Pre-check for optional modules
                 f.write("try:\n")
                 f.write("    import psutil\n")
@@ -88,13 +95,13 @@ def test_demo_quick(demo_path, backend):
                 f.write("try:\n")
                 f.write("    import torch\n")
                 f.write("except ImportError: pass\n")
-                
+
                 f.write("".join(code_lines))
         else:
             # For .py files, we can just run them directly (or wrap to disable GUI)
             with open(demo_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-            
+
             with open(exec_path, "w", encoding="utf-8") as f:
                 f.write("import matplotlib\n")
                 f.write("matplotlib.use('Agg')\n")
@@ -133,12 +140,16 @@ def test_demo_quick(demo_path, backend):
             capture_output=True,
             text=True,
             env=env,
-            timeout=60 # Reasonable timeout for a single demo
+            timeout=60,  # Reasonable timeout for a single demo
         )
 
         if result.returncode != 0:
             # If it failed due to missing module, skip instead of fail
             if "ModuleNotFoundError" in result.stderr:
-                missing_mod = result.stderr.split("No module named ")[-1].strip().strip("'")
+                missing_mod = (
+                    result.stderr.split("No module named ")[-1].strip().strip("'")
+                )
                 pytest.skip(f"Demo {fname} requires missing module: {missing_mod}")
-            pytest.fail(f"Demo {fname} failed execution:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
+            pytest.fail(
+                f"Demo {fname} failed execution:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+            )

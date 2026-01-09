@@ -281,7 +281,8 @@ class TaylorMap:
             The value of the coefficient.
         """
         return (
-            self.components[component_index]
+            self
+            .components[component_index]
             .extract_coefficient(tuple(exponent_array))
             .item()
         )
@@ -485,7 +486,8 @@ class TaylorMap:
         """
         data = json.loads(json_str)
         components = [
-            MultivariateTaylorFunction.from_json(c_json) for c_json in data["components"]
+            MultivariateTaylorFunction.from_json(c_json)
+            for c_json in data["components"]
         ]
         return cls(components)
 

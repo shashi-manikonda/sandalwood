@@ -13,7 +13,9 @@ from sandalwood.taylor_function import MultivariateTaylorFunction
 def setup_mtf(backend_implementation):
     """Initializes MTF for serialization tests."""
     mtf._INITIALIZED = False
-    mtf.initialize_mtf(max_order=2, max_dimension=2, implementation=backend_implementation)
+    mtf.initialize_mtf(
+        max_order=2, max_dimension=2, implementation=backend_implementation
+    )
     yield
     mtf._INITIALIZED = False
 
@@ -84,10 +86,10 @@ def test_json_serialization_taylor_map(backend_implementation):
     f1 = mtf.var(1, 2) + 0.5
     f2 = mtf.var(2, 2) ** 2
     tmap = TaylorMap([f1, f2])
-    
+
     json_str = tmap.to_json()
     tmap_loaded = TaylorMap.from_json(json_str)
-    
+
     assert tmap_loaded.map_dim == tmap.map_dim
     for i in range(tmap.map_dim):
         assert tmap.get_component(i) == tmap_loaded.get_component(i)
@@ -98,9 +100,9 @@ def test_pickle_roundtrip_mtf(backend_implementation):
     mtf_obj = mtf.var(1, 2) + 2.5 * mtf.var(2, 2)
     pickled = pickle.dumps(mtf_obj)
     mtf_loaded = pickle.loads(pickled)
-    
+
     assert mtf_obj == mtf_loaded
-    
+
     if backend_implementation == "cosy":
         # Verify backend data is reconstructed
         assert mtf_loaded.mtf_data is not None
@@ -112,10 +114,10 @@ def test_pickle_roundtrip_taylor_map(backend_implementation):
     f1 = mtf.var(1, 2) + 1.0
     f2 = mtf.var(1, 2) * mtf.var(2, 2)
     tmap = TaylorMap([f1, f2])
-    
+
     pickled = pickle.dumps(tmap)
     tmap_loaded = pickle.loads(pickled)
-    
+
     assert tmap_loaded.map_dim == tmap.map_dim
     for i in range(tmap.map_dim):
         assert tmap.get_component(i) == tmap_loaded.get_component(i)

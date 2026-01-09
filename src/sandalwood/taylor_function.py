@@ -25,10 +25,11 @@ from .backend import get_backend
 # COSY Backend availability
 try:
     from .backends.cosy import cosy_backend
+
     if cosy_backend.libcosy.__class__.__name__ == "DummyLib":
-         _COSY_BACKEND_AVAILABLE = False
+        _COSY_BACKEND_AVAILABLE = False
     else:
-         _COSY_BACKEND_AVAILABLE = True
+        _COSY_BACKEND_AVAILABLE = True
 except Exception:
     _COSY_BACKEND_AVAILABLE = False
 
@@ -191,12 +192,12 @@ class MultivariateTaylorFunction:
             # User passed 'cosy' explicitly or implicit default?
             # The signature says default="cpp" (wait, actually default was "python" in previous).
             # We want default="cosy".
-            
+
             # Logic:
             # 1. If implementation is explicitly "python", use python.
-            # 2. If implementation is "cosy" (default), try cosy. 
+            # 2. If implementation is "cosy" (default), try cosy.
             #    If not available, warn and fallback to python.
-            
+
             if implementation == "python":
                 cls._IMPLEMENTATION = "python"
             else:
@@ -205,18 +206,22 @@ class MultivariateTaylorFunction:
                     cls._IMPLEMENTATION = "cosy"
                 else:
                     if implementation == "cosy":
-                         print("Warning: COSY backend requested but not available. Falling back to Python.")
+                        print(
+                            "Warning: COSY backend requested but not available. Falling back to Python."
+                        )
                     cls._IMPLEMENTATION = "python"
 
             print(
                 f"Initializing MTF globals with: _MAX_ORDER={cls._MAX_ORDER}, "
                 f"_MAX_DIMENSION={cls._MAX_DIMENSION} using {cls._IMPLEMENTATION} backend"
             )
-            
+
             if cls._IMPLEMENTATION == "cosy":
-                 print("Initializing COSY backend...")
-                 cosy_backend.CosyBackendManager.initialize(cls._MAX_ORDER, cls._MAX_DIMENSION)
-            
+                print("Initializing COSY backend...")
+                cosy_backend.CosyBackendManager.initialize(
+                    cls._MAX_ORDER, cls._MAX_DIMENSION
+                )
+
             cls._INITIALIZED = True
             print(
                 f"MTF globals initialized: _MAX_ORDER={cls._MAX_ORDER}, "
@@ -397,7 +402,10 @@ class MultivariateTaylorFunction:
                     f"Provided dimension {self.dimension} does not match exponent "
                     f"dimension {self._exponents.shape[1]}."
                 )
-            if self._coeffs.ndim != 1 or self._coeffs.shape[0] != self._exponents.shape[0]:
+            if (
+                self._coeffs.ndim != 1
+                or self._coeffs.shape[0] != self._exponents.shape[0]
+            ):
                 raise ValueError("Coefficients array has incorrect shape.")
 
         # Path for dictionary
@@ -447,7 +455,9 @@ class MultivariateTaylorFunction:
 
         if _COSY_BACKEND_AVAILABLE and self._IMPLEMENTATION == "cosy":
             is_complex = np.iscomplexobj(self._coeffs)
-            self.mtf_data = cosy_backend.CosyMtfData(self.dimension, is_complex=is_complex)
+            self.mtf_data = cosy_backend.CosyMtfData(
+                self.dimension, is_complex=is_complex
+            )
             self.mtf_data.from_numpy(self._exponents, self._coeffs)
 
     def _ensure_synced(self):
@@ -457,7 +467,9 @@ class MultivariateTaylorFunction:
 
         if self.mtf_data is None:
             # Should not happen if initialized correctly
-            raise RuntimeError("MTF data is missing and coefficients are not initialized.")
+            raise RuntimeError(
+                "MTF data is missing and coefficients are not initialized."
+            )
 
         data_dict = self.mtf_data.to_dict()
         self._exponents = data_dict["exponents"]
@@ -465,11 +477,11 @@ class MultivariateTaylorFunction:
 
         # Apply truncation if enabled, to match Python behavior
         if self._TRUNCATE_AFTER_OPERATION and self._coeffs.size > 0:
-             etol = self.get_etol()
-             keep_mask = np.abs(self._coeffs) > etol
-             if not np.all(keep_mask):
-                 self._exponents = self._exponents[keep_mask]
-                 self._coeffs = self._coeffs[keep_mask]
+            etol = self.get_etol()
+            keep_mask = np.abs(self._coeffs) > etol
+            if not np.all(keep_mask):
+                self._exponents = self._exponents[keep_mask]
+                self._coeffs = self._coeffs[keep_mask]
 
         # Ensure dimensions match (sanity check)
         if hasattr(self, "dimension") and self.dimension is not None:
@@ -482,11 +494,16 @@ class MultivariateTaylorFunction:
     def _ensure_backend(self):
         """Attempts to reconstruct backend data if it is missing."""
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is None:
-             if self._coeffs is not None and self._exponents is not None and _COSY_BACKEND_AVAILABLE:
-                 is_complex = np.iscomplexobj(self._coeffs)
-                 self.mtf_data = cosy_backend.CosyMtfData(self.dimension, is_complex=is_complex)
-                 self.mtf_data.from_numpy(self._exponents, self._coeffs)
-
+            if (
+                self._coeffs is not None
+                and self._exponents is not None
+                and _COSY_BACKEND_AVAILABLE
+            ):
+                is_complex = np.iscomplexobj(self._coeffs)
+                self.mtf_data = cosy_backend.CosyMtfData(
+                    self.dimension, is_complex=is_complex
+                )
+                self.mtf_data.from_numpy(self._exponents, self._coeffs)
 
     @property
     def exponents(self):
@@ -531,9 +548,9 @@ class MultivariateTaylorFunction:
         if dimension is None:
             dimension = cls.get_max_dimension()
         if isinstance(constant_value, complex):
-             coeffs = {(0,) * dimension: constant_value}
+            coeffs = {(0,) * dimension: constant_value}
         else:
-             coeffs = {(0,) * dimension: float(constant_value)}
+            coeffs = {(0,) * dimension: float(constant_value)}
         return cls(coefficients=coeffs, dimension=dimension)
 
     @classmethod
@@ -807,22 +824,29 @@ class MultivariateTaylorFunction:
             If the `evaluation_point` has an incorrect shape or dimension.
         """
         evaluation_point = np.array(evaluation_point)
-        
+
         # Optimized backend evaluation
         # Optimized backend evaluation
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             # Ensure point is correct shape/type for backend
-             # COSY expects list or array of floats.
-             if evaluation_point.ndim == 1:
-                 if evaluation_point.shape[0] != self.dimension:
-                      raise ValueError(f"Evaluation point dimension must match MTF dimension ({self.dimension}).")
-             elif evaluation_point.ndim == 2:
-                 if not (evaluation_point.shape[0] == 1 and evaluation_point.shape[1] == self.dimension):
-                      raise ValueError("For 2D input, eval() supports only a single evaluation point with shape (1, dimension).")
-             else:
-                 raise ValueError("Evaluation point must be a 1D or 2D array.")
-                 
-             return np.array([self.mtf_data.eval(evaluation_point.flatten())])
+            # Ensure point is correct shape/type for backend
+            # COSY expects list or array of floats.
+            if evaluation_point.ndim == 1:
+                if evaluation_point.shape[0] != self.dimension:
+                    raise ValueError(
+                        f"Evaluation point dimension must match MTF dimension ({self.dimension})."
+                    )
+            elif evaluation_point.ndim == 2:
+                if not (
+                    evaluation_point.shape[0] == 1
+                    and evaluation_point.shape[1] == self.dimension
+                ):
+                    raise ValueError(
+                        "For 2D input, eval() supports only a single evaluation point with shape (1, dimension)."
+                    )
+            else:
+                raise ValueError("Evaluation point must be a 1D or 2D array.")
+
+            return np.array([self.mtf_data.eval(evaluation_point.flatten())])
 
         if evaluation_point.ndim == 1:
             if evaluation_point.shape[0] != self.dimension:
@@ -941,7 +965,11 @@ class MultivariateTaylorFunction:
             other._ensure_backend()
 
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
+        if (
+            self._IMPLEMENTATION == "cosy"
+            and self.mtf_data is not None
+            and other.mtf_data is not None
+        ):
             res_data = self.mtf_data.add(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1012,11 +1040,15 @@ class MultivariateTaylorFunction:
 
         # Ensure backend consistency
         if self._IMPLEMENTATION == "cosy":
-             self._ensure_backend()
-             other._ensure_backend()
+            self._ensure_backend()
+            other._ensure_backend()
 
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
+        if (
+            self._IMPLEMENTATION == "cosy"
+            and self.mtf_data is not None
+            and other.mtf_data is not None
+        ):
             res_data = self.mtf_data.subtract(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1029,7 +1061,7 @@ class MultivariateTaylorFunction:
     def __rsub__(self, other):
         """Defines reverse subtraction for non-commutative property."""
         if isinstance(other, (int, float, complex, np.number)):
-             return self.to_mtf(other, self.dimension) - self
+            return self.to_mtf(other, self.dimension) - self
         return -(self - other)
 
     def __mul__(self, other):
@@ -1049,11 +1081,15 @@ class MultivariateTaylorFunction:
 
         # Ensure backend consistency
         if self._IMPLEMENTATION == "cosy":
-             self._ensure_backend()
-             other._ensure_backend()
+            self._ensure_backend()
+            other._ensure_backend()
 
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
+        if (
+            self._IMPLEMENTATION == "cosy"
+            and self.mtf_data is not None
+            and other.mtf_data is not None
+        ):
             res_data = self.mtf_data.multiply(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1131,11 +1167,11 @@ class MultivariateTaylorFunction:
             other than 0.5 or -0.5).
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             try:
-                 res_data = self.mtf_data ** power
-                 return self._create_result(res_data)
-             except NotImplementedError:
-                 pass # Fallback to default if not supported (e.g. complex)
+            try:
+                res_data = self.mtf_data**power
+                return self._create_result(res_data)
+            except NotImplementedError:
+                pass  # Fallback to default if not supported (e.g. complex)
 
         if isinstance(power, numbers.Integral):
             if power < 0:
@@ -1187,11 +1223,11 @@ class MultivariateTaylorFunction:
         Computes the multiplicative inverse (1/f).
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             try:
-                 res_data = self.mtf_data.inverse()
-                 return self._create_result(res_data)
-             except NotImplementedError:
-                 pass # Fallback
+            try:
+                res_data = self.mtf_data.inverse()
+                return self._create_result(res_data)
+            except NotImplementedError:
+                pass  # Fallback
 
         return self._inv_mtf_internal(self)
 
@@ -1210,11 +1246,15 @@ class MultivariateTaylorFunction:
 
         # Ensure backend consistency
         if self._IMPLEMENTATION == "cosy":
-             self._ensure_backend()
-             other._ensure_backend()
+            self._ensure_backend()
+            other._ensure_backend()
 
         # Backend routing
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None and other.mtf_data is not None:
+        if (
+            self._IMPLEMENTATION == "cosy"
+            and self.mtf_data is not None
+            and other.mtf_data is not None
+        ):
             res_data = self.mtf_data.divide(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
@@ -1250,22 +1290,23 @@ class MultivariateTaylorFunction:
     def deriv(self, var_idx):
         """
         Computes the partial derivative with respect to variable `var_idx`.
-        
+
         Parameters
         ----------
         var_idx : int
             The 1-based index of the variable (e.g., 1 for x1).
-            
+
         Returns
         -------
         MultivariateTaylorFunction
             The partial derivative.
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             res_data = self.mtf_data.partial_derivative(var_idx)
-             return type(self)(mtf_data=res_data, dimension=self.dimension)
-             
+            res_data = self.mtf_data.partial_derivative(var_idx)
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
+
         from .elementary_functions import _derivative
+
         return _derivative(self, var_idx)
 
     def derivative(self, var_idx):
@@ -1275,7 +1316,7 @@ class MultivariateTaylorFunction:
     def integrate(self, var_idx, lower_limit=None, upper_limit=None):
         """
         Computes the indefinite or definite integral with respect to variable `var_idx`.
-        
+
         Parameters
         ----------
         var_idx : int
@@ -1284,7 +1325,7 @@ class MultivariateTaylorFunction:
             Lower limit for definite integration.
         upper_limit : float, optional
             Upper limit for definite integration.
-        
+
         Returns
         -------
         MultivariateTaylorFunction
@@ -1296,33 +1337,36 @@ class MultivariateTaylorFunction:
                 return type(self)(mtf_data=res_data, dimension=self.dimension)
 
         from .elementary_functions import _integrate
+
         return _integrate(self, var_idx, lower_limit, upper_limit)
 
     def poisson_bracket(self, other):
         """
         Computes the Poisson Bracket [self, other].
-        
+
         Parameters
         ----------
         other : MultivariateTaylorFunction
             The other function in the bracket.
-            
+
         Returns
         -------
         MultivariateTaylorFunction
             The result of the Poisson Bracket.
         """
         if not isinstance(other, MultivariateTaylorFunction):
-             try:
-                 other = self.to_mtf(other, self.dimension)
-             except (TypeError, ValueError):
-                 return NotImplemented
+            try:
+                other = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
 
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             res_data = self.mtf_data.poisson_bracket(other.mtf_data)
-             return type(self)(mtf_data=res_data, dimension=self.dimension)
+            res_data = self.mtf_data.poisson_bracket(other.mtf_data)
+            return type(self)(mtf_data=res_data, dimension=self.dimension)
 
-        raise NotImplementedError("poisson_bracket() not yet implemented for Python backend")
+        raise NotImplementedError(
+            "poisson_bracket() not yet implemented for Python backend"
+        )
 
     def _inv_mtf_internal(self, mtf_instance, order=None):
         """Internal method to calculate Taylor expansion of 1/mtf_instance."""
@@ -1346,7 +1390,7 @@ class MultivariateTaylorFunction:
         rescaled_mtf = mtf_instance / c0
         # Dynamic coefficient generation for inverse: (-1)^n
         # 1/(1+x) = 1 - x + x^2 - x^3 ...
-        coeffs_to_use = [(-1)**i for i in range(order + 1)]
+        coeffs_to_use = [(-1) ** i for i in range(order + 1)]
         coeff_items = []
         for i, coeff_val in enumerate(coeffs_to_use):
             exponent_tuple = (i,)
@@ -1608,12 +1652,12 @@ class MultivariateTaylorFunction:
                 # We can rely on substitutions dict which is fully populated above
                 mtf_arg = substitutions[i]
                 if mtf_arg.mtf_data is None:
-                     # This should not happen if backend is consistent, but safeguard
-                     raise RuntimeError(f"Argument for var {i} has no COSY data")
+                    # This should not happen if backend is consistent, but safeguard
+                    raise RuntimeError(f"Argument for var {i} has no COSY data")
                 args_da_list.append(mtf_arg.mtf_data.da)
-            
+
             res_da = self.mtf_data.da.compose_polval(args_da_list)
-            
+
             # The result should be wrapped in CosyMtfData
             # We need to access CosyMtfData class. It is available via self.mtf_data.__class__
             res_data = self.mtf_data.__class__(result_dim, idx=res_da.idx, owned=True)
@@ -1629,7 +1673,7 @@ class MultivariateTaylorFunction:
             # When res_da goes out of scope, it frees idx. Then res_data has dangling ptr.
             # Fix: res_da.owned = False after transfer.
             res_da.owned = False
-            
+
             return type(self)(mtf_data=res_data, dimension=result_dim)
 
         # The final MTF will be initialized as a zero constant of the correct
@@ -1671,7 +1715,7 @@ class MultivariateTaylorFunction:
             A dictionary with keys 'exponents' and 'coeffs'.
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             return self.mtf_data.to_dict()
+            return self.mtf_data.to_dict()
         self._ensure_synced()
         return {"exponents": self._exponents, "coeffs": self._coeffs}
 
@@ -1679,17 +1723,18 @@ class MultivariateTaylorFunction:
         """Helper to create a result MTF, promoting to complex if needed."""
         is_complex = False
         if hasattr(res_data, "is_complex"):
-             is_complex = res_data.is_complex
-        
+            is_complex = res_data.is_complex
+
         if is_complex:
-             from .complex_taylor_function import ComplexMultivariateTaylorFunction
-             cls = ComplexMultivariateTaylorFunction
+            from .complex_taylor_function import ComplexMultivariateTaylorFunction
+
+            cls = ComplexMultivariateTaylorFunction
         else:
-             cls = type(self)
-             
+            cls = type(self)
+
         result_mtf = cls(mtf_data=res_data, dimension=self.dimension)
         if self._TRUNCATE_AFTER_OPERATION:
-             result_mtf._cleanup_after_operation()
+            result_mtf._cleanup_after_operation()
         return result_mtf
 
     def get_tabular_dataframe(self):
@@ -1947,7 +1992,9 @@ class MultivariateTaylorFunction:
         if self.coeffs.size == 0:
             return
 
-        keep_mask = (np.abs(self.coeffs) > etol) | np.isnan(self.coeffs) | np.isinf(self.coeffs)
+        keep_mask = (
+            (np.abs(self.coeffs) > etol) | np.isnan(self.coeffs) | np.isinf(self.coeffs)
+        )
 
         self.exponents = self.exponents[keep_mask]
         self.coeffs = self.coeffs[keep_mask]
@@ -1991,66 +2038,77 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.sin())
         from .elementary_functions import _sin_taylor
+
         return _sin_taylor(self)
 
     def cos(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.cos())
         from .elementary_functions import _cos_taylor
+
         return _cos_taylor(self)
 
     def tan(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.tan())
         from .elementary_functions import _tan_taylor
+
         return _tan_taylor(self)
 
     def exp(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.exp())
         from .elementary_functions import _exp_taylor
+
         return _exp_taylor(self)
 
     def log(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.log())
         from .elementary_functions import _log_taylor
+
         return _log_taylor(self)
 
     def sinh(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.sinh())
         from .elementary_functions import _sinh_taylor
+
         return _sinh_taylor(self)
 
     def cosh(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.cosh())
         from .elementary_functions import _cosh_taylor
+
         return _cosh_taylor(self)
 
     def tanh(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.tanh())
         from .elementary_functions import _tanh_taylor
+
         return _tanh_taylor(self)
 
     def arcsin(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.asin())
         from .elementary_functions import _arcsin_taylor
+
         return _arcsin_taylor(self)
 
     def arccos(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.acos())
         from .elementary_functions import _arccos_taylor
+
         return _arccos_taylor(self)
 
     def arctan(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.atan())
         from .elementary_functions import _arctan_taylor
+
         return _arctan_taylor(self)
 
     def sqrt(self) -> "MultivariateTaylorFunction":
@@ -2065,12 +2123,13 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.inv_sqrt())
         from .elementary_functions import _isqrt_taylor
+
         return _isqrt_taylor(self)
 
     def inv_pow_3_2(self) -> "MultivariateTaylorFunction":
         """Computes 1 / x^(3/2) using COSY DAISR3."""
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            res_data = self.mtf_data.inv_cbrt() # This calls DAISR3 which is 1/x^1.5
+            res_data = self.mtf_data.inv_cbrt()  # This calls DAISR3 which is 1/x^1.5
             return type(self)(mtf_data=res_data, dimension=self.dimension)
         raise NotImplementedError("inv_pow_3_2 is only available for the COSY backend")
 
@@ -2078,25 +2137,32 @@ class MultivariateTaylorFunction:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             # DAISR3 is actually 1/x^1.5, so we can't use it for inv_cbrt.
             # We could use self ** (-1/3) if __pow__ supported it.
-            raise NotImplementedError("inv_cbrt not yet implemented for COSY backend (DAISR3 is 1/x^1.5)")
-        raise NotImplementedError("inv_cbrt will be implemented in future for Python backend")
+            raise NotImplementedError(
+                "inv_cbrt not yet implemented for COSY backend (DAISR3 is 1/x^1.5)"
+            )
+        raise NotImplementedError(
+            "inv_cbrt will be implemented in future for Python backend"
+        )
 
     def erf(self) -> "MultivariateTaylorFunction":
         # COSY's DAERF/REERF are under development and trigger errors for orders > 6.
         # Per user request, we ignore COSY for erf and use the Python Taylor fallback.
         from .elementary_functions import _erf_taylor
+
         return _erf_taylor(self)
 
     def coth(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.coth())
         from .elementary_functions import _coth_taylor
+
         return _coth_taylor(self)
 
     def cot(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.cot())
         from .elementary_functions import _cot_taylor
+
         return _cot_taylor(self)
 
     def norm(self) -> float:
@@ -2107,17 +2173,21 @@ class MultivariateTaylorFunction:
     def weighted_norm(self, weight) -> float:
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self.mtf_data.weighted_norm(weight)
-        raise NotImplementedError("weighted_norm is only available for the COSY backend")
+        raise NotImplementedError(
+            "weighted_norm is only available for the COSY backend"
+        )
 
     def estimate_stability(self, var_id: int = 0, order: int = None) -> float:
         """
         Estimates the stability/order decay of the Taylor function.
-        
+
         Only available for the 'cosy' backend.
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self.mtf_data.estimate_stability(var_id, order)
-        raise NotImplementedError("estimate_stability is only available for the COSY backend")
+        raise NotImplementedError(
+            "estimate_stability is only available for the COSY backend"
+        )
 
     def asin(self):
         return self.arcsin()
@@ -2131,14 +2201,17 @@ class MultivariateTaylorFunction:
     def arcsinh(self):
         # We use Python fallback for inverse hyperbolics as COSY bindings were buggy
         from .elementary_functions import _arcsinh_taylor
+
         return _arcsinh_taylor(self)
 
     def arccosh(self):
         from .elementary_functions import _arccosh_taylor
+
         return _arccosh_taylor(self)
 
     def arctanh(self):
         from .elementary_functions import _arctanh_taylor
+
         return _arctanh_taylor(self)
 
     def asinh(self):
@@ -2146,7 +2219,6 @@ class MultivariateTaylorFunction:
 
     def acosh(self):
         return self.arccosh()
-
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """
@@ -2194,7 +2266,7 @@ class MultivariateTaylorFunction:
                     np.divide: cosy_backend.batch_div,
                     np.true_divide: cosy_backend.batch_div,
                 }
-                
+
                 if ufunc in BATCH_UFUNC_MAP and len(inputs) == 2:
                     # Helper to get indices
                     def get_indices(x, size):
@@ -2208,7 +2280,10 @@ class MultivariateTaylorFunction:
                                 # Fallback if elements aren't MTFs (e.g. array of floats)
                                 # Convert to constants?
                                 # This is slow path: array(float) -> array(MTF)
-                                return [self.to_mtf(v, self.dimension).mtf_data.da.idx for v in x.flat]
+                                return [
+                                    self.to_mtf(v, self.dimension).mtf_data.da.idx
+                                    for v in x.flat
+                                ]
                         elif isinstance(x, MultivariateTaylorFunction):
                             # Broadcast scalar MTF
                             return [x.mtf_data.da.idx] * size
@@ -2220,10 +2295,10 @@ class MultivariateTaylorFunction:
                     # Determine result size (simple broadcasting check)
                     a_is_arr = isinstance(inputs[0], np.ndarray)
                     b_is_arr = isinstance(inputs[1], np.ndarray)
-                    
+
                     if a_is_arr and b_is_arr:
                         if inputs[0].size != inputs[1].size:
-                            return NotImplemented # Let numpy handle complex broadcasting if shapes mismatch
+                            return NotImplemented  # Let numpy handle complex broadcasting if shapes mismatch
                         size = inputs[0].size
                         shape = inputs[0].shape
                     elif a_is_arr:
@@ -2236,10 +2311,10 @@ class MultivariateTaylorFunction:
                     try:
                         idx_a = get_indices(inputs[0], size)
                         idx_b = get_indices(inputs[1], size)
-                        
+
                         # Call Fortran Batch Routine
                         res_indices = BATCH_UFUNC_MAP[ufunc](idx_a, idx_b)
-                        
+
                         # Wrap results back to MTF array
                         # This creation loop is Python-side overhead but necessary
                         res_flat = np.empty(size, dtype=object)
@@ -2248,10 +2323,14 @@ class MultivariateTaylorFunction:
                             # Note: owned=True by default in CosyMtfData/CosyDA logic?
                             # We need to construct CosyMtfData manually to inject the index
                             cda = cosy_backend.CosyDA(idx=idx, owned=True)
-                            c_data = cosy_backend.CosyMtfData(self.dimension, is_complex=False) # Complex? logic needed
+                            c_data = cosy_backend.CosyMtfData(
+                                self.dimension, is_complex=False
+                            )  # Complex? logic needed
                             c_data.da = cda
-                            res_flat[i] = type(self)(mtf_data=c_data, dimension=self.dimension)
-                            
+                            res_flat[i] = type(self)(
+                                mtf_data=c_data, dimension=self.dimension
+                            )
+
                         return res_flat.reshape(shape)
 
                     except Exception:
@@ -2279,12 +2358,12 @@ class MultivariateTaylorFunction:
                 if len(mtf_inputs) == 1:
                     method_name = UNARY_UFUNC_MAP[ufunc]
                     if method_name == "_inv_mtf_internal":
-                         # Special case for reciprocal which takes an argument in internal impl
-                         # But _inv_mtf_internal(self, mtf_instance) ... wait
-                         # self._inv_mtf_internal(mtf_inputs[0])?
-                         # It seems _inv_mtf_internal is an instance method that uses `self` as a factory?
-                         # Let's check definition.
-                         return mtf_inputs[0]._inv_mtf_internal(mtf_inputs[0])
+                        # Special case for reciprocal which takes an argument in internal impl
+                        # But _inv_mtf_internal(self, mtf_instance) ... wait
+                        # self._inv_mtf_internal(mtf_inputs[0])?
+                        # It seems _inv_mtf_internal is an instance method that uses `self` as a factory?
+                        # Let's check definition.
+                        return mtf_inputs[0]._inv_mtf_internal(mtf_inputs[0])
                     op = getattr(mtf_inputs[0], method_name)
                     return op()
                 else:
@@ -2341,11 +2420,11 @@ class MultivariateTaylorFunction:
         5.0
         """
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-             if hasattr(self.mtf_data, "get_constant"):
-                  val = self.mtf_data.get_constant()
-                  if isinstance(val, complex):
-                      return val
-                  return float(val)
+            if hasattr(self.mtf_data, "get_constant"):
+                val = self.mtf_data.get_constant()
+                if isinstance(val, complex):
+                    return val
+                return float(val)
 
         constant_exp = np.zeros(self.dimension, dtype=np.int32)
         match = np.all(self.exponents == constant_exp, axis=1)
@@ -2557,13 +2636,16 @@ def _sqrt_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
     constant_term_C_value, polynomial_part_B_mtf = _split_constant_polynomial_part(
         input_mtf
     )
-    
+
     # Avoid circular import by importing locally
     from .complex_taylor_function import ComplexMultivariateTaylorFunction
-    is_complex_input = isinstance(input_mtf, ComplexMultivariateTaylorFunction) or isinstance(constant_term_C_value, complex)
+
+    is_complex_input = isinstance(
+        input_mtf, ComplexMultivariateTaylorFunction
+    ) or isinstance(constant_term_C_value, complex)
 
     if abs(constant_term_C_value) < 1e-12:
-         raise ValueError(
+        raise ValueError(
             "Constant part of input to sqrt_taylor is too close to zero. "
             "Square root is not defined at zero for this expansion."
         )
@@ -2594,12 +2676,12 @@ def sqrt_taylor_1D_expansion(
     sqrt_taylor_1d_coefficients = {}
     taylor_dimension_1d = 1
     variable_index_1d = 0
-    
+
     # Dynamic coefficient generation for sqrt(1+x)
     # n=0: 1
     # n=1: 0.5
     # n>1: a_n = a_(n-1) * (0.5 - (n-1)) / n
-    
+
     current_coeff = 1.0
     for n_order in range(order + 1):
         if n_order == 0:
@@ -2607,7 +2689,13 @@ def sqrt_taylor_1D_expansion(
         elif n_order == 1:
             current_coeff = 0.5
         else:
-            current_coeff = current_coeff * (0.5 - (n_order - 1)) / (n_order - 1) * (0.5 - (n_order - 1)) / n_order # Wait, previous loop logic was using stored coeff.
+            current_coeff = (
+                current_coeff
+                * (0.5 - (n_order - 1))
+                / (n_order - 1)
+                * (0.5 - (n_order - 1))
+                / n_order
+            )  # Wait, previous loop logic was using stored coeff.
             # Let's start clean.
             pass
 
@@ -2616,11 +2704,11 @@ def sqrt_taylor_1D_expansion(
     if order >= 1:
         coeffs[1] = 0.5
         for n in range(2, order + 1):
-            coeffs[n] = coeffs[n-1] * (0.5 - (n - 1)) / n
+            coeffs[n] = coeffs[n - 1] * (0.5 - (n - 1)) / n
 
     for n_order in range(order + 1):
         if abs(coeffs[n_order]) > 1e-16:
-             sqrt_taylor_1d_coefficients[
+            sqrt_taylor_1d_coefficients[
                 _generate_exponent(n_order, variable_index_1d, taylor_dimension_1d)
             ] = np.array([coeffs[n_order]]).reshape(1)
 

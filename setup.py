@@ -14,6 +14,7 @@ from setuptools.command.build_ext import build_ext
 
 class BuildCosy(Command):
     """Custom command to build the COSY backend."""
+
     description = "build COSY shared library"
     user_options = []
 
@@ -28,7 +29,7 @@ class BuildCosy(Command):
         dir_path = os.path.abspath(os.path.dirname(__file__))
         backend_dir = os.path.join(dir_path, "src", "sandalwood", "backends", "cosy")
         cosy_src = os.path.join(backend_dir, "cosy_src")
-        
+
         # Platform-specific output
         if sys.platform == "win32":
             lib_name = "libcosy.dll"
@@ -36,9 +37,9 @@ class BuildCosy(Command):
             lib_name = "libcosy.dylib"
         else:
             lib_name = "libcosy.so"
-        
+
         output_path = os.path.join(backend_dir, lib_name)
-        
+
         # Find gfortran
         gfortran = shutil.which("gfortran")
         if not gfortran:
@@ -47,17 +48,25 @@ class BuildCosy(Command):
 
         # Compilation arguments for robust legacy Fortran support
         cmd = [
-            gfortran, "-shared", "-fPIC", "-fcommon", "-std=legacy", "-g", "-O3",
-            "-march=native", "-ffixed-form",
+            gfortran,
+            "-shared",
+            "-fPIC",
+            "-fcommon",
+            "-std=legacy",
+            "-g",
+            "-O3",
+            "-march=native",
+            "-ffixed-form",
             os.path.join(cosy_src, "dafox.f"),
             os.path.join(cosy_src, "foxfit.f"),
             os.path.join(cosy_src, "foxgraf.f"),
             os.path.join(cosy_src, "helper.f"),
             os.path.join(backend_dir, "wrapper.f"),
             "-fopenmp",
-            "-o", output_path
+            "-o",
+            output_path,
         ]
-        
+
         print(f"Building COSY library: {' '.join(cmd)}")
         try:
             subprocess.run(cmd, check=True)
@@ -66,8 +75,10 @@ class BuildCosy(Command):
             print(f"Error building COSY library: {e}")
             raise
 
+
 class CustomBuildExt(build_ext):
     """Custom build_ext to ensure COSY is built."""
+
     def run(self):
         # Only run if we are actually building or if we want to force it
         self.run_command("build_cosy")
@@ -75,15 +86,14 @@ class CustomBuildExt(build_ext):
         # If we only have our dummy, it will just ensure build_ext was called.
         super().run()
 
+
 # Set compiler arguments (not used for extensions anymore but keeping for potential future use or reference)
 # Actually, since we are removing all standard extensions, we can simplify this.
 
 setup(
-    ext_modules=[
-        Extension("sandalwood.backends.cosy._dummy", sources=[])
-    ],
+    ext_modules=[Extension("sandalwood.backends.cosy._dummy", sources=[])],
     cmdclass={
         "build_cosy": BuildCosy,
         "build_ext": CustomBuildExt,
-    }
+    },
 )
