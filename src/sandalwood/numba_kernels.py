@@ -17,6 +17,8 @@ except ImportError:
         return range(n)
     def get_num_threads():
         return 1
+    def evaluate_dense_kernel(*args): pass
+    def multiply_dense_parallel(*args): pass
 
 @njit(fastmath=True, cache=True, parallel=True)
 def evaluate_dense_kernel(points, exponents, coeffs, result):
@@ -29,9 +31,6 @@ def evaluate_dense_kernel(points, exponents, coeffs, result):
     dim = points.shape[1]
     
     # Pre-calculate max order to size the power cache
-    # Assumes exponents are int32. 
-    # We can find max order by scanning or passing it in. 
-    # For optimization, we assume a reasonable static cap or scan quickly.
     max_order = 0
     for j in range(n_terms):
         for d in range(dim):
@@ -40,21 +39,20 @@ def evaluate_dense_kernel(points, exponents, coeffs, result):
     
     # Parallelize over points
     for i in prange(n_pts):
-        # 1. Thread-local Power Cache: cache[d, p] = points[i, d]**p
-        # Size is small: Dim * (MaxOrder+1)
-        # We manually manage this "stack" array
+        # 1. Thread-local Power Cache
         pow_cache = np.ones((dim, max_order + 1), dtype=points.dtype)
         
         for d in range(dim):
             val = points[i, d]
             current_pow = 1.0
-            # pow_cache[d, 0] is already 1.0
             for p in range(1, max_order + 1):
                 current_pow *= val
                 pow_cache[d, p] = current_pow
         
         # 2. Compute Sum
-        sum_val = 0.0
+        # Initialize accumulator with zero of the RESULT type (handling complex)
+        sum_val = result[i] * 0
+        
         for j in range(n_terms):
             term_val = coeffs[j]
             for d in range(dim):
@@ -68,37 +66,36 @@ def evaluate_dense_kernel(points, exponents, coeffs, result):
 @njit(fastmath=True, cache=True, parallel=True)
 def multiply_dense_parallel(idx_a, coeffs_a, idx_b, coeffs_b, table, result_size):
     """
-    True Parallel Multiplication using Map-Reduce.
-    
-    Args:
-        result_size (int): The size of the full dense coefficient vector.
-    Returns:
-        accumulated_result (array): The final dense coefficients.
+    True Parallel Multiplication using Map-Reduce with Manual Chunking.
     """
     n_a = len(idx_a)
     n_b = len(idx_b)
     
-    # 1. Allocate thread-local buffers
-    # shape: (n_threads, result_size)
+    # Use the config to determine thread count
     num_threads = get_num_threads()
+    
+    # 1. Allocate buffers (Complex support depends on input dtype)
     thread_buffers = np.zeros((num_threads, result_size), dtype=coeffs_a.dtype)
     
-    # 2. Parallel Accumulation
-    # We parallelize the OUTER loop (idx_a)
-    for i in prange(n_a):
-        tid = np.uint32(i % num_threads) # Simple round-robin thread ID mapping
+    # 2. Manual Chunking to ensure Thread Isolation
+    # We iterate over THREADS, not data indices directly
+    chunk_size = (n_a + num_threads - 1) // num_threads
+    
+    for t in prange(num_threads):
+        start = t * chunk_size
+        end = min((t + 1) * chunk_size, n_a)
         
-        idx_i = idx_a[i]
-        c_i = coeffs_a[i]
-        
-        # Inner loop: Iterate over B
-        for j in range(n_b):
-            res_idx = table[idx_i, idx_b[j]]
-            if res_idx != -1:
-                # Accumulate into thread-private buffer
-                thread_buffers[tid, res_idx] += c_i * coeffs_b[j]
+        # Each thread processes its exclusive chunk of A
+        for i in range(start, end):
+            idx_i = idx_a[i]
+            c_i = coeffs_a[i]
+            
+            for j in range(n_b):
+                res_idx = table[idx_i, idx_b[j]]
+                if res_idx != -1:
+                    # Safe: Only thread 't' writes to row 't'
+                    thread_buffers[t, res_idx] += c_i * coeffs_b[j]
 
-    # 3. Reduction (Sum buffers)
-    # Collapse the thread dimension
+    # 3. Reduction
     final_result = np.sum(thread_buffers, axis=0)
     return final_result
