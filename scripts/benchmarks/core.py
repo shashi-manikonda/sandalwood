@@ -293,7 +293,10 @@ END;
 
         with open(filepath, "w") as f:
             f.write(f"# {title} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            f.write(df.to_markdown(index=False))
+            try:
+                f.write(df.to_markdown(index=False))
+            except ImportError:
+                f.write(df.to_string(index=False))
             f.write("\n")
 
         print(f"Results saved to {filepath}")
