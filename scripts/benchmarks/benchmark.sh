@@ -43,11 +43,52 @@ fi
 
 # Check if cosy_bin exists, if not compile it
 COSY_BIN="$BENCH_DIR/cosy_bin"
-COSY_SRC_DIR="$ROOT_DIR/src/sandalwood/backends/cosy/cosy_src"
+COSY_SRC_ORIG="$ROOT_DIR/src/sandalwood/backends/cosy/cosy_src"
+CONFIG_FILE="$ROOT_DIR/src/sandalwood/backends/cosy/cosy_config.env"
+BUILD_DIR="$BENCH_DIR/build_tmp"
 
 if [ ! -f "$COSY_BIN" ]; then
     echo "Compiling COSY binary..."
+    
+    # 1. Load Configuration
+    if [ -f "$CONFIG_FILE" ]; then
+        echo "Loading configuration from $CONFIG_FILE..."
+        source "$CONFIG_FILE"
+    else
+        echo "No config file found. Using defaults."
+        export COSY_LMEM=140000000
+        export COSY_LVAR=10000000
+        export COSY_LDIM=1000
+        export COSY_LEA=100000
+        export COSY_LIA=1400000
+        export COSY_LNO=99
+        export COSY_LNV=40
+    fi
+
     if command -v gfortran &> /dev/null; then
+        # 2. Prepare Build Directory
+        echo "Preparing build directory..."
+        rm -rf "$BUILD_DIR"
+        mkdir -p "$BUILD_DIR"
+        cp "$COSY_SRC_ORIG"/*.f "$BUILD_DIR/"
+
+        # 3. Patch the Source Files
+        echo "Patching source files with memory limits..."
+        patch_param() {
+            local param_name=$1
+            local new_value=$2
+            sed -i "s/\($param_name *= *\)[0-9]\+/\1$new_value/g" "$BUILD_DIR"/*.f
+        }
+
+        patch_param "LMEM" "$COSY_LMEM"
+        patch_param "LVAR" "$COSY_LVAR"
+        patch_param "LDIM" "$COSY_LDIM"
+        patch_param "LEA"  "$COSY_LEA"
+        patch_param "LIA"  "$COSY_LIA"
+        patch_param "LNO"  "$COSY_LNO"
+        patch_param "LNV"  "$COSY_LNV"
+
+        # 4. Compile
         # Compilation Flags Explanation:
         # -std=legacy: Downgrade modern strictness to support older Fortran constructs
         # -ffixed-form: Treat source as fixed-form Fortran 77
@@ -56,11 +97,13 @@ if [ ! -f "$COSY_BIN" ]; then
         # -flto: Link Time Optimization for cross-file inlining
         # -funroll-loops: Aggressive loop unrolling
         gfortran -std=legacy -ffixed-form -O3 -march=native -flto -funroll-loops -o "$COSY_BIN" \
-            "$COSY_SRC_DIR/foxy.f" \
-            "$COSY_SRC_DIR/dafox.f" \
-            "$COSY_SRC_DIR/foxfit.f" \
-            "$COSY_SRC_DIR/foxgraf.f"
+            "$BUILD_DIR/foxy.f" \
+            "$BUILD_DIR/dafox.f" \
+            "$BUILD_DIR/foxfit.f" \
+            "$BUILD_DIR/foxgraf.f"
+        
         echo "Compilation complete."
+        rm -rf "$BUILD_DIR"
     else
         echo "Error: gfortran not found. Cannot compile COSY binary."
         echo "Please install gfortran."
