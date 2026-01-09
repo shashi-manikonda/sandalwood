@@ -128,6 +128,9 @@ class MultivariateTaylorFunction:
     _ETOL = 1e-16
     _TRUNCATE_AFTER_OPERATION = True
     _IMPLEMENTATION = "python"
+    _EXP_TO_IDX = None
+    _IDX_TO_EXP = None
+    _MULT_TABLE = None
 
     @classmethod
     def initialize_mtf(cls, max_order=None, max_dimension=None, implementation="cosy"):
@@ -234,8 +237,71 @@ class MultivariateTaylorFunction:
         else:
             raise RuntimeError(
                 "Re-initialization with different max_order or max_dimension is "
-                "not allowed."
             )
+        
+        if cls._IMPLEMENTATION == "python":
+            cls._precompute_tables()
+
+    @classmethod
+    def _precompute_tables(cls):
+        """
+        Precomputes exponent mapping and multiplication tables for dense mode.
+        """
+        if cls._MAX_ORDER is None or cls._MAX_DIMENSION is None:
+            return
+
+        print("Precomputing multiplication tables for Dense Mode...")
+
+        # 1. Generate all valid exponents
+        exponents = []
+        
+        # Helper to generate terms with sum <= max_order
+        def generate_exponents(dim, current_order, current_exp):
+            if dim == 0:
+                exponents.append(tuple(current_exp))
+                return
+
+            if dim == 1:
+                # Can range from 0 to (MAX_ORDER - current_order)
+                for i in range(cls._MAX_ORDER - current_order + 1):
+                    exponents.append(tuple(current_exp + [i]))
+                return
+
+            for i in range(cls._MAX_ORDER - current_order + 1):
+                generate_exponents(dim - 1, current_order + i, current_exp + [i])
+
+        generate_exponents(cls._MAX_DIMENSION, 0, [])
+        
+        # Sort exponents (total order, then lex)
+        exponents.sort(key=lambda x: (sum(x), x))
+        
+        cls._IDX_TO_EXP = np.array(exponents, dtype=np.int32)
+        cls._EXP_TO_IDX = {exp: i for i, exp in enumerate(exponents)}
+        
+        n_terms = len(exponents)
+        
+        # 2. Build Multiplication Table
+        # shape: (n_terms, n_terms)
+        # value: index of result, or -1 if truncated
+        cls._MULT_TABLE = np.full((n_terms, n_terms), -1, dtype=np.int32)
+        
+        exps_arr = cls._IDX_TO_EXP # (N, D)
+        
+        # Sum of exponents: (N, 1, D) + (1, N, D) -> (N, N, D)
+        sum_exps = exps_arr[:, np.newaxis, :] + exps_arr[np.newaxis, :, :]
+        
+        # Check orders: (N, N)
+        orders = np.sum(sum_exps, axis=2)
+        valid_mask = orders <= cls._MAX_ORDER
+        
+        # Fill table
+        for i in range(n_terms):
+            for j in range(n_terms):
+                if valid_mask[i, j]:
+                     tup = tuple(sum_exps[i, j])
+                     cls._MULT_TABLE[i, j] = cls._EXP_TO_IDX[tup]
+        
+        print(f"Dense Mode tables ready. {n_terms} terms.")
 
     @classmethod
     def _auto_initialize(cls):
@@ -1111,6 +1177,80 @@ class MultivariateTaylorFunction:
                 ),
                 self.dimension,
             )
+
+        # Dense Mode Optimization
+        if self._MULT_TABLE is not None:
+            # 1. Map current exponents to indices
+            # Since we don't store indices in the instance (yet?), we must look them up.
+            # This lookup could be slow if not cached. 
+            # For now, let's assume we map them on the fly using the dict.
+            # Optimization: could cache these indices on the object if created in dense mode.
+            
+            # Map self.exponents -> idx_a
+            # Map other.exponents -> idx_b
+            
+            # Note: This map step is O(N_terms * D). 
+            # Ideally, MTF objects should store their 'dense_indices' if available.
+            
+            try:
+                # We need to handle the case where exponents might not be in the table 
+                # (e.g. if created manually with higher order than init).
+                # But generally we assume they are valid.
+                
+                # Need 1D arrays of indices.
+                # Optimization: Cache indices on the object
+                if not hasattr(self, "_indices"):
+                     self._indices = np.array([self._EXP_TO_IDX[tuple(e)] for e in self.exponents], dtype=np.int32)
+                if not hasattr(other, "_indices"):
+                     other._indices = np.array([self._EXP_TO_IDX[tuple(e)] for e in other.exponents], dtype=np.int32)
+                
+                idx_a = self._indices
+                idx_b = other._indices
+                
+                # BroadCast to get all pairs pairs (N, M)
+                # table indices:
+                # result_indices_matrix = TABLE[idx_a[:, None], idx_b[None, :]]
+                res_indices_mat = self._MULT_TABLE[idx_a[:, np.newaxis], idx_b[np.newaxis, :]]
+                
+                # Calculate products
+                # (N, M)
+                prod_coeffs = (self.coeffs[:, np.newaxis] * other.coeffs[np.newaxis, :])
+                
+                # Flatten
+                res_indices_flat = res_indices_mat.ravel()
+                prod_coeffs_flat = prod_coeffs.ravel()
+                
+                # Filter out -1 (truncated terms)
+                valid_mask = res_indices_flat != -1
+                res_indices_valid = res_indices_flat[valid_mask]
+                prod_coeffs_valid = prod_coeffs_flat[valid_mask]
+                
+                # Aggregate
+                # Since we know the max index is n_terms in table, we can use bincount style accumulation?
+                # But coeffs are float/complex. np.add.at is good.
+                # Even better: direct array indexing if we preallocate the full dense array?
+                # Yes! That's the point of dense mode!
+                # Result is a full array of size n_total_terms (from table), mostly zeros.
+                
+                n_total_terms = self._MULT_TABLE.shape[0]
+                dtype = np.result_type(self.coeffs, other.coeffs)
+                dense_coeffs_result = np.zeros(n_total_terms, dtype=dtype)
+                
+                np.add.at(dense_coeffs_result, res_indices_valid, prod_coeffs_valid)
+                
+                # Convert back to sparse representation (MTF expects exponents/coeffs)
+                # Find non-zeros
+                nonzero_mask = np.abs(dense_coeffs_result) > self._ETOL
+                final_indices = np.nonzero(nonzero_mask)[0]
+                
+                final_coeffs = dense_coeffs_result[final_indices]
+                final_exponents = self._IDX_TO_EXP[final_indices]
+                
+                return type(self)((final_exponents, final_coeffs), self.dimension)
+                
+            except KeyError:
+                # Fallback if exponents not in table (e.g. higher order transient)
+                pass
 
         # Vectorized Implementation
         # 1. Compute all exponent combinations: (N, 1, D) + (1, M, D) -> (N, M, D)
