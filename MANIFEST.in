@@ -1,0 +1,5 @@
+recursive-include src/sandalwood/backends/cosy/cosy_src *.f
+include src/sandalwood/backends/cosy/wrapper.f
+include README.md
+include LICENSE
+include CHANGELOG.md
