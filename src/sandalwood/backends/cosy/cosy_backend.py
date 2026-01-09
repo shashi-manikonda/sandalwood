@@ -99,6 +99,7 @@ bind_cosy_func("compute_da_atan", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_da_daest", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("compute_da_daest", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_double)])
 bind_cosy_func("compute_da_coth", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_da_erf", [POINTER(c_int), POINTER(c_int)])
 
 # Batch Operations
 bind_cosy_func("compute_da_add_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
@@ -146,6 +147,9 @@ bind_cosy_func("eval_da_batch", [POINTER(c_int), POINTER(c_double), POINTER(c_in
 bind_cosy_func("da_deriv_safe", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("da_integ", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("da_poisson", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_int", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_poi", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+
 bind_cosy_func("da_lin_comb", [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_double), POINTER(c_int)])
 bind_cosy_func("da_mat_inv", [POINTER(c_double), POINTER(c_double), POINTER(c_int)])
 bind_cosy_func("da_mat_inv", [POINTER(c_double), POINTER(c_double), POINTER(c_int)])
@@ -579,6 +583,14 @@ class CosyCDA(CosyDA):
         libcosy.get_cda_im(byref(c_int(self.idx)), byref(c_int(im_da.idx)))
         return complex(re_da.get_constant(), im_da.get_constant())
 
+    def to_complex(self):
+        """
+        Returns a copy of this Complex DA.
+        Since it is already complex, we just add 0 to create a new copy.
+        """
+        return self + 0.0
+
+
     def _ensure_cd(self, other):
         if isinstance(other, CosyCDA):
             return other
@@ -740,6 +752,20 @@ class CosyCDA(CosyDA):
         c_var = c_int(var_id + 1)
         libcosy.compute_cd_der(byref(c_var), byref(c_int(self.idx)), byref(res_idx))
         return CosyCDA(idx=res_idx.value, owned=True)
+
+    def integral(self, var_id):
+        res_idx = c_int(0)
+        c_var = c_int(var_id + 1)
+        libcosy.compute_cd_int(byref(c_var), byref(c_int(self.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
+    def poisson_bracket(self, other):
+        b = self._ensure_cd(other)
+        if b is NotImplemented: return NotImplemented
+        res_idx = c_int(0)
+        libcosy.compute_cd_poi(byref(c_int(self.idx)), byref(c_int(b.idx)), byref(res_idx))
+        return CosyCDA(idx=res_idx.value, owned=True)
+
 
 
 class CosyBackendManager:

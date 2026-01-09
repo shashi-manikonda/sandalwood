@@ -9,28 +9,26 @@ COSY_SRC="$DIR/cosy_src"
 LIB_NAME="libcosy.so"
 OUTPUT="$DIR/$LIB_NAME"
 
-echo "Compiling COSY sources from $COSY_SRC and wrapper.f from $DIR/wrapper.f..."
-ls -l "$DIR/wrapper.f"
+echo "Building COSY sources separately..."
 
-# Non-monolithic build with -fcommon
-# Compilation Flags Explanation:
-# -shared: Create a shared library (.so)
-# -fPIC: Generate Position Independent Code (required for shared libs)
-# -fcommon: Allow multiple definitions of common blocks (legacy Fortran behavior required by COSY)
-# -std=legacy: Downgrade modern strictness to support older Fortran constructs
-# -O3: Maximum stable optimization level (vectorization, inlining)
-# -march=native: Optimize for the host CPU architecture (AVX, etc.)
-# -ffixed-form: Treat source as fixed-form Fortran 77 (required for .f files)
-# -flto: Link Time Optimization (cross-file inlining)
-# -funroll-loops: Aggressive loop unrolling (efficient for large coefficient arrays)
-# -fallow-argument-mismatch: Allow legacy rank mismatches (required for GCC 10+)
-gfortran -shared -fPIC -fcommon -std=legacy -O3 -march=native -ffixed-form -flto -funroll-loops -fallow-argument-mismatch \
-    "$COSY_SRC/dafox.f" \
-    "$COSY_SRC/foxfit.f" \
-    "$COSY_SRC/foxgraf.f" \
-    "$COSY_SRC/helper.f" \
-    "$DIR/wrapper.f" \
-    -fopenmp \
-    -o "$OUTPUT"
+# Cleanup old objects
+rm -f "$DIR"/*.o "$DIR"/*.so
+
+FFLAGS="-fPIC -fcommon -std=legacy -O3 -march=native -ffixed-form -flto -funroll-loops -fallow-argument-mismatch -fopenmp"
+
+# Compile individual files
+gfortran -c $FFLAGS "$COSY_SRC/dafox.f" -o "$DIR/dafox.o"
+gfortran -c $FFLAGS "$COSY_SRC/foxfit.f" -o "$DIR/foxfit.o"
+gfortran -c $FFLAGS "$COSY_SRC/foxgraf.f" -o "$DIR/foxgraf.o"
+gfortran -c $FFLAGS "$COSY_SRC/helper.f" -o "$DIR/helper.o"
+gfortran -c $FFLAGS "$DIR/wrapper.f" -o "$DIR/wrapper.o"
+
+echo "Linking..."
+gfortran -shared -flto -fopenmp -o "$OUTPUT" \
+    "$DIR/dafox.o" \
+    "$DIR/foxfit.o" \
+    "$DIR/foxgraf.o" \
+    "$DIR/helper.o" \
+    "$DIR/wrapper.o"
 
 echo "Compilation successful: $OUTPUT"
