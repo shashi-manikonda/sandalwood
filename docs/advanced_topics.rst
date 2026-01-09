@@ -35,6 +35,16 @@ switches to the PyTorch backend. This provides two key advantages:
     optimized for deep learning, making it exceptionally fast for the types of
     vectorized operations used in `sandalwood`.
 
+### COSY Backend (Fortran)
+
+For maximum performance at extremely high orders (e.g., order 20+) or for specific differential algebraic operators like Poisson brackets and map composition, `sandalwood` provides a bridge to the **COSY Infinity** core.
+
+* **High-Order Stability:** COSY is globally recognized for its numerical stability in high-order Taylor expansions.
+* **Symplectic Tracking:** Optimized routines for particle tracking in accelerator physics.
+* **O(1) Memory Management:** Uses a raw Fortran stack for ultra-fast allocation and deallocation.
+
+For more details on the COSY backend architecture, see :ref:`cosy_backend`.
+
 Future Work
 -----------
 
