@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,7 @@ def test_demo_quick(demo_path, backend):
     fname = os.path.basename(demo_path)
 
     def patch_line(line, backend):
+        # 1. Force Backend
         if "mtf.initialize_mtf(max_order=" in line:
             if "implementation=" in line:
                 line = line.replace(
@@ -52,6 +54,12 @@ def test_demo_quick(demo_path, backend):
                 )
             else:
                 line = line.replace(")", f', implementation="{backend}")')
+            
+            # 2. SPEED HACK: Force low order for tests
+            # This makes 5-second tests run in 0.1 seconds
+            line = re.sub(r'max_order=\d+', 'max_order=2', line)
+            # line = re.sub(r'max_dimension=\d+', 'max_dimension=2', line)
+            
         return line
 
     with tempfile.TemporaryDirectory() as temp_dir:

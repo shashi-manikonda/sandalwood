@@ -41,8 +41,6 @@ def test_json_serialization_real(backend_implementation):
 
 def test_json_serialization_complex(backend_implementation):
     """Test serialization of a complex-valued CMTF."""
-    if backend_implementation == "cosy":
-        pytest.skip("COSY backend complex support is currently unstable (crashes)")
 
     cmtf = ComplexMultivariateTaylorFunction(
         {(1, 0): 2.0 + 1.5j}, dimension=2, var_name="z"

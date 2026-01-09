@@ -1000,7 +1000,6 @@ class CosyMtfData:
             return
 
         current_dim = exponents.shape[1]
-
         # Pad exponents if necessary to match global COSY dimension
         global_dim = self.physical_dimension
 
@@ -1024,6 +1023,8 @@ class CosyMtfData:
             if not isinstance(self.da, CosyCDA):
                 old_idx = self.da.idx
                 self.da = CosyCDA(create_mode="new")
+                # Note: We lose old real data here if we don't copy, 
+                # but from_numpy usually overwrites.
 
             flat_coeffs = coeffs.astype(np.complex128).flatten()
             flat_re = flat_coeffs.real.astype(np.float64)
@@ -1031,27 +1032,40 @@ class CosyMtfData:
 
             c_re = (c_double * len(flat_re))(*flat_re)
             c_im = (c_double * len(flat_im))(*flat_im)
-
-            if not hasattr(libcosy, "cosy_set_cd_coeffs_"):
-                bind_cosy_func(
+            
+            # Use specific complex setter if available, otherwise manual split
+            if hasattr(libcosy, "cosy_set_cd_coeffs_"):
+                 # Fast Path
+                 bind_cosy_func(
                     "cosy_set_cd_coeffs",
-                    [
-                        POINTER(c_int),
-                        POINTER(c_double),
-                        POINTER(c_double),
-                        POINTER(c_int),
-                        POINTER(c_int),
-                    ],
+                    [POINTER(c_int), POINTER(c_double), POINTER(c_double), POINTER(c_int), POINTER(c_int)],
                 )
+                 libcosy.cosy_set_cd_coeffs(
+                    byref(c_int(self.da.idx)), c_re, c_im, c_exps, byref(c_int(len(coeffs)))
+                )
+            else:
+                # Robust Fallback: Set Real and Imag parts separately
+                # 1. Create temporary Real DAs
+                re_da = CosyDA(create_new=True)
+                im_da = CosyDA(create_new=True)
+                
+                # 2. Set coefficients for them
+                libcosy.cosy_set_coeffs(
+                    byref(c_int(re_da.idx)), c_re, c_exps, byref(c_int(len(coeffs)))
+                )
+                libcosy.cosy_set_coeffs(
+                    byref(c_int(im_da.idx)), c_im, c_exps, byref(c_int(len(coeffs)))
+                )
+                
+                # 3. Merge into Complex DA
+                libcosy.set_cd_parts(byref(c_int(self.da.idx)), byref(c_int(re_da.idx)), byref(c_int(im_da.idx)))
 
-            libcosy.cosy_set_cd_coeffs(
-                byref(c_int(self.da.idx)), c_re, c_im, c_exps, byref(c_int(len(coeffs)))
-            )
         else:
-            flat_coeffs = coeffs.astype(np.float64)
-            c_coeffs = (c_double * len(flat_coeffs))(*flat_coeffs)
+            # Real case
+            flat_coeffs = coeffs.astype(np.float64).flatten()
+            c_vals = (c_double * len(flat_coeffs))(*flat_coeffs)
             libcosy.cosy_set_coeffs(
-                byref(c_int(self.da.idx)), c_coeffs, c_exps, byref(c_int(len(coeffs)))
+                byref(c_int(self.da.idx)), c_vals, c_exps, byref(c_int(len(coeffs)))
             )
 
     def get_constant(self):

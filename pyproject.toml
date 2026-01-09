@@ -122,3 +122,7 @@ markers = [
     "demo: marks tests as demo-based (slow, skipped by default)",
 ]
 addopts = "-m \"not demo\""
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
