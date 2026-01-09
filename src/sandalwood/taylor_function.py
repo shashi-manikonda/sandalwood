@@ -438,6 +438,7 @@ class MultivariateTaylorFunction:
         # Initialize storage as None (lazy loading)
         self._exponents = None
         self._coeffs = None
+        self._indices = None
 
         if self.mtf_data:
             # Lazy initialization: don't call to_dict() yet
@@ -589,6 +590,7 @@ class MultivariateTaylorFunction:
     @exponents.setter
     def exponents(self, value):
         self._exponents = value
+        self._indices = None
         # Invalidate backend data since we are modifying Python side manually
         self.mtf_data = None
 
@@ -596,6 +598,18 @@ class MultivariateTaylorFunction:
     def coeffs(self):
         self._ensure_synced()
         return self._coeffs
+
+    def _get_indices(self):
+        """Cached accessor for dense indices."""
+        if not hasattr(self, "_indices") or self._indices is None:
+            if self._EXP_TO_IDX is None:
+                return None  # Dense mode not active
+
+            # Compute and cache
+            idx_list = [self._EXP_TO_IDX.get(tuple(e), -1) for e in self.exponents]
+            self._indices = np.array(idx_list, dtype=np.int32)
+            
+        return self._indices
 
     @coeffs.setter
     def coeffs(self, value):
@@ -1008,6 +1022,20 @@ class MultivariateTaylorFunction:
         coeffs = backend.from_numpy(self.coeffs)
         exponents = backend.from_numpy(self.exponents)
 
+        if _NUMBA_AVAILABLE and isinstance(evaluation_points, np.ndarray):
+             # Numba Parallel Evaluation
+             # Prepare output array
+             results = backend.zeros(evaluation_points.shape[0], dtype=self.coeffs.dtype)
+             
+             # Ensure types match for Numba (float64 or complex128)
+             # Numba is picky about type matching and contiguity
+             pts_c = np.ascontiguousarray(evaluation_points)
+             exps_c = np.ascontiguousarray(self.exponents).astype(np.int32)
+             coeffs_c = np.ascontiguousarray(self.coeffs)
+             
+             numba_kernels.evaluate_dense_kernel(pts_c, exps_c, coeffs_c, results)
+             return results
+
         # Iterative reduction to save memory:
         # Avoids creating (n_points, n_terms, dimension) tensor which is O(N*M*D).
         # Instead uses O(N*M) space accumulator.
@@ -1209,21 +1237,22 @@ class MultivariateTaylorFunction:
                 
                 # Need 1D arrays of indices.
                 # Optimization: Cache indices on the object
-                if not hasattr(self, "_indices"):
-                     self._indices = np.array([self._EXP_TO_IDX[tuple(e)] for e in self.exponents], dtype=np.int32)
-                if not hasattr(other, "_indices"):
-                     other._indices = np.array([self._EXP_TO_IDX[tuple(e)] for e in other.exponents], dtype=np.int32)
+                idx_a = self._get_indices()
+                idx_b = other._get_indices()
                 
-                idx_a = self._indices
-                idx_b = other._indices
-                
+                # If _get_indices returns None (e.g. key error internally or mode mismatch), fallback
+                # But my implementation returns numpy array even if indices are -1.
+                # If dense mode is off, it returns None.
+                if idx_a is None or idx_b is None:
+                    raise KeyError("Dense mode indices not available")
+
                 n_total_terms = self._MULT_TABLE.shape[0]
                 dtype = np.result_type(self.coeffs, other.coeffs)
                 dense_coeffs_result = np.zeros(n_total_terms, dtype=dtype)
                 
                 if _NUMBA_AVAILABLE:
                      # Use Numba Kernel (avoids broadcasting allocation)
-                     numba_kernels.multiply_dense_kernel(
+                     numba_kernels.multiply_dense_parallel(
                          idx_a, self.coeffs, 
                          idx_b, other.coeffs, 
                          self._MULT_TABLE, 
