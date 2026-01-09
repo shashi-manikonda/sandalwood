@@ -932,17 +932,23 @@ class MultivariateTaylorFunction:
         coeffs = backend.from_numpy(self.coeffs)
         exponents = backend.from_numpy(self.exponents)
 
-        # Reshape for broadcasting:
-        # evaluation_points: (n_points, 1, dimension)
-        # self.exponents:   (1, n_terms, dimension)
-        # self.coeffs:      (n_terms,)
-        term_values = backend.prod(
-            backend.power(
-                evaluation_points[:, np.newaxis, :],
-                exponents[np.newaxis, :, :],
-            ),
-            axis=2,
-        )
+        # Iterative reduction to save memory:
+        # Avoids creating (n_points, n_terms, dimension) tensor which is O(N*M*D).
+        # Instead uses O(N*M) space accumulator.
+        n_points = evaluation_points.shape[0]
+        n_terms = coeffs.shape[0]
+        dtype = evaluation_points.dtype
+        
+        term_values = backend.ones((n_points, n_terms), dtype=dtype)
+        
+        for d in range(self.dimension):
+             # Extract d-th component: (N, 1)
+             pts_d = evaluation_points[:, d:d+1] 
+             # Extract d-th exponents: (1, M)
+             exps_d = exponents[np.newaxis, :, d]
+             
+             col_vals = backend.power(pts_d, exps_d)
+             term_values *= col_vals
 
         # Dot product of term values and coefficients
         results = backend.dot(term_values, coeffs)
@@ -1116,10 +1122,16 @@ class MultivariateTaylorFunction:
         new_coeffs = (self.coeffs[:, np.newaxis] * other.coeffs[np.newaxis, :]).ravel()
 
         # 3. Aggregate common exponents
-        # Using np.unique to find unique exponent rows and their inverse indices
-        unique_exponents, inverse_indices = np.unique(
-            new_exps, axis=0, return_inverse=True
+        # Optimization: Use void view for faster unique row finding
+        # This treats each row as a block of bytes, allowing 1D sorting/unique
+        new_exps_c = np.ascontiguousarray(new_exps)
+        void_dtype = np.dtype((np.void, new_exps.dtype.itemsize * new_exps.shape[1]))
+        view = new_exps_c.view(void_dtype).ravel()
+        
+        _, unique_indices, inverse_indices = np.unique(
+            view, return_index=True, return_inverse=True
         )
+        unique_exponents = new_exps_c[unique_indices]
 
         # 4. Sum coefficients corresponding to same exponents
         dtype = np.result_type(self.coeffs, other.coeffs)
