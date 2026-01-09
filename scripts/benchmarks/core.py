@@ -213,8 +213,9 @@ END;
             std_time = np.std(timings)
             return self.parse_cosy_output(last_process.stdout), avg_time, std_time
         except Exception as e:
-            print(f"Raw COSY failed: {e}")
-            return None, None, None
+            import sys
+            print(f"Raw COSY failed: {e}", file=sys.stderr)
+            return {}, np.nan, np.nan
 
     @staticmethod
     def format_time(seconds, std_dev=None):
