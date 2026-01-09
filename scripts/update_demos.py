@@ -1,3 +1,23 @@
+"""
+update_demos.py
+===============
+Purpose:
+    Bulk updates Jupyter notebooks to ensure they are configured to use the COSY backend
+    and refreshes their output cells.
+
+Logic:
+    1. Recursively finds all .ipynb files in the 'demos/' directory.
+    2. Parses the JSON content of each notebook.
+    3. Replaces occurrences of 'python' implementation strings with 'cosy' in code cells.
+    4. Re-executes the notebooks in-place using 'nbconvert' to synchronize output with the new backend.
+
+Input/Arguments:
+    - None. The script assumes it is executed from the project root directory.
+
+Output:
+    - Modified .ipynb files with implementation strings changed to 'cosy'.
+    - Refreshed execution outputs in the notebooks.
+"""
 import glob
 import json
 import os

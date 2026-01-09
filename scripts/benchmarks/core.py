@@ -1,3 +1,27 @@
+"""
+core.py
+=======
+Purpose:
+    Core benchmarking engine and reporting utilities for the Sandalwood library.
+    Provides the infrastructure for executing mathematical expressions on different backends.
+
+Logic:
+    - BenchmarkEngine (Class):
+        - setup_mtf: Initializes Sandalwood with specific backends and variables.
+        - run_sandalwood: Compiles expressions into lambdas and measures execution time.
+        - run_raw_cosy: Dynamically generates, compiles, and runs standalone Fortran 
+          binaries to measure base COSY performance.
+        - run_ops_benchmark: Orchestrates a comparison between Python and COSY backends.
+        - generate_report: Produces rich HTML dashboards with system info and comparison plots.
+    - Path Utilities: Manages locations for COSY binaries, source files, and benchmark artifacts.
+
+Input/Arguments:
+    - Relies on internal configuration and parameters passed to BenchmarkEngine methods.
+
+Output:
+    - Standardized timing data (avg, std dev) for various operations.
+    - Visualizations (Matplotlib) and formatted reports (Markdown/HTML).
+"""
 import base64
 import os
 import subprocess

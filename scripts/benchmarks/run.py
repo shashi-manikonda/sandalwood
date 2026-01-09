@@ -1,3 +1,33 @@
+"""
+run.py
+======
+Purpose:
+    Command-line interface and orchestration logic for the Sandalwood benchmarking suite.
+    Identifies performance bottlenecks and compares backends across various operations.
+
+Logic:
+    1. Parses CLI arguments to determine benchmarking mode (ops, raw, batch, full, etc.)
+       and parameters (order, dimension, iterations).
+    2. Generates a set of mathematical operations (Add, Mul, Sin, etc.) covering
+       all available variables.
+    3. Initializes the BenchmarkEngine (from core.py) to execute the benchmarks.
+    4. Collects results, including timing (CPU process time) and peak memory usage.
+    5. Triggers report generation (Markdown/HTML) via the engine.
+
+Input/Arguments:
+    - --mode (str): Benchmark mode (ops, raw, batch, batch_math, profile, full, full_cosy).
+    - --order (int): Taylor expansion order (default: 8).
+    - --dims (int): Number of variables (default: 4).
+    - --iters (int): Number of iterations per operation (default: 100).
+    - --npoints (int): Points for batch evaluation (default: 10000).
+    - --memory (bool): Enable peak memory profiling.
+    - --filter (str): Regex pattern to filter operations.
+    - --timeout (int): Seconds before aborting a long-running benchmark.
+
+Output:
+    - Console-printed results.
+    - Markdown and HTML reports in the 'artifacts/' directory.
+"""
 import argparse
 import os
 import signal

@@ -1,3 +1,23 @@
+"""
+verify_backend_defaults.py
+==========================
+Purpose:
+    Verifies that the Sandalwood library correctly selects the COSY backend by default
+    when it is available, or falls back to the Python backend otherwise.
+
+Logic:
+    1. Resets the initialization state of the MultivariateTaylorFunction class.
+    2. Calls 'initialize_mtf' without an explicit implementation argument.
+    3. Asserts that the chosen implementation matches the expected default 
+       (COSY if available, Python otherwise).
+    4. Verifies that explicit requests for the Python backend are honored.
+
+Input/Arguments:
+    - None.
+
+Output:
+    - Consolse output indicating success of initialization and fallback tests.
+"""
 from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
 from sandalwood.taylor_function import MultivariateTaylorFunction as MTF
 
