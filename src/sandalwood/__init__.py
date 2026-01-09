@@ -73,5 +73,4 @@ __all__ = [
     "mtf",
     "cmtf",
     # Utility Functions
-
 ]

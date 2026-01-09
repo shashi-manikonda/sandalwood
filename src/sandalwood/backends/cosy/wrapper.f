@@ -1303,13 +1303,8 @@ C     Allocate Scratchpad (20 slots)
       CALL FOXALL(IC, 1, NMMAX)
       INC = IC(1)
 
-      OPEN(UNIT=66, FILE='fortran_debug.txt', STATUS='UNKNOWN',
-     * ACCESS='SEQUENTIAL', POSITION='APPEND')
-      WRITE(66, *) 'DEBUG DA_DERIV: IIV=', IIV, ' IVAR_DA=', IVAR_DA,
-     * ' INA=', INA, ' INC=', INC
-      CLOSE(66)
-
       CALL DADER(IVAR_DA, INA, INC)
+
 
 *     Free temp
       IC(1) = IVAR_DA

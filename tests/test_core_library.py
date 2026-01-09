@@ -19,8 +19,10 @@ ETOL = 1e-10
 @pytest.fixture(scope="function", autouse=True)
 def setup_function(backend_implementation):
     implementation = backend_implementation
-    
-    mtf.initialize_mtf(max_order=MAX_ORDER, max_dimension=MAX_DIMENSION, implementation=implementation)
+
+    mtf.initialize_mtf(
+        max_order=MAX_ORDER, max_dimension=MAX_DIMENSION, implementation=implementation
+    )
     mtf.set_etol(ETOL)
     global_dim = mtf.get_max_dimension()
     exponent_zero = tuple([0] * global_dim)
@@ -363,10 +365,10 @@ def test_mtf_power(setup_function):
 
     # Non-integer power
     if mtf._IMPLEMENTATION == "cosy":
-         res = mtf_instance**2.5
-         # Check approximation consistency (1+x)^2.5 approx 1 + 2.5x
-         assert np.allclose(res.extract_coefficient(exponent_zero), 1.0)
-         assert np.allclose(res.extract_coefficient(exponent_one), 2.5)
+        res = mtf_instance**2.5
+        # Check approximation consistency (1+x)^2.5 approx 1 + 2.5x
+        assert np.allclose(res.extract_coefficient(exponent_zero), 1.0)
+        assert np.allclose(res.extract_coefficient(exponent_one), 2.5)
     else:
         with pytest.raises(ValueError):
             mtf_instance**2.5  # Non-integer power not allowed

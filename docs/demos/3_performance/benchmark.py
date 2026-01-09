@@ -87,12 +87,12 @@ def main():
         print("Could not calculate torch speedup (neval was too fast).")
 
     # Verify that the results are consistent
-    assert np.allclose(
-        results_old, results_new
-    ), "Results from numpy and old methods do not match."
-    assert np.allclose(
-        results_old, results_torch.numpy()
-    ), "Results from torch and old methods do not match."
+    assert np.allclose(results_old, results_new), (
+        "Results from numpy and old methods do not match."
+    )
+    assert np.allclose(results_old, results_torch.numpy()), (
+        "Results from torch and old methods do not match."
+    )
     print("\nResults from all methods are consistent.")
 
 

@@ -103,7 +103,7 @@ def _create_composed_taylor_from_coeffs(
     var_index_1d = 0
 
     if dynamic_coeff_func is None:
-         raise ValueError(f"Dynamic coefficient function required for {coeff_key}")
+        raise ValueError(f"Dynamic coefficient function required for {coeff_key}")
 
     # Dynamically compute coefficients for all orders
     for n_order in range(order + 1):
@@ -421,14 +421,16 @@ def _log_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
         input_mtf
     )
 
-    is_complex_input = isinstance(input_mtf, ComplexMultivariateTaylorFunction) or isinstance(constant_term_C_value, complex)
+    is_complex_input = isinstance(
+        input_mtf, ComplexMultivariateTaylorFunction
+    ) or isinstance(constant_term_C_value, complex)
 
     if abs(constant_term_C_value) < 1e-12:
         raise ValueError(
             "Constant part of input to log_taylor is too close to zero. "
             "Logarithm is not defined at zero."
         )
-    
+
     if not is_complex_input and constant_term_C_value < 0:
         raise ValueError(
             "Constant part of input to log_taylor is negative. Logarithm is "
@@ -823,7 +825,9 @@ def _coth_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFun
     return (1.0 / _tanh_taylor(variable, order=order)).truncate(order)
 
 
-def _arcsinh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+def _arcsinh_taylor(
+    variable, order: Optional[int] = None
+) -> MultivariateTaylorFunction:
     """
     Computes the Taylor expansion of `arcsinh(x)`.
 
@@ -835,7 +839,9 @@ def _arcsinh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylor
     return _log_taylor(x_mtf + _sqrt_taylor(x_mtf**2 + 1.0, order=order), order=order)
 
 
-def _arccosh_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunction:
+def _arccosh_taylor(
+    variable, order: Optional[int] = None
+) -> MultivariateTaylorFunction:
     """
     Computes the Taylor expansion of `arccosh(x)`.
 
@@ -875,8 +881,9 @@ def _erf_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
             "zero constant term (expansion around zero)."
         )
 
-    return _create_composed_taylor_from_coeffs(variable, "erf", order, dynamic_erf).truncate(order)
-
+    return _create_composed_taylor_from_coeffs(
+        variable, "erf", order, dynamic_erf
+    ).truncate(order)
 
     return arccos_mtf.truncate(order)  # Truncate to the desired order
 
@@ -1093,7 +1100,6 @@ def _derivative(mtf_instance, deriv_dim):
     new_coeffs *= p
     new_exponents[:, deriv_dim_index] -= 1
 
-
     return type(mtf_instance)((new_exponents, new_coeffs), mtf_instance.dimension)
 
 
@@ -1152,14 +1158,14 @@ def isqrt_taylor_1D_expansion(
     isqrt_taylor_1d_coefficients = {}
     taylor_dimension_1d = 1
     variable_index_1d = 0
-    
+
     # Dynamic coefficient generation for isqrt(1+x) = (1+x)^(-1/2)
     coeffs = [0.0] * (order + 1)
     coeffs[0] = 1.0
     if order >= 1:
         coeffs[1] = -0.5
         for n in range(2, order + 1):
-            coeffs[n] = coeffs[n-1] * (-0.5 - (n - 1)) / n
+            coeffs[n] = coeffs[n - 1] * (-0.5 - (n - 1)) / n
 
     for n_order in range(order + 1):
         if abs(coeffs[n_order]) > 1e-16:
