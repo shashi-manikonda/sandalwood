@@ -439,6 +439,7 @@ class MultivariateTaylorFunction:
         self._exponents = None
         self._coeffs = None
         self._indices = None
+        self._dense_coeffs = None
 
         if self.mtf_data:
             # Lazy initialization: don't call to_dict() yet
@@ -582,8 +583,23 @@ class MultivariateTaylorFunction:
                 )
                 self.mtf_data.from_numpy(self._exponents, self._coeffs)
 
+    def _materialize_from_dense(self):
+        """Converts internal dense array back to sparse representation."""
+        if self._dense_coeffs is None:
+            return
+        # Check tolerance
+        mask = np.abs(self._dense_coeffs) > self._ETOL
+        indices = np.nonzero(mask)[0]
+        
+        self._coeffs = self._dense_coeffs[indices]
+        self._exponents = self._IDX_TO_EXP[indices]
+        # Also cache the indices since we have them!
+        self._indices = indices.astype(np.int32)
+
     @property
     def exponents(self):
+        if (self._exponents is None or self._exponents.size == 0) and self._dense_coeffs is not None:
+             self._materialize_from_dense()
         self._ensure_synced()
         return self._exponents
 
@@ -591,11 +607,14 @@ class MultivariateTaylorFunction:
     def exponents(self, value):
         self._exponents = value
         self._indices = None
+        self._dense_coeffs = None
         # Invalidate backend data since we are modifying Python side manually
         self.mtf_data = None
 
     @property
     def coeffs(self):
+        if (self._coeffs is None or self._coeffs.size == 0) and self._dense_coeffs is not None:
+             self._materialize_from_dense()
         self._ensure_synced()
         return self._coeffs
 
@@ -1036,6 +1055,19 @@ class MultivariateTaylorFunction:
              numba_kernels.evaluate_dense_kernel(pts_c, exps_c, coeffs_c, results)
              return results
 
+
+        # Fallback to Iterative Reduction (NumPy)
+        # BATCHING: Process points in chunks to avoid OOM
+        BATCH_SIZE = 10000 
+        n_points = evaluation_points.shape[0]
+        
+        if n_points > BATCH_SIZE:
+            results = backend.zeros(n_points, dtype=evaluation_points.dtype)
+            for i in range(0, n_points, BATCH_SIZE):
+                end = min(i + BATCH_SIZE, n_points)
+                results[i:end] = self.neval(evaluation_points[i:end])
+            return results
+
         # Iterative reduction to save memory:
         # Avoids creating (n_points, n_terms, dimension) tensor which is O(N*M*D).
         # Instead uses O(N*M) space accumulator.
@@ -1218,80 +1250,75 @@ class MultivariateTaylorFunction:
 
         # Dense Mode Optimization
         if self._MULT_TABLE is not None:
-            # 1. Map current exponents to indices
-            # Since we don't store indices in the instance (yet?), we must look them up.
-            # This lookup could be slow if not cached. 
-            # For now, let's assume we map them on the fly using the dict.
-            # Optimization: could cache these indices on the object if created in dense mode.
+            # Check if we can use cached dense coefficients directly
+            # or if we need to get indices from sparse exponents
             
-            # Map self.exponents -> idx_a
-            # Map other.exponents -> idx_b
+            n_total_terms = self._MULT_TABLE.shape[0]
             
-            # Note: This map step is O(N_terms * D). 
-            # Ideally, MTF objects should store their 'dense_indices' if available.
-            
-            try:
-                # We need to handle the case where exponents might not be in the table 
-                # (e.g. if created manually with higher order than init).
-                # But generally we assume they are valid.
-                
-                # Need 1D arrays of indices.
-                # Optimization: Cache indices on the object
+            # Get indices for A
+            if self._dense_coeffs is not None:
+                # If we are already dense, finding non-zeros is fast 
+                # or we track them. For now, just use nonzero on the array.
+                idx_a = np.nonzero(self._dense_coeffs)[0].astype(np.int32)
+                coeffs_a = self._dense_coeffs[idx_a]
+            else:
                 idx_a = self._get_indices()
+                coeffs_a = self.coeffs
+                
+            # Get indices for B
+            if other._dense_coeffs is not None:
+                idx_b = np.nonzero(other._dense_coeffs)[0].astype(np.int32)
+                coeffs_b = other._dense_coeffs[idx_b]
+            else:
                 idx_b = other._get_indices()
-                
-                # If _get_indices returns None (e.g. key error internally or mode mismatch), fallback
-                # But my implementation returns numpy array even if indices are -1.
-                # If dense mode is off, it returns None.
-                if idx_a is None or idx_b is None:
-                    raise KeyError("Dense mode indices not available")
+                coeffs_b = other.coeffs
 
-                n_total_terms = self._MULT_TABLE.shape[0]
-                dtype = np.result_type(self.coeffs, other.coeffs)
-                dense_coeffs_result = np.zeros(n_total_terms, dtype=dtype)
-                
+            if idx_a is not None and idx_b is not None:
                 if _NUMBA_AVAILABLE:
-                     # Use Numba Kernel (avoids broadcasting allocation)
-                     numba_kernels.multiply_dense_parallel(
-                         idx_a, self.coeffs, 
-                         idx_b, other.coeffs, 
-                         self._MULT_TABLE, 
-                         dense_coeffs_result
-                     )
+                    # Ensure common dtype for Numba kernel
+                    dtype = np.result_type(coeffs_a, coeffs_b)
+                    if coeffs_a.dtype != dtype:
+                        coeffs_a = coeffs_a.astype(dtype)
+                    if coeffs_b.dtype != dtype:
+                        coeffs_b = coeffs_b.astype(dtype)
+                        
+                    # Use new Parallel Kernel
+                    dense_result = numba_kernels.multiply_dense_parallel(
+                        idx_a, coeffs_a, 
+                        idx_b, coeffs_b, 
+                        self._MULT_TABLE, 
+                        n_total_terms
+                    )
                 else:
+                    # Fallback to NumPy (broadcast)
                     # BroadCast to get all pairs pairs (N, M)
-                    # table indices:
-                    # result_indices_matrix = TABLE[idx_a[:, None], idx_b[None, :]]
                     res_indices_mat = self._MULT_TABLE[idx_a[:, np.newaxis], idx_b[np.newaxis, :]]
                     
                     # Calculate products
-                    # (N, M)
-                    prod_coeffs = (self.coeffs[:, np.newaxis] * other.coeffs[np.newaxis, :])
+                    prod_coeffs = (coeffs_a[:, np.newaxis] * coeffs_b[np.newaxis, :])
                     
                     # Flatten
                     res_indices_flat = res_indices_mat.ravel()
                     prod_coeffs_flat = prod_coeffs.ravel()
                     
-                    # Filter out -1 (truncated terms)
+                    # Filter out -1
                     valid_mask = res_indices_flat != -1
                     res_indices_valid = res_indices_flat[valid_mask]
                     prod_coeffs_valid = prod_coeffs_flat[valid_mask]
                     
-                    np.add.at(dense_coeffs_result, res_indices_valid, prod_coeffs_valid)
+                    dtype = np.result_type(coeffs_a, coeffs_b)
+                    dense_result = np.zeros(n_total_terms, dtype=dtype)
+                    
+                    np.add.at(dense_result, res_indices_valid, prod_coeffs_valid)
+
+                # --- LAZY RETURN ---
+                # Create a new MTF but DO NOT populate exponents/coeffs yet.
+                # We interpret this "empty" MTF as valid if it has _dense_coeffs.
+                result_mtf = type(self)(coefficients={}, dimension=self.dimension)
+                result_mtf._dense_coeffs = dense_result
+                # We leave _exponents and _coeffs empty/dummy for now.
                 
-                # Convert back to sparse representation (MTF expects exponents/coeffs)
-                # Find non-zeros
-                nonzero_mask = np.abs(dense_coeffs_result) > self._ETOL
-                final_indices = np.nonzero(nonzero_mask)[0]
-                
-                final_coeffs = dense_coeffs_result[final_indices]
-                final_exponents = self._IDX_TO_EXP[final_indices]
-                
-                return type(self)((final_exponents, final_coeffs), self.dimension)
-                
-            except KeyError:
-                # Fallback if exponents not in table (e.g. higher order transient)
-                pass
+                return result_mtf
 
         # Vectorized Implementation
         # 1. Compute all exponent combinations: (N, 1, D) + (1, M, D) -> (N, M, D)
