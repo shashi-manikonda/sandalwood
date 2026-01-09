@@ -7,6 +7,10 @@ fundamental data structure for representing and manipulating multivariate
 Taylor series expansions. It serves as an implementation of a Differential
 Algebra (DA) vector, and the operations defined on it form a Truncated
 Power Series Algebra (TPSA).
+
+See Also
+--------
+:ref:`optimization` : For details on the internal Dense Mode architecture and JIT optimizations.
 """
 
 import cmath

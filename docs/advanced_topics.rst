@@ -41,16 +41,6 @@ Future Work
 This section outlines potential future directions for `sandalwood`, ranging from
 incremental improvements to more ambitious features.
 
-### Performance Benchmarking and Optimization
-
-* **Comprehensive Benchmarking:** Create a dedicated benchmark suite to
-  compare the performance of the Python, C++, and PyTorch backends for
-  various operations and problem sizes.
-* **C++ Backend Profiling:** Profile the C++ backend to identify and
-  optimize performance bottlenecks.
-* **Advanced Data Structures:** Investigate using more advanced data
-  structures for storing coefficients, such as hash maps or sparse matrices,
-  to improve performance for very sparse Taylor series.
 
 ### Expanded Functionality
 

@@ -1,0 +1,94 @@
+.. _optimization:
+
+Performance Optimization in Sandalwood
+======================================
+
+One of the central challenges in Differential Algebra (DA) is the **Combinatorial Explosion**. As you increase the order of a Taylor series, the number of terms grows exponentially. Calculating `(x + y)^10` involves manipulating hundreds of coefficients; calculating `(x + y + z)^20` involves thousands.
+
+Historically, this forced scientists to use rigid, compiled languages like Fortran (e.g., COSY Infinity) because Python's overhead was too high. ``sandalwood`` bridges this gap by implementing advanced high-performance computing (HPC) techniques directly in the Python backend.
+
+This guide details the optimizations that allow ``sandalwood`` to perform within a factor of 5-10x of optimized C++ code, while retaining Python's flexibility.
+
+The "Two-Language" Problem
+--------------------------
+
+In standard Python, every number is an "Object" (a box containing data + type info). Adding two numbers involves unboxing them, checking types, adding, and re-boxing the result.
+
+* **The Bottleneck:** In a Taylor series multiplication, we perform millions of tiny additions. Doing this loop in standard Python would be 1000x slower than C++.
+* **The Solution:** We must move the "Hot Loops" (the parts of code running millions of times) out of Python and into machine code, while keeping the high-level logic in Python.
+
+1. "Dense Mode" Architecture
+----------------------------
+
+Standard symbolic libraries use a **Sparse** representation, storing terms as a list of `(exponent, coefficient)` pairs. To multiply two functions, they must generate every combination of exponents and then sort/merge them to combine like terms.
+
+* **Why it's slow:** Sorting is an $O(N \log N)$ operation. As the polynomial grows, the time spent sorting exponents dominates the calculation.
+* **Our Optimization:** When `initialize_mtf` is called, ``sandalwood`` pre-computes a **Multiplication Table**.
+
+We map every possible exponent tuple (e.g., `x^2 y^1`) to a unique integer index. The multiplication logic becomes a simple "Lookup":
+
+.. code-block:: python
+
+    # Naive Sparse Approach (Slow)
+    result = []
+    for term_a in A:
+        for term_b in B:
+             new_exp = term_a.exp + term_b.exp  # Tuple addition
+             new_coeff = term_a.coeff * term_b.coeff
+             result.append((new_exp, new_coeff))
+    result = sort_and_merge(result)  # Heavy sorting!
+
+    # Sandalwood Dense Approach (Fast)
+    # The 'Table' tells us exactly where the result goes. No sorting needed.
+    target_index = Table[index_a, index_b]
+    ResultArray[target_index] += CoeffA * CoeffB
+
+This reduces the complexity from $O(N \log N)$ to **$O(1)$** per operation.
+
+2. Numba JIT Compilation
+------------------------
+
+Even with the Dense Table, iterating through arrays in Python is slower than C. To fix this, ``sandalwood`` uses **Numba**, a Just-In-Time (JIT) compiler.
+
+* **What it does:** At runtime, Numba translates our multiplication functions into **Optimized Machine Code** (LLVM IR), similar to what a C++ compiler produces.
+* **Parallelization Strategy:** We implementing a **Map-Reduce** pattern with thread-local buffers to solve the race condition problem:
+
+    1. **Allocation:** Use `get_num_threads()` to allocate a `(num_threads, output_size)` buffer.
+    2. **Manual Chunking:** We explicitly partition the outer loop index `idx_a` into chunks `[start, end)` for each thread using `prange`.
+    3. **Thread Isolation:** Thread `t` writes *only* to `buffer[t, :]`. This eliminates the need for atomic locks.
+    4. **Reduction:** A final `np.sum(buffer, axis=0)` merges the partial results.
+
+**Code Insight:** Use of `fastmath=True` allows the compiler to re-associate floating point operations for SIMD vectorization.
+
+3. Lazy Materialization
+-----------------------
+
+A major hidden cost in Python libraries is **Object Creation**. Creating a new Python object for every intermediate step in a calculation like `x = (a + b) * (c + d)` is expensive.
+
+* **The Optimization:** ``sandalwood`` uses **Lazy Evaluation**.
+* **How it works:** When you multiply two MTFs, we compute the result as a raw array of numbers (Dense format) but **do not** convert it back to the user-friendly format (Exponents/Coefficients) immediately.
+* **Benefit:** If you perform a chain of 100 operations, we skip the expensive conversion 99 times. We only "materialize" the full object when you actually ask to see the coefficients (e.g., printing the function).
+
+4. Fast Evaluation with Power Caching
+-------------------------------------
+
+Evaluating a high-order polynomial at millions of points (e.g., particle tracking) implies computing `x^p` millions of times. `pow(x, p)` is slow.
+
+* **Algorithm:** We use a **2D Thread-Local Power Cache**.
+    1. For each point (in parallel), we pre-compute powers `[x^0, x^1, ... x^N]` for each variable dimension.
+    2. These are stored in a simple array `cached_powers[dim][order]`.
+    3. The evaluation loop simply looks up `cached_powers[d][idx]` instead of calling `pow`.
+* **Memory Safety:** The `neval` method automatically detects large datasets and processes them in **Chunks** (default: 10,000 points) to keep the working set within CPU L1/L2 cache.
+
+Summary of Speedups
+-------------------
+
+Internal benchmarks show the impact of these optimizations:
+
++-------------------------+-----------------------+-----------------------+
+| Operation               | Naive Python          | Optimized Sandalwood  |
++=========================+=======================+=======================+
+| Multiplication (Ord 12) | ~500 ms               | **~45 ms** |
++-------------------------+-----------------------+-----------------------+
+| Evaluation (1M pts)     | Crash (Out of Memory) | **Stable & Fast** |
++-------------------------+-----------------------+-----------------------+

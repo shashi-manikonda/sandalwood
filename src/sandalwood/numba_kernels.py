@@ -1,5 +1,9 @@
 """
 Numba-accelerated kernels for Taylor Function operations.
+
+See Also
+--------
+:ref:`optimization` : For a detailed explanation of the Dense Mode and Numba optimization strategy.
 """
 import numpy as np
 
