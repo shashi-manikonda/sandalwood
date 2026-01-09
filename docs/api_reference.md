@@ -40,7 +40,7 @@ The fundamental class for representing a function as a DA vector of its Taylor c
 
 | Method | Description | Arguments | Returns |
 |---|---|---|---|
-| `initialize_mtf` | Initializes global settings for the sandalwood library. | `max_order` (`int`, optional): The default maximum order for Taylor series expansions.<br>`max_dimension` (`int`, optional): The default maximum number of variables for functions.<br>`implementation` (`{'cpp', 'python'}`, optional): The backend implementation to use. | `None` |
+| `initialize_mtf` | Initializes global settings for the sandalwood library. | `max_order` (`int`, optional): The default maximum order for Taylor series expansions.<br>`max_dimension` (`int`, optional): The default maximum number of variables for functions.<br>`implementation` (`{'cosy', 'python'}`, optional): The backend implementation to use. Defaults to 'cosy'. | `None` |
 | `get_max_coefficient_count` | Calculates max coefficient count for given order/dimension. | `max_order` (`int`, optional): The maximum order.<br>`max_dimension` (`int`, optional): The maximum dimension. | `int`: The maximum number of coefficients. |
 | `get_precomputed_coefficients` | Returns the precomputed Taylor coefficients for elementary functions. | `None` | `dict`: The precomputed coefficients. |
 | `get_mtf_initialized_status` | Returns initialization status of MTF globals. | `None` | `bool`: `True` if initialized, `False` otherwise. |
