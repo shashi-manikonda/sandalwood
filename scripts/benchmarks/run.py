@@ -347,62 +347,73 @@ def run_batch_eval(engine, args):
 
 
 def run_batch_math(engine, args):
-    """Benchmarks vectorized arithmetic (Batch Operations)."""
+    """Benchmarks vectorized arithmetic using the specialized Batch Backend."""
     print(
         f"Benchmarking batch arithmetic (Vector[MTF] + Vector[MTF]) with N={args.iters}..."
     )
     globals_dict = engine.setup_mtf("cosy")
     import numpy as np
 
+    # We need to import the backend implementation to access the batch functions
+    from sandalwood.backends.cosy import cosy_backend
+
     x = globals_dict["x"]
     y = globals_dict["y"]
 
-    # Create N distinct MTFs
+    # 1. Setup Data
     print("Creating test vectors...")
-    # Using small constants to prevent optimization/caching if any
-    vec_a = np.array([x + i * 1e-5 for i in range(args.iters)], dtype=object)
-    vec_b = np.array([y + i * 1e-5 for i in range(args.iters)], dtype=object)
+    # Generate list of objects
+    list_a = [x + i * 1e-5 for i in range(args.iters)]
+    list_b = [y + i * 1e-5 for i in range(args.iters)]
 
-    # 1. Vectorized (Batch) Add
-    print("Running Vectorized Add...")
+    # Extract the raw COSY indices (Integers) for the batch backend
+    indices_a = np.array([obj.mtf_data.da.idx for obj in list_a], dtype=np.int32)
+    indices_b = np.array([obj.mtf_data.da.idx for obj in list_b], dtype=np.int32)
+
+    results = []
+
+    # --- ADD ---
+    print("Running Vectorized Add (Fortran Batch)...")
     start = time.process_time()
-    res_vec_add = vec_a + vec_b
+    # Call the actual batch function from cosy_backend
+    res_indices_add = cosy_backend.batch_add(indices_a, indices_b)
     t_vec_add = time.process_time() - start
 
-    # 2. Loop Add
-    print("Running Loop Add...")
+    print("Running Scalar Loop Add (Python)...")
     start = time.process_time()
-    res_loop_add = [a + b for a, b in zip(vec_a, vec_b)]
+    res_loop_add = [a + b for a, b in zip(list_a, list_b)]
     t_loop_add = time.process_time() - start
 
-    # 3. Vectorized (Batch) Mul
-    print("Running Vectorized Mul...")
-    start = time.process_time()
-    res_vec_mul = vec_a * vec_b
-    t_vec_mul = time.process_time() - start
-
-    # 4. Loop Mul
-    print("Running Loop Mul...")
-    start = time.process_time()
-    res_loop_mul = [a * b for a, b in zip(vec_a, vec_b)]
-    t_loop_mul = time.process_time() - start
-
-    results = [
+    results.append(
         {
             "Type": "Add",
             "Operations": args.iters,
-            "Vectorized Time": engine.format_time(t_vec_add),
-            "Loop Time": engine.format_time(t_loop_add),
+            "Batch Backend Time": engine.format_time(t_vec_add),
+            "Python Loop Time": engine.format_time(t_loop_add),
             "Speedup": f"{t_loop_add / t_vec_add:.1f}x" if t_vec_add > 0 else "N/A",
-        },
+        }
+    )
+
+    # --- MUL ---
+    print("Running Vectorized Mul (Fortran Batch)...")
+    start = time.process_time()
+    res_indices_mul = cosy_backend.batch_mul(indices_a, indices_b)
+    t_vec_mul = time.process_time() - start
+
+    print("Running Scalar Loop Mul (Python)...")
+    start = time.process_time()
+    res_loop_mul = [a * b for a, b in zip(list_a, list_b)]
+    t_loop_mul = time.process_time() - start
+
+    results.append(
         {
             "Type": "Mul",
             "Operations": args.iters,
-            "Vectorized Time": engine.format_time(t_vec_mul),
-            "Loop Time": engine.format_time(t_loop_mul),
+            "Batch Backend Time": engine.format_time(t_vec_mul),
+            "Python Loop Time": engine.format_time(t_loop_mul),
             "Speedup": f"{t_loop_mul / t_vec_mul:.1f}x" if t_vec_mul > 0 else "N/A",
-        },
-    ]
+        }
+    )
 
     df = pd.DataFrame(results)
     try:
