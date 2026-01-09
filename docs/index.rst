@@ -44,6 +44,7 @@ in a computationally efficient manner.
    advanced_topics
    optimization
    cosy_backend
+   benchmarking
 
 .. toctree::
    :maxdepth: 1
