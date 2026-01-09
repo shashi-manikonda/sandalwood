@@ -63,7 +63,7 @@ def evaluate_dense_kernel(points, exponents, coeffs, result):
             
         result[i] = sum_val
 
-@njit(fastmath=True, cache=True, parallel=True)
+@njit(fastmath=True, parallel=True)
 def multiply_dense_parallel(idx_a, coeffs_a, idx_b, coeffs_b, table, result_size):
     """
     True Parallel Multiplication using Map-Reduce with Manual Chunking.
