@@ -177,9 +177,18 @@ bind_cosy_func("compute_cd_add", [POINTER(c_int), POINTER(c_int), POINTER(c_int)
 bind_cosy_func("compute_cd_sub", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_cd_mul", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_cd_div", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+# Complex Math
 bind_cosy_func("compute_cd_exp", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_log", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_cd_sin", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_cd_cos", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_tan", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_sinh", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_cosh", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_tanh", [POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_sqrt", [POINTER(c_int), POINTER(c_int)])
+
+# Other
 bind_cosy_func("get_cda_re", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("get_cda_im", [POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("set_cd_parts", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
