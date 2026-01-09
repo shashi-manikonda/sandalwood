@@ -41,11 +41,24 @@ class BuildCosy(Command):
 
         output_path = os.path.join(backend_dir, lib_name)
 
-        # Find gfortran
-        gfortran = shutil.which("gfortran")
+        # Find compiler (ifx or gfortran)
+        compiler = None
+        compiler_type = None
+
+        # 1. Prefer Intel ifx on Windows
+        if sys.platform == "win32":
+            ifx_path = r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin\ifx.exe"
+            if os.path.exists(ifx_path):
+                compiler = ifx_path
+                compiler_type = "ifx"
+
+        # 2. Fallback to gfortran
+        if not compiler:
+            compiler = shutil.which("gfortran")
+            compiler_type = "gfortran"
         
-        # Windows-specific search for gfortran (e.g., MinGW) if not in PATH
-        if sys.platform == "win32" and not gfortran:
+        # Windows-specific search for gfortran (e.g., MinGW) if not in PATH and not using ifx
+        if sys.platform == "win32" and not compiler:
             possible_paths = [
                 r"C:\ProgramData\chocolatey\bin\gfortran.exe",
                 r"C:\msys64\mingw64\bin\gfortran.exe",
@@ -53,42 +66,60 @@ class BuildCosy(Command):
             ]
             for p in possible_paths:
                 if os.path.exists(p):
-                    gfortran = p
+                    compiler = p
+                    compiler_type = "gfortran"
                     break
 
-        if not gfortran:
-            print("Warning: gfortran not found. COSY backend will not be built.")
-            # Create a dummy file or just return. 
-            # If we don't build the DLL, runtime must handle it.
+        if not compiler:
+            print("Warning: No Fortran compiler (ifx or gfortran) found. COSY backend will not be built.")
             return
 
-        # Compilation arguments for robust legacy Fortran support
-        cmd = [
-            gfortran,
-            "-shared",
-        ]
-        
-        # -fPIC is ignored on Windows but harmless? standard MinGW doesn't need it for DLLs usually.
-        # But let's keep it for compatibility if it works, or remove it for win32 if causing issues.
-        if sys.platform != "win32":
-            cmd.append("-fPIC")
+        cmd = []
+        if compiler_type == "ifx":
+            print(f"Found Intel Fortran Compiler: {compiler}")
+            cmd = [
+                compiler,
+                "/nologo",
+                "/dll",
+                "/O3",
+                "/Qopenmp",
+                "/fixed",
+                f"/Fe{output_path}",
+                os.path.join(cosy_src, "dafox.f"),
+                os.path.join(cosy_src, "foxfit.f"),
+                os.path.join(cosy_src, "foxgraf.f"),
+                os.path.join(cosy_src, "helper.f"),
+                os.path.join(backend_dir, "wrapper.f"),
+                "/link",
+                f"/DEF:{os.path.join(backend_dir, 'cosy.def')}",
+            ]
+        else:
+            # gfortran
+            print(f"Found GNU Fortran Compiler: {compiler}")
+            cmd = [
+                compiler,
+                "-shared",
+            ]
+            
+            if sys.platform != "win32":
+                cmd.append("-fPIC")
 
-        cmd.extend([
-            "-fcommon",
-            "-std=legacy",
-            "-g",
-            "-O3",
-            "-march=native",
-            "-ffixed-form",
-            os.path.join(cosy_src, "dafox.f"),
-            os.path.join(cosy_src, "foxfit.f"),
-            os.path.join(cosy_src, "foxgraf.f"),
-            os.path.join(cosy_src, "helper.f"),
-            os.path.join(backend_dir, "wrapper.f"),
-            "-fopenmp",
-            "-o",
-            output_path,
-        ])
+            cmd.extend([
+                "-fcommon",
+                "-std=legacy",
+                "-g",
+                "-O3",
+                "-march=native",
+                "-ffixed-form",
+                os.path.join(cosy_src, "dafox.f"),
+                os.path.join(cosy_src, "foxfit.f"),
+                os.path.join(cosy_src, "foxgraf.f"),
+                os.path.join(cosy_src, "helper.f"),
+                os.path.join(backend_dir, "wrapper.f"),
+                "-fopenmp",
+                "-o",
+                output_path,
+            ])
 
         print(f"Building COSY library: {' '.join(cmd)}")
         try:

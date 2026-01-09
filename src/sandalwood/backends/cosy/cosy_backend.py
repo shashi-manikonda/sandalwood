@@ -7,6 +7,15 @@ import numpy as np
 # Path to the shared library (platform-aware)
 if sys.platform == "win32":
     LIB_NAME = "libcosy.dll"
+    # Python 3.8+ on Windows ignores PATH for DLL loading.
+    # We must explicitly add Intel/oneAPI compiler paths if they exist in PATH.
+    if hasattr(os, "add_dll_directory"):
+        for p in os.environ.get("PATH", "").split(os.pathsep):
+            if p and ("oneAPI" in p or "Intel" in p) and os.path.exists(p):
+                try:
+                    os.add_dll_directory(p)
+                except OSError:
+                    pass
 elif sys.platform == "darwin":
     LIB_NAME = "libcosy.dylib"
 else:
@@ -52,8 +61,15 @@ def bind_cosy_func(name, argtypes):
             f.restype = None
             return f
         except AttributeError:
-            print(f"Warning: COSY function {name} not found.")
-            return None
+            # Try uppercase (Windows/Intel convention)
+            try:
+                f = getattr(libcosy, name.upper())
+                f.argtypes = argtypes
+                f.restype = None
+                return f
+            except AttributeError:
+                print(f"Warning: COSY function {name} not found.")
+                return None
 
 
 # Core
