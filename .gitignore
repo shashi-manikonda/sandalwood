@@ -224,3 +224,4 @@ scripts/benchmarks/artifacts/
 cosy_bin
 COSY.bin
 build_tmp/
+foxyinp.dat
