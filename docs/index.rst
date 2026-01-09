@@ -41,6 +41,7 @@ in a computationally efficient manner.
    :caption: Advanced Topics
 
    advanced_topics
+   optimization
 
 .. toctree::
    :maxdepth: 1
