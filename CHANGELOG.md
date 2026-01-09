@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-01-09
+
+### Added
+- **High-Performance Python Backend**: Implemented "Dense Mode" with $O(1)$ lookup tables for monomial multiplication.
+- **Numba Acceleration**: JIT-compiled kernels for multiplication (Map-Reduce) and evaluation (Power Caching), achieving 5-10x speedup.
+- **Documentation**: New `docs/optimization.rst` detailing the architecture.
+- **Benchmarking Suite**: Added benchmarks confirming sub-50ms multiplication times for order 12.
+
+### Changed
+- **COSY Backend**: Robustified complex number serialization with fallback logic.
+- **Testing**: Fixed all skipped tests in linear algebra and serialization. Optimized demo tests to run in <3s.
+- **Warnings**: Suppressed benign deprecation warnings.
+
 ## [0.0.1] - 2026-01-05
 
 ### Changed
