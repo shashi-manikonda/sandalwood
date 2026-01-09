@@ -29,13 +29,14 @@ class TimeLimit:
         raise TimeoutError(f"Execution exceeded {self.seconds}s")
 
 
-from core import ARTIFACTS_DIR, BenchmarkEngine
-
 # Ensure we can import sandalwood from the parent src directory
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 )
 from sandalwood import TaylorMap, mtf
+
+from core import ARTIFACTS_DIR, BenchmarkEngine
+
 
 
 def generate_benchmark_cases(dims):
