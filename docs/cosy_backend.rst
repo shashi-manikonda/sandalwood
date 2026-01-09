@@ -14,7 +14,7 @@ The backend consists of three layers:
 
 1.  **Fortran Core (`libcosy.so`)**: The compiled COSY Infinity library, patched with `wrapper.f` to expose a C-compatible ABI.
 2.  **C-Types Bridge (`cosy_backend.py`)**: A thin Python layer that marshals pointers and integers directly to the shared library.
-3.  **High-Level Wrapper (`CosyDA`)**: A Python class that manages the lifecycle of COSY variables (Indices).
+3.  **High-Level Wrapper (`CosyDA`)**: A Python class that manages the lifecycle of COSY variables using integer **Indices**, shielding the user from manual memory management.
 
 .. code-block:: text
 
@@ -72,17 +72,40 @@ Evaluating a high-order polynomial at millions of points is the most expensive o
 2. Direct "Flat" Data Transfer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Standard DA libraries often serialize coefficients into complex objects. Sandalwood uses specialized subroutines (`get_all_coeffs_flat`) that copy the internal COSY memory block directly into a pre-allocated NumPy array buffer.
+Standard DA libraries often serialize coefficients into complex objects. Sandalwood uses specialized subroutines (`get_all_coeffs_flat` and `cosy_set_coeffs`) that copy internal COSY memory blocks directly to/from pre-allocated NumPy array buffers.
 
-* **Benefit:** Zero-copy overhead for large coefficient transfers.
-* **Format:** The wrapper flattens the multi-dimensional exponent array into a 1D C-integer array, minimizing marshalling cost.
+* **Benefit:** Zero-copy overhead for large coefficient transfers (bidirectional).
+* **Format:** The wrapper flattens the multi-dimensional exponent array into a 1D C-integer array, minimizing marshalling and transition costs.
 
 3. Static "Scratchpad" Allocation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To avoid the overhead of finding free memory slots for every intermediate calculation (e.g., `temp = a * b`), the `wrapper.f` module pre-allocates a persistent **Scratchpad** (Common Block `/DASCRATCH/`) of 20 variables.
 
-Intermediate operations reuse these slots, eliminating the need to modify the global memory stack pointer (`IVAR`) for temporary arithmetic results.
+Intermediate operation wrappers (like `compute_da_add_const`) reuse these slots, eliminating the need to modify the global memory stack pointer (`IVAR`) for temporary arithmetic results. This reduces "stack churn" and improves cache locality.
+
+4. Taylor Map Composition (`POLVAL`)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Composing two high-order maps is mathematically equivalent to substituting one polynomial into another. Sandalwood uses a specialized wrapper for the COSY `POLVAL` routine.
+
+* **Technique:** Instead of manual substitution in Python loops, we marshal the entire map to Fortran and use COSY's highly optimized, recursive substitution algorithm.
+* **Benefit:** This is the most efficient way to perform symplectic tracking or map concatenation.
+
+5. Vectorized Batch Arithmetic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For operations on large arrays of DA objects (e.g., adding two vectors of 10,000 Taylor series), we provide "Batch" variants.
+
+* **Function:** `compute_da_add_batch`, `compute_da_mul_batch`, etc.
+* **Technique:** These routines perform the loop over the array entirely within Fortran, avoiding 10,000 costly transitions between the Python interpreter and the shared library.
+
+6. Novel: Stable Complex Arithmetic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+COSY's internal complex division and inversion can occasionally encounter stability issues with extremely small coefficients. Sandalwood includes **Patched Implementation** (`SANDALWOOD_CDMUI` and `SANDALWOOD_CDDCD`) that use a more robust normalization strategy.
+
+* **Improvement:** Ensures high-precision results even in numerically sensitive regions of the complex plane.
 
 Extending the Backend
 ---------------------
