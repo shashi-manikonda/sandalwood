@@ -15,6 +15,9 @@ def setup_mtf():
     if not taylor._COSY_BACKEND_AVAILABLE:
         pytest.skip("COSY backend not available")
 
+    # Ensure clean state
+    taylor.MultivariateTaylorFunction._INITIALIZED = False
+
     taylor.MultivariateTaylorFunction.initialize_mtf(
         max_order=MAX_ORDER, max_dimension=MAX_DIMENSION, implementation="cosy"
     )
