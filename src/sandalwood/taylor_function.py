@@ -30,10 +30,13 @@ from .backend import get_backend
 try:
     from .backends.cosy import cosy_backend
 
-    if cosy_backend.libcosy.__class__.__name__ == "DummyLib":
-        _COSY_BACKEND_AVAILABLE = False
+    if hasattr(cosy_backend, "COSY_AVAILABLE"):
+        _COSY_BACKEND_AVAILABLE = cosy_backend.COSY_AVAILABLE
     else:
-        _COSY_BACKEND_AVAILABLE = True
+        # Fallback for legacy behavior
+        _COSY_BACKEND_AVAILABLE = (
+            cosy_backend.libcosy.__class__.__name__ != "DummyLib"
+        )
 except Exception:
     _COSY_BACKEND_AVAILABLE = False
 
@@ -1420,13 +1423,14 @@ class MultivariateTaylorFunction:
 
         elif isinstance(power, float):
             if power == 0.5:
-                return _sqrt_taylor(self)
+                return self.sqrt()
             elif power == -0.5:
-                return _isqrt_taylor(self)
+                return self.isqrt()
             else:
                 raise ValueError("Power must be an integer, 0.5, or -0.5.")
         else:
             raise ValueError("Power must be an integer, 0.5, or -0.5.")
+
 
     def __neg__(self):
         """

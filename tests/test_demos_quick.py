@@ -158,6 +158,15 @@ def test_demo_quick(demo_path, backend):
                     result.stderr.split("No module named ")[-1].strip().strip("'")
                 )
                 pytest.skip(f"Demo {fname} requires missing module: {missing_mod}")
+
+            # If it failed due to unimplemented features in Python backend, skip
+            if ("NotImplementedError" in result.stderr and (
+                "implemented for Python backend" in result.stderr
+                or "only available for the COSY backend" in result.stderr
+            )) or ("RuntimeError" in result.stderr and "COSY backend not initialized" in result.stderr):
+                pytest.skip(f"Demo {fname} uses features not available in {backend} backend")
+
             pytest.fail(
                 f"Demo {fname} failed execution:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
             )
+

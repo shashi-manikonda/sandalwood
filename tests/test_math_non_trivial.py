@@ -23,6 +23,10 @@ def safe_init(impl, order=4, dim=3):
     except RuntimeError:
         pass
 
+    if mtf._IMPLEMENTATION != impl:
+        pytest.skip(f"Implementation {impl} not available, fell back to {mtf._IMPLEMENTATION}")
+
+
 
 @pytest.mark.parametrize("implementation", ["python", "cosy"])
 def test_multivariate_polynomial_arithmetic(implementation):

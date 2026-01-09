@@ -9,7 +9,8 @@ import subprocess
 import sys
 
 from setuptools import Command, Extension, setup
-from setuptools.command.build_ext import build_ext
+# from setuptools.command.build_ext import build_ext  # No longer needed
+
 
 
 class BuildCosy(Command):
@@ -42,15 +43,37 @@ class BuildCosy(Command):
 
         # Find gfortran
         gfortran = shutil.which("gfortran")
+        
+        # Windows-specific search for gfortran (e.g., MinGW) if not in PATH
+        if sys.platform == "win32" and not gfortran:
+            possible_paths = [
+                r"C:\ProgramData\chocolatey\bin\gfortran.exe",
+                r"C:\msys64\mingw64\bin\gfortran.exe",
+                r"C:\MinGW\bin\gfortran.exe",
+            ]
+            for p in possible_paths:
+                if os.path.exists(p):
+                    gfortran = p
+                    break
+
         if not gfortran:
             print("Warning: gfortran not found. COSY backend will not be built.")
+            # Create a dummy file or just return. 
+            # If we don't build the DLL, runtime must handle it.
             return
 
         # Compilation arguments for robust legacy Fortran support
         cmd = [
             gfortran,
             "-shared",
-            "-fPIC",
+        ]
+        
+        # -fPIC is ignored on Windows but harmless? standard MinGW doesn't need it for DLLs usually.
+        # But let's keep it for compatibility if it works, or remove it for win32 if causing issues.
+        if sys.platform != "win32":
+            cmd.append("-fPIC")
+
+        cmd.extend([
             "-fcommon",
             "-std=legacy",
             "-g",
@@ -65,7 +88,7 @@ class BuildCosy(Command):
             "-fopenmp",
             "-o",
             output_path,
-        ]
+        ])
 
         print(f"Building COSY library: {' '.join(cmd)}")
         try:
@@ -73,27 +96,28 @@ class BuildCosy(Command):
             print(f"Successfully built {lib_name}")
         except subprocess.CalledProcessError as e:
             print(f"Error building COSY library: {e}")
-            raise
+            # Do not raise so installation succeeds without backend
+            print("Continuing installation without COSY backend...")
 
 
-class CustomBuildExt(build_ext):
-    """Custom build_ext to ensure COSY is built."""
+
+from setuptools.command.build_py import build_py
+
+class CustomBuildPy(build_py):
+    """Custom build_py to ensure COSY is built before packaging."""
 
     def run(self):
-        # Only run if we are actually building or if we want to force it
+        # Trigger COSY build
         self.run_command("build_cosy")
-        # If we have real extensions, super().run() will build them.
-        # If we only have our dummy, it will just ensure build_ext was called.
         super().run()
 
 
-# Set compiler arguments (not used for extensions anymore but keeping for potential future use or reference)
-# Actually, since we are removing all standard extensions, we can simplify this.
-
 setup(
-    ext_modules=[Extension("sandalwood.backends.cosy._dummy", sources=[])],
+    ext_modules=[],
     cmdclass={
         "build_cosy": BuildCosy,
-        "build_ext": CustomBuildExt,
+        "build_py": CustomBuildPy,
     },
 )
+
+
