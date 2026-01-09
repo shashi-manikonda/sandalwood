@@ -28,6 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+accel = ["numba"]
 torch = ["torch"]
 demos = [
     "jupyter",

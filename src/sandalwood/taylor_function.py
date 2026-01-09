@@ -33,6 +33,16 @@ try:
 except Exception:
     _COSY_BACKEND_AVAILABLE = False
 
+# Numba availability
+try:
+    from . import numba_kernels
+    if numba_kernels._NUMBA_AVAILABLE:
+        _NUMBA_AVAILABLE = True
+    else:
+        _NUMBA_AVAILABLE = False
+except ImportError:
+    _NUMBA_AVAILABLE = False
+
 
 def _generate_exponent(order, var_index, dimension):
     """
@@ -1207,36 +1217,38 @@ class MultivariateTaylorFunction:
                 idx_a = self._indices
                 idx_b = other._indices
                 
-                # BroadCast to get all pairs pairs (N, M)
-                # table indices:
-                # result_indices_matrix = TABLE[idx_a[:, None], idx_b[None, :]]
-                res_indices_mat = self._MULT_TABLE[idx_a[:, np.newaxis], idx_b[np.newaxis, :]]
-                
-                # Calculate products
-                # (N, M)
-                prod_coeffs = (self.coeffs[:, np.newaxis] * other.coeffs[np.newaxis, :])
-                
-                # Flatten
-                res_indices_flat = res_indices_mat.ravel()
-                prod_coeffs_flat = prod_coeffs.ravel()
-                
-                # Filter out -1 (truncated terms)
-                valid_mask = res_indices_flat != -1
-                res_indices_valid = res_indices_flat[valid_mask]
-                prod_coeffs_valid = prod_coeffs_flat[valid_mask]
-                
-                # Aggregate
-                # Since we know the max index is n_terms in table, we can use bincount style accumulation?
-                # But coeffs are float/complex. np.add.at is good.
-                # Even better: direct array indexing if we preallocate the full dense array?
-                # Yes! That's the point of dense mode!
-                # Result is a full array of size n_total_terms (from table), mostly zeros.
-                
                 n_total_terms = self._MULT_TABLE.shape[0]
                 dtype = np.result_type(self.coeffs, other.coeffs)
                 dense_coeffs_result = np.zeros(n_total_terms, dtype=dtype)
                 
-                np.add.at(dense_coeffs_result, res_indices_valid, prod_coeffs_valid)
+                if _NUMBA_AVAILABLE:
+                     # Use Numba Kernel (avoids broadcasting allocation)
+                     numba_kernels.multiply_dense_kernel(
+                         idx_a, self.coeffs, 
+                         idx_b, other.coeffs, 
+                         self._MULT_TABLE, 
+                         dense_coeffs_result
+                     )
+                else:
+                    # BroadCast to get all pairs pairs (N, M)
+                    # table indices:
+                    # result_indices_matrix = TABLE[idx_a[:, None], idx_b[None, :]]
+                    res_indices_mat = self._MULT_TABLE[idx_a[:, np.newaxis], idx_b[np.newaxis, :]]
+                    
+                    # Calculate products
+                    # (N, M)
+                    prod_coeffs = (self.coeffs[:, np.newaxis] * other.coeffs[np.newaxis, :])
+                    
+                    # Flatten
+                    res_indices_flat = res_indices_mat.ravel()
+                    prod_coeffs_flat = prod_coeffs.ravel()
+                    
+                    # Filter out -1 (truncated terms)
+                    valid_mask = res_indices_flat != -1
+                    res_indices_valid = res_indices_flat[valid_mask]
+                    prod_coeffs_valid = prod_coeffs_flat[valid_mask]
+                    
+                    np.add.at(dense_coeffs_result, res_indices_valid, prod_coeffs_valid)
                 
                 # Convert back to sparse representation (MTF expects exponents/coeffs)
                 # Find non-zeros
