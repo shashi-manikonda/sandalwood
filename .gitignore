@@ -219,7 +219,9 @@ scripts/benchmarks/artifacts/
 *.lis
 *.bin
 *.o
+*.obj
 *.mod
+*.DAT
 
 cosy_bin
 COSY.bin
