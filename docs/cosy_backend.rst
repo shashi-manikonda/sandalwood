@@ -99,13 +99,12 @@ Sandalwood supports two main Fortran compilers on Linux:
 
 ### Intel oneAPI Integration
 
-If using `ifx`, you must ensure the Intel environment variables are loaded. Sandalwood can automate this if you specify the path to your Intel ``setvars.sh`` script in ``cosy_config.env``.
+If using `ifx`, you must ensure the Intel environment variables are loaded in your current shell before building. This is typically done by sourcing the ``setvars.sh`` script (Linux) or using the "Intel oneAPI Command Prompt" (Windows).
 
 .. code-block:: bash
 
-   # cosy_config.env
-   export COSY_COMPILER=ifx
-   export IFX_SETVARS=/opt/intel/oneapi/setvars.sh
+   # Linux example (run in shell or add to .bashrc)
+   source /opt/intel/oneapi/setvars.sh
 
 ### Building the Backend
 
@@ -128,7 +127,7 @@ There are three ways to build the COSY backend components:
 
       bash scripts/benchmarks/benchmark.sh help
 
-   The benchmark script also respects the ``COSY_COMPILER`` and ``IFX_SETVARS`` settings from the config file.
+   The benchmark script also respects the ``COSY_COMPILER`` setting from the config file.
 
 The build script automatically creates a temporary build directory, patches the Fortran sources with your new limits, and links the updated ``libcosy.so``. This ensures the original COSY source files in the repository remain un-modified.
 
