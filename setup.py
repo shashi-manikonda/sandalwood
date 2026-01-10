@@ -19,8 +19,92 @@ class BuildCosy(Command):
     def finalize_options(self):
         pass
 
+    def _ensure_win_environment(self):
+        """Ensures Visual Studio environment (link.exe, LIB, INCLUDE) is set."""
+        if sys.platform != "win32":
+            return
+
+        # Check if link.exe is functional (basic check)
+        if shutil.which("link") and "LIB" in os.environ:
+            return
+
+        print("Configuring Visual Studio environment...")
+        possible_roots = [
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools",
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community",
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Professional",
+            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise",
+        ]
+
+        vs_dev_cmd = None
+        for root in possible_roots:
+            candidate = os.path.join(root, "Common7", "Tools", "VsDevCmd.bat")
+            if os.path.exists(candidate):
+                vs_dev_cmd = candidate
+                break
+
+        if not vs_dev_cmd:
+            print("Warning: Could not locate VsDevCmd.bat. Linking may fail.")
+            return
+
+        print(f"Loading environment from {vs_dev_cmd}")
+        # Run VsDevCmd.bat and dump environment
+        cmd = f'"{vs_dev_cmd}" -arch=x64 -no_logo && set'
+        try:
+            output = subprocess.check_output(cmd, shell=True, text=True)
+            for line in output.splitlines():
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    # Update PATH, LIB, INCLUDE, LIBPATH
+                    if key.upper() in ["PATH", "LIB", "INCLUDE", "LIBPATH"]:
+                        os.environ[key] = value
+            
+            # Explicitly verify link.exe again
+            if not shutil.which("link"):
+                 print("Warning: link.exe still not found in PATH after loading VsDevCmd.")
+                 
+        except subprocess.CalledProcessError as e:
+            print(f"Error loading Visual Studio environment: {e}")
+
+        # Ensure Intel libraries are in LIB
+        intel_lib_found = False
+        if "LIB" in os.environ:
+             for path in os.environ["LIB"].split(os.pathsep):
+                 if os.path.join(path, "libiomp5md.lib") and os.path.exists(os.path.join(path, "libiomp5md.lib")):
+                      intel_lib_found = True
+                      break
+        
+        if not intel_lib_found:
+             # Try standard path
+             intel_lib_path = r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\lib"
+             
+             # Also check relative to ifx if available
+             ifx_path = shutil.which("ifx")
+             if ifx_path:
+                  # Expected: .../bin/ifx.exe -> .../lib or .../windows/compiler/lib/intel64_win
+                  root = os.path.dirname(os.path.dirname(ifx_path))
+                  candidates = [
+                      os.path.join(root, "lib"),
+                      os.path.join(root, "windows", "compiler", "lib", "intel64_win"),
+                  ]
+                  for c in candidates:
+                      if os.path.exists(os.path.join(c, "libiomp5md.lib")):
+                          intel_lib_path = c
+                          break
+             
+             if os.path.exists(os.path.join(intel_lib_path, "libiomp5md.lib")):
+                  print(f"Adding Intel library path: {intel_lib_path}")
+                  if "LIB" in os.environ:
+                       os.environ["LIB"] += os.pathsep + intel_lib_path
+                  else:
+                       os.environ["LIB"] = intel_lib_path
+             else:
+                  print("Warning: Could not locate libiomp5md.lib. Linking may fail.")
+
+
     def run(self):
         """Runs the COSY compilation logic."""
+        self._ensure_win_environment()
         # 1. Setup Paths
         dir_path = os.path.abspath(os.path.dirname(__file__))
         backend_dir = os.path.join(dir_path, "src", "sandalwood", "backends", "cosy")
