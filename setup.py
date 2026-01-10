@@ -110,6 +110,7 @@ class BuildCosy(Command):
         backend_dir = os.path.join(dir_path, "src", "sandalwood", "backends", "cosy")
         cosy_src_orig = os.path.join(backend_dir, "cosy_src")
         build_temp = os.path.join(backend_dir, "build_tmp")
+        config_path = os.path.join(backend_dir, "cosy_config.env")
 
         # Determine Output Name
         if sys.platform == "win32":
@@ -125,18 +126,44 @@ class BuildCosy(Command):
         compiler = None
         compiler_type = None
 
-        # A. Priority: Check PATH (Critical for 'setvars.bat' users)
-        if sys.platform == "win32":
+        # A. Priority: Environment Variable/Config
+        if os.path.exists(config_path):
+            with open(config_path, "r") as f:
+                for line in f:
+                    if line.startswith("export COSY_COMPILER="):
+                        val = line.split("=")[1].strip().lower().strip("'").strip('"')
+                        if shutil.which(val):
+                            compiler = val
+                            compiler_type = val if "ifx" in val else "gfortran"
+                            break
+        
+        if not compiler:
+            compiler = os.environ.get("COSY_COMPILER")
+            if compiler:
+                compiler_type = "ifx" if "ifx" in compiler else "gfortran"
+
+        # B. Fallback: Search PATH
+        if not compiler:
             if shutil.which("ifx"):
                 compiler = "ifx"
                 compiler_type = "ifx"
+            elif shutil.which("gfortran"):
+                compiler = "gfortran"
+                compiler_type = "gfortran"
         
-        # B. Fallback: Default Intel Install Path
+        # C. Windows fallback search for MinGW/Chocolatey
         if not compiler and sys.platform == "win32":
-            default_ifx = r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin\ifx.exe"
-            if os.path.exists(default_ifx):
-                compiler = default_ifx
-                compiler_type = "ifx"
+            possible_paths = [
+                r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin\ifx.exe",
+                r"C:\ProgramData\chocolatey\bin\gfortran.exe",
+                r"C:\msys64\mingw64\bin\gfortran.exe",
+                r"C:\MinGW\bin\gfortran.exe",
+            ]
+            for p in possible_paths:
+                if os.path.exists(p):
+                    compiler = p
+                    compiler_type = "ifx" if "ifx" in p else "gfortran"
+                    break
 
         # C. Fallback: GFortran
         if not compiler:
@@ -199,6 +226,8 @@ class BuildCosy(Command):
             else:
                 old_m, new_m = "*IFOR", "*GFOR"
             
+            print(f"Applying version markers: {old_m} -> {new_m}")
+            
             # Run on all copied .f files
             for f_name in os.listdir(build_temp):
                 if f_name.endswith(".f") and f_name != "version.f":
@@ -234,19 +263,35 @@ class BuildCosy(Command):
         ]
 
         if compiler_type == "ifx":
-            cmd = [
-                compiler,
-                "/nologo",
-                "/dll",
-                "/O3",
-                "/Qopenmp",
-                "/fixed",
-                f"/Fo{build_temp}\\",
-                f"/Fe{output_path}",
-                *files_to_compile, # Unpack list
-                "/link",
-                f"/DEF:{os.path.join(backend_dir, 'cosy.def')}",
-            ]
+            if sys.platform == "win32":
+                cmd = [
+                    compiler,
+                    "/nologo",
+                    "/dll",
+                    "/O3",
+                    "/Qopenmp",
+                    "/fixed",
+                    f"/Fo{build_temp}\\",
+                    f"/Fe{output_path}",
+                    *files_to_compile,
+                    "/link",
+                    f"/DEF:{os.path.join(backend_dir, 'cosy.def')}",
+                ]
+            else:
+                # Linux ifx
+                cmd = [
+                    compiler,
+                    "-shared",
+                    "-fPIC",
+                    "-O3",
+                    "-march=native",
+                    "-fixed",
+                    "-qopenmp",
+                    "-diag-disable=10448",
+                    *files_to_compile,
+                    "-o",
+                    output_path,
+                ]
         else:
             # gfortran
             cmd = [

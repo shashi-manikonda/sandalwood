@@ -44,6 +44,24 @@ else
     export COSY_LIA=1400000
     export COSY_LNO=99
     export COSY_LNV=40
+    export COSY_COMPILER=gfortran
+fi
+
+# Detect Compiler
+if [ "$COSY_COMPILER" = "ifx" ]; then
+    FC="ifx"
+    # Intel markers: Switch GFOR to IFOR
+    VERSION_MARKER_OLD="*GFOR"
+    VERSION_MARKER_NEW="*IFOR"
+    FFLAGS="-fPIC -O3 -march=native -fixed -qopenmp -diag-disable=10448"
+    LDFLAGS="-shared -qopenmp"
+else
+    FC="gfortran"
+    # Gfortran markers: Switch IFOR to GFOR
+    VERSION_MARKER_OLD="*IFOR"
+    VERSION_MARKER_NEW="*GFOR"
+    FFLAGS="-fPIC -fcommon -std=legacy -O3 -march=native -ffixed-form -flto -funroll-loops -fallow-argument-mismatch -fopenmp"
+    LDFLAGS="-shared -flto -fopenmp"
 fi
 
 echo "Configuration:"
@@ -58,14 +76,14 @@ mkdir -p "$BUILD_DIR"
 cp "$COSY_SRC_ORIG"/*.f "$BUILD_DIR/"
 cp "$DIR/wrapper.f" "$BUILD_DIR/"
 
-# 2.5 Compile and Run Version Utility (Switch code to GFOR and NORM)
-echo "Switching code version to GFOR (gfortran) and NORM (serial)..."
-gfortran "$BUILD_DIR/version.f" -o "$BUILD_DIR/version"
+# 2.5 Compile and Run Version Utility
+echo "Switching code version to $FC and NORM (serial)..."
+$FC "$BUILD_DIR/version.f" -o "$BUILD_DIR/version"
 
 for f in "$BUILD_DIR"/*.f; do
     if [ "$(basename "$f")" != "version.f" ]; then
-        # Switch IFOR to GFOR
-        printf "$f\n$f.tmp\n*IFOR\n*GFOR\n" | "$BUILD_DIR/version" > /dev/null
+        # Switch markers based on compiler choice
+        printf "$f\n$f.tmp\n$VERSION_MARKER_OLD\n$VERSION_MARKER_NEW\n" | "$BUILD_DIR/version" > /dev/null
         mv "$f.tmp" "$f"
         # Switch MPI to NORM
         printf "$f\n$f.tmp\n*MPI\n*NORM\n" | "$BUILD_DIR/version" > /dev/null
@@ -101,22 +119,20 @@ patch_param "LNO"  "$COSY_LNO"
 patch_param "LNV"  "$COSY_LNV"
 
 # 4. Compile
-echo "Compiling..."
+echo "Compiling with $FC..."
 
 # Cleanup old output
 rm -f "$DIR"/*.so
 
-FFLAGS="-fPIC -fcommon -std=legacy -O3 -march=native -ffixed-form -flto -funroll-loops -fallow-argument-mismatch -fopenmp"
-
 # Compile individual files from the BUILD_DIR
-gfortran -c $FFLAGS "$BUILD_DIR/dafox.f" -o "$BUILD_DIR/dafox.o"
-gfortran -c $FFLAGS "$BUILD_DIR/foxfit.f" -o "$BUILD_DIR/foxfit.o"
-gfortran -c $FFLAGS "$BUILD_DIR/foxgraf.f" -o "$BUILD_DIR/foxgraf.o"
-gfortran -c $FFLAGS "$BUILD_DIR/helper.f" -o "$BUILD_DIR/helper.o"
-gfortran -c $FFLAGS "$BUILD_DIR/wrapper.f" -o "$BUILD_DIR/wrapper.o"
+$FC -c $FFLAGS "$BUILD_DIR/dafox.f" -o "$BUILD_DIR/dafox.o"
+$FC -c $FFLAGS "$BUILD_DIR/foxfit.f" -o "$BUILD_DIR/foxfit.o"
+$FC -c $FFLAGS "$BUILD_DIR/foxgraf.f" -o "$BUILD_DIR/foxgraf.o"
+$FC -c $FFLAGS "$BUILD_DIR/helper.f" -o "$BUILD_DIR/helper.o"
+$FC -c $FFLAGS "$BUILD_DIR/wrapper.f" -o "$BUILD_DIR/wrapper.o"
 
 echo "Linking..."
-gfortran -shared -flto -fopenmp -o "$OUTPUT" \
+$FC $LDFLAGS -o "$OUTPUT" \
     "$BUILD_DIR/dafox.o" \
     "$BUILD_DIR/foxfit.o" \
     "$BUILD_DIR/foxgraf.o" \

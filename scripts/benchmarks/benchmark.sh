@@ -62,24 +62,40 @@ if [ ! -f "$COSY_BIN" ]; then
         export COSY_LEA=100000
         export COSY_LIA=1400000
         export COSY_LNO=99
+        export COSY_LIA=1400000
+        export COSY_LNO=99
         export COSY_LNV=40
+        export COSY_COMPILER=gfortran
     fi
 
-    if command -v gfortran &> /dev/null; then
+    # Detect Compiler
+    if [ "$COSY_COMPILER" = "ifx" ]; then
+        FC="ifx"
+        VERSION_MARKER_OLD="*GFOR"
+        VERSION_MARKER_NEW="*IFOR"
+        FC_FLAGS="-O3 -march=native -fixed -qopenmp -diag-disable=10448"
+    else
+        FC="gfortran"
+        VERSION_MARKER_OLD="*IFOR"
+        VERSION_MARKER_NEW="*GFOR"
+        FC_FLAGS="-std=legacy -ffixed-form -O3 -march=native -flto -funroll-loops"
+    fi
+
+    if command -v $FC &> /dev/null; then
         # 2. Prepare Build Directory
         echo "Preparing build directory..."
         rm -rf "$BUILD_DIR"
         mkdir -p "$BUILD_DIR"
         cp "$COSY_SRC_ORIG"/*.f "$BUILD_DIR/"
 
-        # 2.5 Compile and Run Version Utility (Switch code to GFOR and NORM)
-        echo "Switching code version to GFOR (gfortran) and NORM (serial)..."
-        gfortran "$BUILD_DIR/version.f" -o "$BUILD_DIR/version"
+        # 2.5 Compile and Run Version Utility
+        echo "Switching code version to $FC and NORM (serial)..."
+        $FC "$BUILD_DIR/version.f" -o "$BUILD_DIR/version"
 
         for f in "$BUILD_DIR"/*.f; do
             if [ "$(basename "$f")" != "version.f" ]; then
-                # Switch IFOR to GFOR
-                printf "$f\n$f.tmp\n*IFOR\n*GFOR\n" | "$BUILD_DIR/version" > /dev/null
+                # Switch markers
+                printf "$f\n$f.tmp\n$VERSION_MARKER_OLD\n$VERSION_MARKER_NEW\n" | "$BUILD_DIR/version" > /dev/null
                 mv "$f.tmp" "$f"
                 # Switch MPI to NORM
                 printf "$f\n$f.tmp\n*MPI\n*NORM\n" | "$BUILD_DIR/version" > /dev/null
@@ -104,15 +120,9 @@ if [ ! -f "$COSY_BIN" ]; then
         patch_param "LNO"  "$COSY_LNO"
         patch_param "LNV"  "$COSY_LNV"
 
-        # 4. Compile
-        # Compilation Flags Explanation:
-        # -std=legacy: Downgrade modern strictness to support older Fortran constructs
-        # -ffixed-form: Treat source as fixed-form Fortran 77
-        # -O3: Maximum stable optimization level
-        # -march=native: Optimize for host architecture
-        # -flto: Link Time Optimization for cross-file inlining
-        # -funroll-loops: Aggressive loop unrolling
-        gfortran -std=legacy -ffixed-form -O3 -march=native -flto -funroll-loops -o "$COSY_BIN" \
+        # 5. Compile
+        echo "Compiling with $FC..."
+        $FC $FC_FLAGS -o "$COSY_BIN" \
             "$BUILD_DIR/foxy.f" \
             "$BUILD_DIR/dafox.f" \
             "$BUILD_DIR/foxfit.f" \
