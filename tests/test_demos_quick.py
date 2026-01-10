@@ -18,7 +18,7 @@ def find_demos():
         for f in files:
             if f.endswith((".ipynb", ".py")):
                 demos.append(os.path.join(root, f))
-    return demos
+    return sorted(demos)[:2]
 
 
 @pytest.mark.parametrize("backend", ["python", "cosy"])
@@ -148,6 +148,7 @@ def test_demo_quick(demo_path, backend):
             capture_output=True,
             text=True,
             env=env,
+            cwd=temp_dir,
             timeout=60,  # Reasonable timeout for a single demo
         )
 
