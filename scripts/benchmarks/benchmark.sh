@@ -68,14 +68,6 @@ if [ ! -f "$COSY_BIN" ]; then
         export COSY_COMPILER=gfortran
     fi
 
-    # Detector and Prioritize ifx Environment
-    if [ "$COSY_COMPILER" = "ifx" ]; then
-        if [ -n "$IFX_SETVARS" ] && [ -f "$IFX_SETVARS" ]; then
-            echo "Initializing Intel oneAPI environment from $IFX_SETVARS..."
-            source "$IFX_SETVARS" --force > /dev/null 2>&1 || echo "Warning: setvars.sh returned non-zero"
-        fi
-    fi
-
     # Detect Compiler
     if [ "$COSY_COMPILER" = "ifx" ]; then
         FC="ifx"
