@@ -203,6 +203,43 @@ class BuildCosy(Command):
         # Copy wrapper.f (it lives one level up)
         shutil.copy2(os.path.join(backend_dir, "wrapper.f"), build_temp)
 
+        # 3.5 Load and Apply Memory Patches
+        config_map = {}
+        if os.path.exists(config_path):
+            print(f"Loading COSY memory configuration from {config_path}...")
+            with open(config_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if line.startswith("export "):
+                        line = line[7:].strip()
+                    if "=" in line:
+                        key, val = line.split("=", 1)
+                        if key.startswith("COSY_"):
+                            # Map e.g. COSY_LMEM to LMEM
+                            param_name = key[5:]
+                            config_map[param_name] = val
+
+        if config_map:
+            print(f"Applying memory patches: {config_map}")
+            target_patch_files = [os.path.join(build_temp, f) for f in os.listdir(build_temp) if f.endswith(".f")]
+            for file_path in target_patch_files:
+                with open(file_path, "r") as f:
+                    content = f.read()
+                
+                modified = False
+                for param, value in config_map.items():
+                    # Pattern matches "PARAM = NUMBER"
+                    pattern = fr"({param}\s*=\s*)\d+"
+                    if re.search(pattern, content):
+                        content = re.sub(pattern, fr"\g<1>{value}", content)
+                        modified = True
+                
+                if modified:
+                    with open(file_path, "w") as f:
+                        f.write(content)
+
         # 4. Version Switching using version.f
         print(f"Switching code versions using {compiler_type}...")
         version_src = os.path.join(cosy_src_orig, "version.f")
@@ -217,7 +254,7 @@ class BuildCosy(Command):
                 v_cmd.extend(["-O3", version_src, "-o", version_bin])
             
             print(f"Compiling version utility: {' '.join(v_cmd)}")
-            subprocess.run(v_cmd, check=True, env=build_env)
+            subprocess.run(v_cmd, check=True)
             
             # Determine markers
             if compiler_type == "ifx":
