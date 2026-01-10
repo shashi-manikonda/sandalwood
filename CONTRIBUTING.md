@@ -56,6 +56,8 @@ To contribute code to `sandalwood`, you will need to set up a local development 
     ```
     The `-e` flag installs the package in "editable" mode, so any changes you make to the source code will be immediately effective.
 
+    > **Note for Windows Users**: This step automatically builds the COSY backend using the Intel Fortran Compiler (`ifx`). Ensure you have the [Intel oneAPI Base Toolkit & HPC Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html) installed. The build system will attempt to auto-detect the necessary environment variables.
+
 4.  **Run Tests:**
     Before making any changes, run the test suite to ensure everything is working correctly.
     ```bash
