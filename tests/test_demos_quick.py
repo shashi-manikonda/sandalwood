@@ -18,7 +18,7 @@ def find_demos():
         for f in files:
             if f.endswith((".ipynb", ".py")):
                 demos.append(os.path.join(root, f))
-    return sorted(demos)[:2]
+    return sorted(demos)
 
 
 @pytest.mark.parametrize("backend", ["python", "cosy"])
