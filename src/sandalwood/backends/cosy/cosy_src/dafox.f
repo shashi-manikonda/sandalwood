@@ -1432,8 +1432,8 @@ C
 *     IN THE PROGRAMMER'S MANUAL. USE THE PROGRAM VERSION WITH
 *     THE CURRENT ID NAME "*IFOR" AND THE NEW ID NAME "*GFOR".
 *
-      CALL SLEEPQQ(NINT(CC(NBEG(IMSEC))))                                *IFOR*
-C     CALL SLEEP(NINT(1.D-3*CC(NBEG(IMSEC))))                            *GFOR*
+*IFOR CALL SLEEPQQ(NINT(CC(NBEG(IMSEC))))                                *IFOR*
+      CALL SLEEP(NINT(1.D-3*CC(NBEG(IMSEC))))                            *GFOR*
 *
       RETURN
       END
