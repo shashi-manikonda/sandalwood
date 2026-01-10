@@ -58,6 +58,22 @@ mkdir -p "$BUILD_DIR"
 cp "$COSY_SRC_ORIG"/*.f "$BUILD_DIR/"
 cp "$DIR/wrapper.f" "$BUILD_DIR/"
 
+# 2.5 Compile and Run Version Utility (Switch code to GFOR and NORM)
+echo "Switching code version to GFOR (gfortran) and NORM (serial)..."
+gfortran "$BUILD_DIR/version.f" -o "$BUILD_DIR/version"
+
+for f in "$BUILD_DIR"/*.f; do
+    if [ "$(basename "$f")" != "version.f" ]; then
+        # Switch IFOR to GFOR
+        printf "$f\n$f.tmp\n*IFOR\n*GFOR\n" | "$BUILD_DIR/version" > /dev/null
+        mv "$f.tmp" "$f"
+        # Switch MPI to NORM
+        printf "$f\n$f.tmp\n*MPI\n*NORM\n" | "$BUILD_DIR/version" > /dev/null
+        mv "$f.tmp" "$f"
+    fi
+done
+rm "$BUILD_DIR/version"
+
 # 3. Patch the Source Files
 # We use sed to find the PARAMETER lines and replace the numbers.
 # The regex looks for "PARAMETER(LMEM=..." and replaces the value.

@@ -177,26 +177,49 @@ class BuildCosy(Command):
         # Copy wrapper.f (it lives one level up)
         shutil.copy2(os.path.join(backend_dir, "wrapper.f"), build_temp)
 
-        # 4. Dynamic Patching
-        if compiler_type == "ifx":
-            print("Applying Intel Fortran patches (SLEEP -> SLEEPQQ)...")
-            dafox_path = os.path.join(build_temp, "dafox.f")
+        # 4. Version Switching using version.f
+        print(f"Switching code versions using {compiler_type}...")
+        version_src = os.path.join(cosy_src_orig, "version.f")
+        version_bin = os.path.join(build_temp, "version.exe" if sys.platform == "win32" else "version")
+        
+        try:
+            # Compile version utility
+            v_cmd = [compiler]
+            if compiler_type == "ifx":
+                v_cmd.extend(["/nologo", f"/Fe{version_bin}", version_src])
+            else:
+                v_cmd.extend(["-O3", version_src, "-o", version_bin])
             
-            with open(dafox_path, "r") as f:
-                content = f.read()
+            print(f"Compiling version utility: {' '.join(v_cmd)}")
+            subprocess.run(v_cmd, check=True)
             
-            # Regex: Finds 'CALL SLEEP(X)' and replaces with 'CALL SLEEPQQ(INT(X*1000))'
-            # Captures the argument inside parentheses group(1)
-            # Use case-insensitive flag because Fortran is case-insensitive
-            new_content = re.sub(
-                r"CALL\s+SLEEP\s*\(([^)]+)\)", 
-                r"CALL SLEEPQQ(INT(\1*1000))", 
-                content, 
-                flags=re.IGNORECASE
-            )
+            # Determine markers
+            if compiler_type == "ifx":
+                old_m, new_m = "*GFOR", "*IFOR"
+            else:
+                old_m, new_m = "*IFOR", "*GFOR"
             
-            with open(dafox_path, "w") as f:
-                f.write(new_content)
+            # Run on all copied .f files
+            for f_name in os.listdir(build_temp):
+                if f_name.endswith(".f") and f_name != "version.f":
+                    f_path = os.path.join(build_temp, f_name)
+                    f_tmp = f_path + ".tmp"
+                    
+                    # Pass 1: Platform switching (GFOR <-> IFOR)
+                    p1 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    p1.communicate(input=f"{f_path}\n{f_tmp}\n{old_m}\n{new_m}\n")
+                    os.replace(f_tmp, f_path)
+                    
+                    # Pass 2: Serial switching (MPI -> NORM)
+                    p2 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    p2.communicate(input=f"{f_path}\n{f_tmp}\n*MPI\n*NORM\n")
+                    os.replace(f_tmp, f_path)
+            
+            print("Version switching complete.")
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: Could not use version.f utility: {e}")
+        except Exception as e:
+            print(f"Warning: Error during version switching: {e}")
 
         # 5. Compilation
         cmd = []

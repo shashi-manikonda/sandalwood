@@ -8,7 +8,7 @@
 *     SUPPLIED WHICH, WHEN FOUND STRARTING IN COLUMN 1, ENTAILS THAT
 *     THE LINE IS UNCOMMENTED.
 *
-      CHARACTER A*80,S1*10,S2*10,FILE1*20,FILE2*20,BL*5
+      CHARACTER A*256,S1*10,S2*10,FILE1*256,FILE2*256,BL*5
       DATA  BL / '     ' /
 *
       PRINT*,'    ****************************************************'
