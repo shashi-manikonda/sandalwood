@@ -5,6 +5,9 @@
 
 A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), with performance acceleration via the COSY Infinity backend.
 
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-blue)
+![Fortran Compiler](https://img.shields.io/badge/compiler-gfortran%20%7C%20ifx-green)
+
 ## Installation
 
 The recommended way to install `sandalwood` is from PyPI:
@@ -118,7 +121,10 @@ f_loaded = mtf.from_json(json_str)
 ### COSY Backend
 The COSY Infinity backend is supported across all platforms and is **automatically compiled** during the standard installation process (`uv pip install -e .`). 
 
-- **Prerequisites**: A Fortran compiler (specifically `gfortran`) must be available on your system.
+- **Linux/macOS**: Requires `gfortran`.
+- **Windows**: Requires the **Intel Fortran Compiler (`ifx`)** and **Microsoft Visual Studio Build Tools**.
+    - Install [Intel oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html) and [HPC Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/hpc-toolkit.html).
+    - Ensure `ifx` is available in your Intel environment if initialized manually, though `setup.py` attempts to auto-detect the environment.
 - **Manual Rebuild**: If you modify the Fortran source code, you can trigger a rebuild of the COSY shared library without re-installing the entire package:
   ```bash
   python setup.py build_cosy
