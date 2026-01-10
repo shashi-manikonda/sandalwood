@@ -134,6 +134,7 @@ class BuildCosy(Command):
                 "/O3",
                 "/Qopenmp",
                 "/fixed",
+                f"/Fo{build_temp}\\",
                 f"/Fe{output_path}",
                 *files_to_compile, # Unpack list
                 "/link",
