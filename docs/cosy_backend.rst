@@ -82,8 +82,6 @@ Memory Configuration
 
 For advanced users, the COSY backend's internal memory limits (e.g., the size of the storage stack or the maximum number of variables) can be customized without modifying the core Fortran source files.
 
-### Configuration File (`cosy_config.env`)
-
 A configuration file is provided at ``src/sandalwood/backends/cosy/cosy_config.env``. You can modify the following parameters:
 
 * **COSY_LMEM**: Length of the main storage stack (Default: 140,000,000).
@@ -92,15 +90,47 @@ A configuration file is provided at ``src/sandalwood/backends/cosy/cosy_config.e
 * **COSY_LNO**: Maximum supported Taylor order (Default: 99).
 * **COSY_LNV**: Maximum number of variables (Default: 40).
 
-### Applying Changes
+### Compiler Support (Linux)
 
-After modifying the ``cosy_config.env`` file, you must recompile the backend using the provided script:
+Sandalwood supports two main Fortran compilers on Linux:
+
+*   **GNU Fortran (gfortran)**: The standard open-source choice. Robust and widely available.
+*   **Intel Fortran (ifx)**: Recommended for maximum performance on Intel hardware. It provides superior auto-vectorization and highly optimized OpenMP performance.
+
+### Intel oneAPI Integration
+
+If using `ifx`, you must ensure the Intel environment variables are loaded. Sandalwood can automate this if you specify the path to your Intel ``setvars.sh`` script in ``cosy_config.env``.
 
 .. code-block:: bash
 
-   bash src/sandalwood/backends/cosy/compile_cosy.sh
+   # cosy_config.env
+   export COSY_COMPILER=ifx
+   export IFX_SETVARS=/opt/intel/oneapi/setvars.sh
 
-The script automatically creates a temporary build directory, patches the Fortran sources with your new limits, and links the updated ``libcosy.so``. This ensures the original COSY source files in the repository remain un-modified.
+### Building the Backend
+
+There are three ways to build the COSY backend components:
+
+1. **Standard Python Install**
+   When you run ``pip install -e .``, the ``setup.py`` script automatically detects your compiler, patches the memory limits, and builds the shared library.
+
+2. **Standalone Shared Library Build**
+   Use this for development or after changing memory parameters:
+
+   .. code-block:: bash
+
+      bash src/sandalwood/backends/cosy/compile_cosy.sh
+
+3. **Raw COSY Binary Build ("cosy-raw")**
+   For benchmarking against raw COSY Infinity or running legacy .FOX scripts, you can compile a standalone COSY executable:
+
+   .. code-block:: bash
+
+      bash scripts/benchmarks/benchmark.sh help
+
+   The benchmark script also respects the ``COSY_COMPILER`` and ``IFX_SETVARS`` settings from the config file.
+
+The build script automatically creates a temporary build directory, patches the Fortran sources with your new limits, and links the updated ``libcosy.so``. This ensures the original COSY source files in the repository remain un-modified.
 
 3. Static "Scratchpad" Allocation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

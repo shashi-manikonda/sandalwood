@@ -102,6 +102,26 @@ class BuildCosy(Command):
                   print("Warning: Could not locate libiomp5md.lib. Linking may fail.")
 
 
+    def _get_ifx_env(self, setvars_path):
+        """Sources setvars.sh and returns the resulting environment variables."""
+        if not os.path.exists(setvars_path):
+            return os.environ.copy()
+        
+        print(f"Sourcing Intel environment from {setvars_path}...")
+        # Run bash to source the script and then print the environment
+        command = f'source "{setvars_path}" --force > /dev/null 2>&1 && env'
+        try:
+            output = subprocess.check_output(['bash', '-c', command], text=True)
+            env = {}
+            for line in output.splitlines():
+                if '=' in line:
+                    key, val = line.split('=', 1)
+                    env[key] = val
+            return env
+        except Exception as e:
+            print(f"Warning: Failed to source Intel environment: {e}")
+            return os.environ.copy()
+
     def run(self):
         """Runs the COSY compilation logic."""
         self._ensure_win_environment()
@@ -126,16 +146,30 @@ class BuildCosy(Command):
         compiler = None
         compiler_type = None
 
-        # A. Priority: Environment Variable/Config
         if os.path.exists(config_path):
             with open(config_path, "r") as f:
-                for line in f:
-                    if line.startswith("export COSY_COMPILER="):
-                        val = line.split("=")[1].strip().lower().strip("'").strip('"')
-                        if shutil.which(val):
-                            compiler = val
-                            compiler_type = val if "ifx" in val else "gfortran"
-                            break
+                config_content = f.read()
+                
+            # Extract COSY_COMPILER
+            m = re.search(r"export COSY_COMPILER=(.*)", config_content)
+            if m:
+                val = m.group(1).strip().lower().strip("'").strip('"')
+                if "ifx" in val:
+                    compiler_type = "ifx"
+                else:
+                    compiler_type = "gfortran"
+                
+                # If ifx, check if in path, otherwise check IFX_SETVARS
+                if compiler_type == "ifx":
+                    if shutil.which("ifx"):
+                        compiler = "ifx"
+                    else:
+                        m_vars = re.search(r"export IFX_SETVARS=(.*)", config_content)
+                        if m_vars:
+                            setvars_path = m_vars.group(1).strip().strip("'").strip('"')
+                            if os.path.exists(setvars_path):
+                                # We'll load the env later, for now mark as ifx
+                                compiler = "ifx"
         
         if not compiler:
             compiler = os.environ.get("COSY_COMPILER")
@@ -189,6 +223,22 @@ class BuildCosy(Command):
 
         print(f"Using Compiler: {compiler} ({compiler_type})")
 
+        # 2.5 Load Intel Environment if needed
+        build_env = os.environ.copy()
+        if compiler_type == "ifx" and not shutil.which("ifx"):
+             # Look for IFX_SETVARS in config again
+             if os.path.exists(config_path):
+                 with open(config_path, "r") as f:
+                     m_vars = re.search(r"export IFX_SETVARS=(.*)", f.read())
+                     if m_vars:
+                         setvars_path = m_vars.group(1).strip().strip("'").strip('"')
+                         build_env = self._get_ifx_env(setvars_path)
+                         # Update compiler path if now available
+                         if "PATH" in build_env:
+                             ifx_path = shutil.which("ifx", path=build_env["PATH"])
+                             if ifx_path:
+                                 compiler = ifx_path
+
         # 3. Source Isolation (Copy to build_tmp)
         print(f"Preparing build directory: {build_temp}")
         if os.path.exists(build_temp):
@@ -212,13 +262,13 @@ class BuildCosy(Command):
         try:
             # Compile version utility
             v_cmd = [compiler]
-            if compiler_type == "ifx":
+            if compiler_type == "ifx" and sys.platform == "win32":
                 v_cmd.extend(["/nologo", f"/Fe{version_bin}", version_src])
             else:
                 v_cmd.extend(["-O3", version_src, "-o", version_bin])
             
             print(f"Compiling version utility: {' '.join(v_cmd)}")
-            subprocess.run(v_cmd, check=True)
+            subprocess.run(v_cmd, check=True, env=build_env)
             
             # Determine markers
             if compiler_type == "ifx":
@@ -235,12 +285,12 @@ class BuildCosy(Command):
                     f_tmp = f_path + ".tmp"
                     
                     # Pass 1: Platform switching (GFOR <-> IFOR)
-                    p1 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    p1 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=build_env)
                     p1.communicate(input=f"{f_path}\n{f_tmp}\n{old_m}\n{new_m}\n")
                     os.replace(f_tmp, f_path)
                     
                     # Pass 2: Serial switching (MPI -> NORM)
-                    p2 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    p2 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=build_env)
                     p2.communicate(input=f"{f_path}\n{f_tmp}\n*MPI\n*NORM\n")
                     os.replace(f_tmp, f_path)
             
@@ -316,7 +366,7 @@ class BuildCosy(Command):
 
         print(f"Executing: {' '.join(cmd)}")
         try:
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, env=build_env)
             print(f"Successfully built {lib_name}")
         except subprocess.CalledProcessError as e:
             print(f"Error building COSY library: {e}")
