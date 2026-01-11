@@ -1139,7 +1139,7 @@ def _isqrt_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFu
             "Constant part of input to isqrt_taylor is too close to zero. "
             "This method requires a non-zero constant term."
         )
-    constant_factor_isqrt_C = 1.0 / math.sqrt(constant_term_C_value)
+    constant_factor_isqrt_C = 1.0 / cmath.sqrt(constant_term_C_value)
     polynomial_part_x_mtf = polynomial_part_B_mtf / constant_term_C_value
     isqrt_1_plus_x_mtf = isqrt_taylor_1D_expansion(polynomial_part_x_mtf, order=order)
     result_mtf = isqrt_1_plus_x_mtf * constant_factor_isqrt_C
