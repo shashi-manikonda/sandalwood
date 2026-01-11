@@ -304,7 +304,8 @@ class CosyBackend:
 
     @staticmethod
     def reset():
-        pass
+        if CosyBackend._initialized:
+            CosyBackend.initialize(CosyBackend._order, CosyBackend._dim)
 
     @staticmethod
     def var(var_index):
@@ -387,6 +388,12 @@ class CosyDA:
 
     @classmethod
     def from_const(cls, val):
+        if isinstance(val, (CosyDA, CosyCDA)):
+            # If we are already a DA object, and we are being called via a subclass (like CosyCDA),
+            # we might need to promote.
+            if cls is CosyCDA and not val.is_complex:
+                return val.to_complex()
+            return val
         res_idx = c_int(0)
         libcosy.create_da_const(byref(res_idx), byref(c_double(float(val))))
         return cls(idx=res_idx.value, owned=True)
@@ -768,7 +775,9 @@ class CosyCDA(CosyDA):
     def _ensure_cd(self, other):
         if isinstance(other, CosyCDA):
             return other
-        if isinstance(other, (CosyDA, int, float, complex, np.number)):
+        if isinstance(other, CosyDA):
+            return other.to_complex()
+        if isinstance(other, (int, float, complex, np.number)):
             return CosyCDA.from_const(other)
         return NotImplemented
 
