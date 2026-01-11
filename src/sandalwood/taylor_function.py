@@ -410,6 +410,14 @@ class MultivariateTaylorFunction:
             raise ValueError("Input 'enable' must be a boolean value (True or False).")
         cls._TRUNCATE_AFTER_OPERATION = enable
 
+    @classmethod
+    def reset_mtf(cls):
+        """
+        Resets the MTF backend. For COSY, this clears all memory.
+        """
+        if cls._INITIALIZED and cls._IMPLEMENTATION == "cosy":
+            cosy_backend.CosyBackend.reset()
+
     def __init__(self, coefficients=None, dimension=None, var_name=None, mtf_data=None):
         """
         Initializes a MultivariateTaylorFunction object.
