@@ -6,13 +6,13 @@ EXPORTS
     compute_cd_der
     compute_cd_div
     compute_cd_exp
-    compute_cd_int
+
     compute_cd_log
     compute_cd_mui
     compute_cd_mul
     compute_cd_pei
     compute_cd_pkp
-    compute_cd_poi
+
     compute_cd_sin
     compute_cd_sinh
     compute_cd_sqrt
@@ -32,7 +32,7 @@ EXPORTS
     compute_da_daest
     compute_da_der
     compute_da_div
-    compute_da_div_batch
+
     compute_da_div_const
     compute_da_div_r_const
     compute_da_erf
@@ -63,6 +63,7 @@ EXPORTS
     compute_da_tanh
     compute_da_to_cd
     compute_da_wnorm
+    compute_biot_savart_batch
     cosy_free
     cosy_set_cd_coeffs
     cosy_set_coeffs

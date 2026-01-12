@@ -225,6 +225,7 @@ scripts/benchmarks/artifacts/
 *.lib
 *.exp
 *.dll
+build_tmp/
 
 cosy_bin
 COSY.bin
