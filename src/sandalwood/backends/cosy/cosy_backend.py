@@ -8,10 +8,23 @@ import numpy as np
 if sys.platform == "win32":
     LIB_NAME = "libcosy.dll"
     # Python 3.8+ on Windows ignores PATH for DLL loading.
-    # We must explicitly add Intel/oneAPI compiler paths if they exist in PATH.
+    # We must explicitly add Intel/oneAPI compiler paths if they exist in PATH or standard locations.
     if hasattr(os, "add_dll_directory"):
+        # 1. Search PATH
         for p in os.environ.get("PATH", "").split(os.pathsep):
             if p and ("oneAPI" in p or "Intel" in p) and os.path.exists(p):
+                try:
+                    os.add_dll_directory(p)
+                except OSError:
+                    pass
+        
+        # 2. Search Standard Locations (if typical path didn't work)
+        std_paths = [
+            r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\windows\redist\intel64_win\compiler",
+            r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin",
+        ]
+        for p in std_paths:
+            if os.path.exists(p):
                 try:
                     os.add_dll_directory(p)
                 except OSError:

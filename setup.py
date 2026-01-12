@@ -25,81 +25,73 @@ class BuildCosy(Command):
             return
 
         # Check if link.exe is functional (basic check)
-        if shutil.which("link") and "LIB" in os.environ:
-            return
-
-        print("Configuring Visual Studio environment...")
-        possible_roots = [
-            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools",
-            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community",
-            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Professional",
-            r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise",
-        ]
-
-        vs_dev_cmd = None
-        for root in possible_roots:
-            candidate = os.path.join(root, "Common7", "Tools", "VsDevCmd.bat")
-            if os.path.exists(candidate):
-                vs_dev_cmd = candidate
-                break
-
-        if not vs_dev_cmd:
-            print("Warning: Could not locate VsDevCmd.bat. Linking may fail.")
-            return
-
-        print(f"Loading environment from {vs_dev_cmd}")
-        # Run VsDevCmd.bat and dump environment
-        cmd = f'"{vs_dev_cmd}" -arch=x64 -no_logo && set'
-        try:
-            output = subprocess.check_output(cmd, shell=True, text=True)
-            for line in output.splitlines():
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    # Update PATH, LIB, INCLUDE, LIBPATH
-                    if key.upper() in ["PATH", "LIB", "INCLUDE", "LIBPATH"]:
-                        os.environ[key] = value
-            
-            # Explicitly verify link.exe again
-            if not shutil.which("link"):
-                 print("Warning: link.exe still not found in PATH after loading VsDevCmd.")
-                 
-        except subprocess.CalledProcessError as e:
-            print(f"Error loading Visual Studio environment: {e}")
-
-        # Ensure Intel libraries are in LIB
-        intel_lib_found = False
-        if "LIB" in os.environ:
-             for path in os.environ["LIB"].split(os.pathsep):
-                 if os.path.join(path, "libiomp5md.lib") and os.path.exists(os.path.join(path, "libiomp5md.lib")):
-                      intel_lib_found = True
-                      break
+        has_link = shutil.which("link") and "LIB" in os.environ
         
-        if not intel_lib_found:
-             # Try standard path
-             intel_lib_path = r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\lib"
-             
-             # Also check relative to ifx if available
-             ifx_path = shutil.which("ifx")
-             if ifx_path:
-                  # Expected: .../bin/ifx.exe -> .../lib or .../windows/compiler/lib/intel64_win
-                  root = os.path.dirname(os.path.dirname(ifx_path))
-                  candidates = [
-                      os.path.join(root, "lib"),
-                      os.path.join(root, "windows", "compiler", "lib", "intel64_win"),
-                  ]
-                  for c in candidates:
-                      if os.path.exists(os.path.join(c, "libiomp5md.lib")):
-                          intel_lib_path = c
-                          break
-             
-             if os.path.exists(os.path.join(intel_lib_path, "libiomp5md.lib")):
-                  print(f"Adding Intel library path: {intel_lib_path}")
-                  if "LIB" in os.environ:
-                       os.environ["LIB"] += os.pathsep + intel_lib_path
-                  else:
-                       os.environ["LIB"] = intel_lib_path
-             else:
-                  print("Warning: Could not locate libiomp5md.lib. Linking may fail.")
+        if not has_link:
+            print("Configuring Visual Studio environment...")
+            possible_roots = [
+                r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools",
+                r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community",
+                r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Professional",
+                r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise",
+            ]
+
+            vs_dev_cmd = None
+            for root in possible_roots:
+                candidate = os.path.join(root, "Common7", "Tools", "VsDevCmd.bat")
+                if os.path.exists(candidate):
+                    vs_dev_cmd = candidate
+                    break
+
+            if not vs_dev_cmd:
+                print("Warning: Could not locate VsDevCmd.bat. Linking may fail.")
+                # Don't return, try finding Intel libs anyway
+            else:
+                print(f"Loading environment from {vs_dev_cmd}")
+                # Run VsDevCmd.bat and dump environment
+                cmd = f'"{vs_dev_cmd}" -arch=x64 -no_logo && set'
+                try:
+                    output = subprocess.check_output(cmd, shell=True, text=True)
+                    for line in output.splitlines():
+                        if "=" in line:
+                            key, value = line.split("=", 1)
+                            # Update PATH, LIB, INCLUDE, LIBPATH
+                            if key.upper() in ["PATH", "LIB", "INCLUDE", "LIBPATH"]:
+                                os.environ[key] = value
+                    
+                    # Explicitly verify link.exe again
+                    if not shutil.which("link"):
+                         print("Warning: link.exe still not found in PATH after loading VsDevCmd.")
+                         
+                except subprocess.CalledProcessError as e:
+                    print(f"Error loading Visual Studio environment: {e}")
+
+        # Try standard path
+        intel_lib_dir = r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\lib"
+        
+        # Also check relative to ifx if available
+        ifx_path = shutil.which("ifx")
+        if ifx_path:
+             root = os.path.dirname(os.path.dirname(ifx_path))
+             c1 = os.path.join(root, "lib")
+             c2 = os.path.join(root, "windows", "compiler", "lib", "intel64_win")
+             if os.path.exists(os.path.join(c1, "libiomp5md.lib")):
+                 intel_lib_dir = c1
+             elif os.path.exists(os.path.join(c2, "libiomp5md.lib")):
+                 intel_lib_dir = c2
+        
+        if os.path.exists(os.path.join(intel_lib_dir, "libiomp5md.lib")):
+             print(f"Found Intel libraries at: {intel_lib_dir}")
+             # Always add it if not clearly present
+             if "LIB" not in os.environ:
+                  os.environ["LIB"] = intel_lib_dir
+             elif intel_lib_dir.lower() not in os.environ["LIB"].lower():
+                  print(f"Adding {intel_lib_dir} to LIB")
+                  os.environ["LIB"] += os.pathsep + intel_lib_dir
+        else:
+             print(f"Warning: Could not locate libiomp5md.lib at {intel_lib_dir}")
+
+        print(f"LIB environment variable length: {len(os.environ.get('LIB', ''))}")
 
 
     def run(self):
@@ -207,6 +199,7 @@ class BuildCosy(Command):
         config_map = {}
         if os.path.exists(config_path):
             print(f"Loading COSY memory configuration from {config_path}...")
+            raw_config = {}
             with open(config_path, "r") as f:
                 for line in f:
                     line = line.strip()
@@ -217,9 +210,34 @@ class BuildCosy(Command):
                     if "=" in line:
                         key, val = line.split("=", 1)
                         if key.startswith("COSY_"):
-                            # Map e.g. COSY_LMEM to LMEM
-                            param_name = key[5:]
-                            config_map[param_name] = val
+                            root_key = key[5:]
+                            raw_config[root_key] = val.strip()
+
+            # Resolve OS-specific overrides
+            # Priority: VAR_PLATFORM > VAR
+            target_suffix = ""
+            if sys.platform == "win32":
+                target_suffix = "_WIN32"
+            elif sys.platform.startswith("linux"):
+                target_suffix = "_LINUX"
+            elif sys.platform == "darwin":
+                target_suffix = "_DARWIN"
+
+            # First pass: collect bases
+            bases = set()
+            for k in raw_config:
+                if k.endswith("_WIN32"): bases.add(k[:-6])
+                elif k.endswith("_LINUX"): bases.add(k[:-6])
+                elif k.endswith("_DARWIN"): bases.add(k[:-7])
+                else: bases.add(k)
+            
+            for base in bases:
+                # Check for specific override first
+                override_key = base + target_suffix
+                if override_key in raw_config:
+                    config_map[base] = raw_config[override_key]
+                elif base in raw_config:
+                    config_map[base] = raw_config[base]
 
         if config_map:
             print(f"Applying memory patches: {config_map}")
