@@ -2748,150 +2748,209 @@ C     ------------------------------------------------------------------
       RETURN
       END
 
-      SUBROUTINE COMPUTE_DA_DIV_BATCH(N, IDX_A, IDX_B, IDX_RES)
-     *  BIND(C, NAME='compute_da_div_batch')
+      SUBROUTINE COMPUTE_BIOT_SAVART_BATCH(NP, NE,
+     *     POS_X, POS_Y, POS_Z,
+     *     SRC_X, SRC_Y, SRC_Z,
+     *     DL_X, DL_Y, DL_Z,
+     *     B_X, B_Y, B_Z)
+     *  BIND(C, NAME='compute_biot_savart_batch')
       USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER(C_INT) N
-      INTEGER(C_INT) IDX_A(N), IDX_B(N), IDX_RES(N)
-      INTEGER K
+      INTEGER(C_INT) NP, NE
+      INTEGER(C_INT) POS_X(NP), POS_Y(NP), POS_Z(NP)
+      INTEGER(C_INT) SRC_X(NE), SRC_Y(NE), SRC_Z(NE)
+      INTEGER(C_INT) DL_X(NE),  DL_Y(NE),  DL_Z(NE)
+      INTEGER(C_INT) B_X(NP),   B_Y(NP),   B_Z(NP)
+
+      INTEGER I, J
+      INTEGER IRX, IRY, IRZ, IR2, IR_INV3, IR_INV_SQRT
+      INTEGER ICX, ICY, ICZ
+      INTEGER IDBX, IDBY, IDBZ
+      INTEGER ITMP1, ITMP2, ITMP_SUM
+      INTEGER IC_CONST
+      
       PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
       COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
 
-      CALL FOXALL(IDX_RES, N, NMMAX)
-      DO K = 1, N
-         CALL DADDA(IDX_A(K), IDX_B(K), IDX_RES(K))
+      INTEGER ISC(20)
+      COMMON /DASCRATCH/ ISC
+      
+      ! Allocate result arrays for B (NP size)
+      CALL FOXALL(B_X, NP, NMMAX)
+      CALL FOXALL(B_Y, NP, NMMAX)
+      CALL FOXALL(B_Z, NP, NMMAX)
+      
+      ! Pre-allocate constant 0.0 for accumulators initialization
+      CALL FOXALL(ISC, 1, NMMAX)
+      IC_CONST = ISC(1)
+      CALL DACON(IC_CONST, 0.0D0)
+
+      DO I = 1, NP
+         ! Initialize Accumulators to 0.0
+         CALL DACON(B_X(I), 0.0D0)
+         CALL DACON(B_Y(I), 0.0D0)
+         CALL DACON(B_Z(I), 0.0D0)
+
+         DO J = 1, NE
+             ! 1. R vector allocation
+             CALL FOXALL(ISC, 3, NMMAX)
+             IRX = ISC(1)
+             IRY = ISC(2)
+             IRZ = ISC(3)
+             
+             CALL DASDA(POS_X(I), SRC_X(J), IRX)
+             CALL DASDA(POS_Y(I), SRC_Y(J), IRY)
+             CALL DASDA(POS_Z(I), SRC_Z(J), IRZ)
+             
+             ! 2. R2 = Rx^2 + Ry^2 + Rz^2
+             ! Sqrts
+             CALL FOXALL(ISC, 3, NMMAX)
+             ITMP1 = ISC(1)
+             ITMP2 = ISC(2)
+             IR2   = ISC(3)
+             
+             CALL DASQR(IRX, ITMP1)
+             CALL DASQR(IRY, ITMP2)
+             
+             ! Sum X2 + Y2 -> ITMP_SUM (Allocated)
+             CALL FOXALL(ISC, 1, NMMAX)
+             ITMP_SUM = ISC(1)
+             CALL DAADA(ITMP1, ITMP2, ITMP_SUM)
+             
+             ! Free sqrs
+             CALL DA_VAR_FREE(ITMP1)
+             CALL DA_VAR_FREE(ITMP2)
+             
+             ! Z^2
+             CALL FOXALL(ISC, 1, NMMAX)
+             ITMP1 = ISC(1)
+             CALL DASQR(IRZ, ITMP1)
+             
+             ! Final Sum -> IR2
+             CALL DAADA(ITMP_SUM, ITMP1, IR2)
+             
+             CALL DA_VAR_FREE(ITMP_SUM)
+             CALL DA_VAR_FREE(ITMP1)
+             
+             ! 3. 1/sqrt(R2)^3
+             ! 1/sqrt(R2)
+             CALL FOXALL(ISC, 1, NMMAX)
+             IR_INV_SQRT = ISC(1)
+             CALL DAISRT(IR2, IR_INV_SQRT)
+             CALL DA_VAR_FREE(IR2)
+             
+             ! Cube it
+             CALL FOXALL(ISC, 2, NMMAX)
+             ITMP1 = ISC(1)
+             IR_INV3 = ISC(2)
+             
+             CALL DASQR(IR_INV_SQRT, ITMP1)
+             CALL DAMDA(ITMP1, IR_INV_SQRT, IR_INV3)
+             
+             CALL DA_VAR_FREE(ITMP1)
+             CALL DA_VAR_FREE(IR_INV_SQRT)
+             
+             ! 4. Cross Product DL x R
+             ! Allocate result vectors
+             CALL FOXALL(ISC, 3, NMMAX)
+             ICX = ISC(1)
+             ICY = ISC(2)
+             ICZ = ISC(3)
+             
+             ! Temps for products
+             CALL FOXALL(ISC, 2, NMMAX)
+             ITMP1 = ISC(1)
+             ITMP2 = ISC(2)
+             
+             ! Cx = DLy*Rz - DLz*Ry
+             CALL DAMDA(DL_Y(J), IRZ, ITMP1)
+             CALL DAMDA(DL_Z(J), IRY, ITMP2)
+             CALL DASDA(ITMP1, ITMP2, ICX)
+             
+             ! Cy = DLz*Rx - DLx*Rz
+             CALL DAMDA(DL_Z(J), IRX, ITMP1)
+             CALL DAMDA(DL_X(J), IRZ, ITMP2)
+             CALL DASDA(ITMP1, ITMP2, ICY)
+             
+             ! Cz = DLx*Ry - DLy*Rx
+             CALL DAMDA(DL_X(J), IRY, ITMP1)
+             CALL DAMDA(DL_Y(J), IRX, ITMP2)
+             CALL DASDA(ITMP1, ITMP2, ICZ)
+             
+             CALL DA_VAR_FREE(ITMP1)
+             CALL DA_VAR_FREE(ITMP2)
+             
+             CALL DA_VAR_FREE(IRX)
+             CALL DA_VAR_FREE(IRY)
+             CALL DA_VAR_FREE(IRZ)
+             
+             ! 5. Contribution dB = Cross * Inv3
+             CALL FOXALL(ISC, 3, NMMAX)
+             IDBX = ISC(1)
+             IDBY = ISC(2)
+             IDBZ = ISC(3)
+             
+             CALL DAMDA(ICX, IR_INV3, IDBX)
+             CALL DAMDA(ICY, IR_INV3, IDBY)
+             CALL DAMDA(ICZ, IR_INV3, IDBZ)
+             
+             CALL DA_VAR_FREE(ICX)
+             CALL DA_VAR_FREE(ICY)
+             CALL DA_VAR_FREE(ICZ)
+             CALL DA_VAR_FREE(IR_INV3)
+             
+             ! 6. Accumulate
+             ! B += dB
+             ! Allocate new Sums
+             CALL FOXALL(ISC, 3, NMMAX)
+             ITMP1 = ISC(1)
+             ITMP2 = ISC(2)
+             ITMP_SUM = ISC(3)
+             
+             CALL DAADA(B_X(I), IDBX, ITMP1)
+             CALL DA_VAR_FREE(B_X(I))
+             B_X(I) = ITMP1
+             
+             CALL DAADA(B_Y(I), IDBY, ITMP2)
+             CALL DA_VAR_FREE(B_Y(I))
+             B_Y(I) = ITMP2
+             
+             CALL DAADA(B_Z(I), IDBZ, ITMP_SUM)
+             CALL DA_VAR_FREE(B_Z(I))
+             B_Z(I) = ITMP_SUM
+             
+             CALL DA_VAR_FREE(IDBX)
+             CALL DA_VAR_FREE(IDBY)
+             CALL DA_VAR_FREE(IDBZ)
+             
+         END DO
       END DO
+      
+      ! Cleanup constant
+      CALL DA_VAR_FREE(IC_CONST)
+      
       RETURN
       END
 
-
-
-      SUBROUTINE COMPUTE_CD_INT(IIV, INA, INC)
-     *  BIND(C, NAME='compute_cd_int')
+      SUBROUTINE DA_VAR_FREE(IDX)
       USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER(C_INT) IIV, INA, INC
-C
-      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
-      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
-     *        NC(LMEM),NDIM(LDIM)
-      DOUBLE PRECISION CC(LMEM)
-      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
-      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
-      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
-      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
-      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
-     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
-     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
-      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC
-      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
-     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
-C
-      CALL ALLOC_VAR(INC, 2*NMMAX)
-      NTYP(INC) = NCD
-C
-      CALL ALLOC_VAR(I_RE, NMMAX)
-      CALL ALLOC_VAR(I_IM, NMMAX)
-      CALL ALLOC_VAR(I_RE_RES, NMMAX)
-      CALL ALLOC_VAR(I_IM_RES, NMMAX)
-      NTYP(I_RE) = NDA
-      NTYP(I_IM) = NDA
-      NTYP(I_RE_RES) = NDA
-      NTYP(I_IM_RES) = NDA
-C
-      CALL CDRE(INA, I_RE)
-      CALL CDIM(INA, I_IM)
-C
-C     Call DA_INTEG wrapper (safe arg handling) or DAINT directly?
-C     DA_INTEG wrapper handles IVAR allocation.
-      CALL DA_INTEG(IIV, I_RE, I_RE_RES)
-      CALL DA_INTEG(IIV, I_IM, I_IM_RES)
-C
-      CALL SET_CD_PARTS(INC, I_RE_RES, I_IM_RES)
-C
-      CALL FOXDAL(I_RE, 1)
-      CALL FOXDAL(I_IM, 1)
-      CALL FOXDAL(I_RE_RES, 1)
-      CALL FOXDAL(I_IM_RES, 1)
-C
-      RETURN
-      END
-
-      SUBROUTINE COMPUTE_CD_POI(IDX_A, IDX_B, IDX_RES)
-     *  BIND(C, NAME='compute_cd_poi')
-      USE ISO_C_BINDING
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER(C_INT) IDX_A, IDX_B, IDX_RES
-C
-      PARAMETER(LMEM=140000000,LVAR=10000000,LDIM=1000)
-      INTEGER NTYP(LVAR),NBEG(LVAR),NEND(LVAR),NMAX(LVAR),
-     *        NC(LMEM),NDIM(LDIM)
-      DOUBLE PRECISION CC(LMEM)
-      COMMON NTYP, NBEG, NEND, NMAX, CC, NC, NDIM, IDIM, IVAR, IMEM
-      INTEGER NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
-      COMMON /TYID/ NRE,NST,NLO,NCM,NVE,NDA,NCD,NGR
-      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
-      INTEGER IE1(LEA),IE2(LEA),IEO(LEA),IA1(0:LIA),IA2(0:LIA),
-     *        NCFLT(LEA),IEW(LNV),IED(LNV),LEW,LEWI,IESP,
-     *        NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
-      DOUBLE PRECISION CDA(2*LEA),EPS,EPSMAC
-      COMMON /DACOM/ CDA,EPS,EPSMAC,IE1,IE2,IEO,IA1,IA2,NCFLT,
-     *       IEW,IED,LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,LFLT,NFLT
-C
-      INTEGER IS(8)
-      INTEGER I_RE_A, I_IM_A, I_RE_B, I_IM_B
-      INTEGER I_T1, I_T2, I_T3, I_T4, I_RE_RES, I_IM_RES
-C
-      CALL ALLOC_VAR(IDX_RES, 2*NMMAX)
-      NTYP(IDX_RES) = NCD
-C
-      CALL FOXALL(IS, 8, NMMAX)
-      I_RE_A = IS(1)
-      I_IM_A = IS(2)
-      I_RE_B = IS(3)
-      I_IM_B = IS(4)
-      I_T1 = IS(5)
-      I_T2 = IS(6)
-      I_RE_RES = IS(7)
-      I_IM_RES = IS(8)
-C
-      CALL CDRE(IDX_A, I_RE_A)
-      CALL CDIM(IDX_A, I_IM_A)
-      CALL CDRE(IDX_B, I_RE_B)
-      CALL CDIM(IDX_B, I_IM_B)
-C
-C     Real Part: {ReA, ReB} - {ImA, ImB}
-      CALL DA_POISSON(I_RE_A, I_RE_B, I_T1)
-      CALL DA_POISSON(I_IM_A, I_IM_B, I_T2)
-      CALL DASDA(I_T1, I_T2, I_RE_RES)
-C
-C     Imag Part: {ReA, ImB} + {ImA, ReB}
-      CALL DA_POISSON(I_RE_A, I_IM_B, I_T1)
-      CALL DA_POISSON(I_IM_A, I_RE_B, I_T2)
-      CALL DAADA(I_T1, I_T2, I_IM_RES)
-C
-      CALL SET_CD_PARTS(IDX_RES, I_RE_RES, I_IM_RES)
-C
-      CALL FOXDAL(IS, 8)
+      INTEGER IDX, IC(1)
+      IC(1) = IDX
+      CALL FOXDAL(IC, 1)
       RETURN
       END
 
       END MODULE COSY_WRAPPER
 
       SUBROUTINE FOXSTL
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      PRINT *, '*** FOXSTL CALLED (Error in COSY Backend) ***'
-      STOP
+      RETURN
       END
 
       SUBROUTINE FOXSTP(I)
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER I
-      PRINT *, '*** FOXSTP CALLED with ', I
       STOP
       END
-

@@ -234,6 +234,26 @@ bind_cosy_func(
     ],
 )
 
+bind_cosy_func(
+    "compute_biot_savart_batch",
+    [
+        POINTER(c_int),  # NP
+        POINTER(c_int),  # NE
+        POINTER(c_int),  # POS_X
+        POINTER(c_int),  # POS_Y
+        POINTER(c_int),  # POS_Z
+        POINTER(c_int),  # SRC_X
+        POINTER(c_int),  # SRC_Y
+        POINTER(c_int),  # SRC_Z
+        POINTER(c_int),  # DL_X
+        POINTER(c_int),  # DL_Y
+        POINTER(c_int),  # DL_Z
+        POINTER(c_int),  # B_X (Result)
+        POINTER(c_int),  # B_Y (Result)
+        POINTER(c_int),  # B_Z (Result)
+    ],
+)
+
 # --- Math Framework Bindings ---
 bind_cosy_func("da_deriv_safe", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("da_integ", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
@@ -310,6 +330,66 @@ class CosyBackend:
     @staticmethod
     def var(var_index):
         return CosyDA(var_id=var_index)
+
+    @staticmethod
+    def biot_savart_batch(
+        pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z
+    ):
+        """
+        Batch Biot-Savart calculation.
+        All inputs must be lists/arrays of CosyDA objects or convertibles.
+        Returns b_x, b_y, b_z as lists of CosyDA objects.
+        """
+        n_pts = len(pos_x)
+        n_src = len(src_x)
+        
+        # Helper to get indices and keep temporaries alive
+        def get_indices(da_list):
+            indices = (c_int * len(da_list))()
+            keep_alive = []
+            for i, item in enumerate(da_list):
+                if isinstance(item, CosyDA):
+                    indices[i] = item.idx
+                elif hasattr(item, "mtf_data") and hasattr(item.mtf_data, "da") and isinstance(item.mtf_data.da, CosyDA):
+                    # Handle Sandalwood MultivariateTaylorFunction wrapper
+                    indices[i] = item.mtf_data.da.idx
+                else:
+                    # Constants need to be created as DA
+                    obj = CosyDA.from_const(item)
+                    keep_alive.append(obj)
+                    indices[i] = obj.idx
+            return indices, keep_alive
+            
+        c_pos_x, k_pos_x = get_indices(pos_x)
+        c_pos_y, k_pos_y = get_indices(pos_y)
+        c_pos_z, k_pos_z = get_indices(pos_z)
+        
+        c_src_x, k_src_x = get_indices(src_x)
+        c_src_y, k_src_y = get_indices(src_y)
+        c_src_z, k_src_z = get_indices(src_z)
+        
+        c_dl_x, k_dl_x = get_indices(dl_x)
+        c_dl_y, k_dl_y = get_indices(dl_y)
+        c_dl_z, k_dl_z = get_indices(dl_z)
+        
+        c_b_x = (c_int * n_pts)()
+        c_b_y = (c_int * n_pts)()
+        c_b_z = (c_int * n_pts)()
+        
+        libcosy.compute_biot_savart_batch(
+            byref(c_int(n_pts)), byref(c_int(n_src)),
+            c_pos_x, c_pos_y, c_pos_z,
+            c_src_x, c_src_y, c_src_z,
+            c_dl_x, c_dl_y, c_dl_z,
+            c_b_x, c_b_y, c_b_z
+        )
+        
+        # Wrap results
+        res_x = [CosyDA(idx=c_b_x[i], owned=True) for i in range(n_pts)]
+        res_y = [CosyDA(idx=c_b_y[i], owned=True) for i in range(n_pts)]
+        res_z = [CosyDA(idx=c_b_z[i], owned=True) for i in range(n_pts)]
+        
+        return res_x, res_y, res_z
 
 
 class CosyDA:
