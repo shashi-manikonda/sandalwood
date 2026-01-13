@@ -267,6 +267,26 @@ bind_cosy_func(
     ],
 )
 
+bind_cosy_func(
+    "compute_biot_savart_batch_fast",
+    [
+        c_int,  # NP (Value)
+        c_int,  # NE (Value)
+        POINTER(c_double),  # POS_X
+        POINTER(c_double),  # POS_Y
+        POINTER(c_double),  # POS_Z
+        POINTER(c_double),  # SRC_X
+        POINTER(c_double),  # SRC_Y
+        POINTER(c_double),  # SRC_Z
+        POINTER(c_double),  # DL_X
+        POINTER(c_double),  # DL_Y
+        POINTER(c_double),  # DL_Z
+        POINTER(c_double),  # B_X (Result)
+        POINTER(c_double),  # B_Y (Result)
+        POINTER(c_double),  # B_Z (Result)
+    ],
+)
+
 # --- Math Framework Bindings ---
 bind_cosy_func("da_deriv_safe", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("da_integ", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
@@ -345,13 +365,12 @@ class CosyBackend:
         return CosyDA(var_id=var_index)
 
     @staticmethod
-    def biot_savart_batch(
+    def biot_savart_batch_indices(
         pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z
     ):
         """
-        Batch Biot-Savart calculation.
-        All inputs must be lists/arrays of CosyDA objects or convertibles.
-        Returns b_x, b_y, b_z as lists of CosyDA objects.
+        Low-level batch calculation returning raw integer indices.
+        Used for Parametric Mode (MTF/DA).
         """
         n_pts = len(pos_x)
         n_src = len(src_x)
@@ -397,12 +416,75 @@ class CosyBackend:
             c_b_x, c_b_y, c_b_z
         )
         
-        # Wrap results
-        res_x = [CosyDA(idx=c_b_x[i], owned=True) for i in range(n_pts)]
-        res_y = [CosyDA(idx=c_b_y[i], owned=True) for i in range(n_pts)]
-        res_z = [CosyDA(idx=c_b_z[i], owned=True) for i in range(n_pts)]
+        # Return raw C-arrays of indices (caller must wrap them)
+        return c_b_x, c_b_y, c_b_z
+
+    @staticmethod
+    def biot_savart_batch(
+        pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z
+    ):
+        """
+        Batch Biot-Savart calculation with Hybrid Dispatch.
+        - If inputs are floats: Uses Fast Path (scalars), returns numpy arrays of floats.
+        - If inputs are DAs: Uses General Path, returns lists of CosyDA objects.
+        """
+        # Check input type availability
+        is_float_src = len(src_x) > 0 and isinstance(src_x[0], (float, np.floating, int, np.integer))
         
-        return res_x, res_y, res_z
+        if is_float_src:
+            # FAST PATH: Floats
+            n_pts = len(pos_x)
+            n_src = len(src_x)
+            
+            # Helper: Cast to contiguous doubles
+            def to_doubles(arr):
+                return np.ascontiguousarray(arr, dtype=np.float64)
+                
+            c_pos_x = to_doubles(pos_x)
+            c_pos_y = to_doubles(pos_y)
+            c_pos_z = to_doubles(pos_z)
+            c_src_x = to_doubles(src_x)
+            c_src_y = to_doubles(src_y)
+            c_src_z = to_doubles(src_z)
+            c_dl_x  = to_doubles(dl_x)
+            c_dl_y  = to_doubles(dl_y)
+            c_dl_z  = to_doubles(dl_z)
+            
+            # Outputs
+            out_x = np.zeros(n_pts, dtype=np.float64)
+            out_y = np.zeros(n_pts, dtype=np.float64)
+            out_z = np.zeros(n_pts, dtype=np.float64)
+            
+            libcosy.compute_biot_savart_batch_fast(
+                c_int(n_pts), c_int(n_src),
+                c_pos_x.ctypes.data_as(POINTER(c_double)),
+                c_pos_y.ctypes.data_as(POINTER(c_double)),
+                c_pos_z.ctypes.data_as(POINTER(c_double)),
+                c_src_x.ctypes.data_as(POINTER(c_double)),
+                c_src_y.ctypes.data_as(POINTER(c_double)),
+                c_src_z.ctypes.data_as(POINTER(c_double)),
+                c_dl_x.ctypes.data_as(POINTER(c_double)),
+                c_dl_y.ctypes.data_as(POINTER(c_double)),
+                c_dl_z.ctypes.data_as(POINTER(c_double)),
+                out_x.ctypes.data_as(POINTER(c_double)),
+                out_y.ctypes.data_as(POINTER(c_double)),
+                out_z.ctypes.data_as(POINTER(c_double)),
+            )
+            return out_x, out_y, out_z
+            
+        else:
+            # GENERAL PATH: DAs
+            c_b_x, c_b_y, c_b_z = CosyBackend.biot_savart_batch_indices(
+                pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z
+            )
+            n_pts = len(pos_x)
+            
+            # Wrap results (Legacy behavior used by tests/direct callers)
+            res_x = [CosyDA(idx=c_b_x[i], owned=True) for i in range(n_pts)]
+            res_y = [CosyDA(idx=c_b_y[i], owned=True) for i in range(n_pts)]
+            res_z = [CosyDA(idx=c_b_z[i], owned=True) for i in range(n_pts)]
+            
+            return res_x, res_y, res_z
 
 
 class CosyDA:
