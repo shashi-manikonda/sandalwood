@@ -117,3 +117,20 @@ Internal benchmarks show the impact of these optimizations:
 +-------------------------+-----------------------+-----------------------+
 | Evaluation (1M pts)     | Crash (Out of Memory) | **Stable & Fast** |
 +-------------------------+-----------------------+-----------------------+
+
+6. Hybrid Dispatch & Fortran Fast Path
+--------------------------------------
+
+While COSY Infinity provides exact high-order derivatives, the overhead of Differential Algebra (DA) tracking can be excessive for simple scalar evaluations (e.g., calculating the magnetic field at millions of points for visualization).
+
+*   **The Problem**: Using generic DA arithmetic for floating-point numbers incurs overhead from object wrapping, memory allocation, and sparse/dense array management.
+*   **The Solution**: ``sandalwood`` implements a **Hybrid Dispatch** mechanism in ``CosyBackend``.
+
+    1.  **Inspection**: The backend checks if the input coordinates are pure Python ``float/int`` or ``numpy.ndarray`` (scalars) versus ``MultivariateTaylorFunction`` objects.
+    2.  **Fast Path (Scalars)**: If inputs are scalars, execution is routed to the new ``compute_biot_savart_batch_fast`` Fortran routine.
+        *   **Implementation**: A pure ``DOUBLE PRECISION`` implementation of the Biot-Savart law.
+        *   **Parallelism**: Uses **OpenMP** to parallelize the loop over target points.
+        *   **Performance**: Avoids all DA overhead, achieving near-native Fortran speed (orders of magnitude faster than DA evaluation for scalars).
+    3.  **General Path (DA)**: If inputs are MTFs, execution routes to the standard DA-enabled Fortran routines (`compute_biot_savart_batch`) to preserve derivative information.
+
+This ensures the best of both worlds: high-performance visualization (using Fast Path) and high-precision optimization (using DA Path).
