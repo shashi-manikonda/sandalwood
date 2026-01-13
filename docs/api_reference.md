@@ -77,6 +77,7 @@ The fundamental class for representing a function as a DA vector of its Taylor c
 | `to_numpy_array` | Converts a NumPy array of mtf objects into a NumPy array of their constant values. | `mtf_array` (`numpy.ndarray`): The NumPy array of mtf objects to convert. | `numpy.ndarray`: A NumPy array of the constant values. |
 | `derivative` | Computes the partial derivative of an MTF. | `deriv_dim` (`int`): The 1-based index of the variable to differentiate with respect to. | `mtf`: A new MTF representing the partial derivative. |
 | `integrate` | Performs definite or indefinite integration of an MTF. | `integration_variable_index` (`int`): The 1-based index of the variable to integrate with respect to.<br>`lower_limit` (`float`, optional): The lower limit for definite integration.<br>`upper_limit` (`float`, optional): The upper limit for definite integration. | `mtf`: The integrated MTF. |
+| `from_cosy_indices` | Efficiently creates an array of MTF objects from raw COSY integer indices, bypassing the overhead of individual object instantiation. | `indices` (`np.ndarray`): An array of integer indices representing COSY DA variables. | `np.ndarray`: An array of MTF objects. |
 
 ## `sandalwood.complex_taylor_function` Module
 
