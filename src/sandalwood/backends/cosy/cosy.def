@@ -64,6 +64,7 @@ EXPORTS
     compute_da_to_cd
     compute_da_wnorm
     compute_biot_savart_batch
+    compute_biot_savart_batch_fast
     cosy_free
     cosy_set_cd_coeffs
     cosy_set_coeffs
