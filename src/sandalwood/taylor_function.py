@@ -717,6 +717,52 @@ class MultivariateTaylorFunction:
         coeffs = {tuple(exponent): 1.0}
         return cls(coefficients=coeffs, dimension=dimension, var_name=f"x_{var_index}")
 
+    @classmethod
+    def from_cosy_indices(cls, indices: np.ndarray, dimension: int) -> np.ndarray:
+        """
+        Factory: Wraps a numpy array of integer COSY indices into an array of 
+        MultivariateTaylorFunction objects in one go.
+        
+        This avoids the overhead of calling __init__ and checking types for each
+        element when we know we have raw low-level indices.
+        
+        Parameters
+        ----------
+        indices : np.ndarray
+            Array of int32 indices referencing COSY DA objects.
+        dimension : int
+            The dimension for all created objects.
+            
+        Returns
+        -------
+        np.ndarray
+            Object array of MultivariateTaylorFunction instances.
+        """
+        n = len(indices)
+        objs = np.empty(n, dtype=object)
+        
+        # Determine backend availability
+        if not _COSY_BACKEND_AVAILABLE or cls._IMPLEMENTATION != "cosy":
+             raise RuntimeError("bulk creation from_cosy_indices only valid when COSY backend is active")
+             
+        from .backends.cosy import cosy_backend
+        
+        for i in range(n):
+            # Bypass __init__ overhead
+            obj = cls.__new__(cls)
+            # Initialize minimal state
+            obj.mtf_data = cosy_backend.CosyMtfData(dimension=dimension, is_complex=False, idx=indices[i], owned=True)
+            obj.dimension = dimension
+            obj.var_name = None
+            obj._exponents = None
+            obj._coeffs = None
+            obj._indices = None
+            obj._dense_coeffs = None
+            objs[i] = obj
+            
+        return objs
+
+
     @staticmethod
     def list2pd(mtfs, column_names=None):
         """

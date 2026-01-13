@@ -2935,6 +2935,61 @@ C     ------------------------------------------------------------------
       RETURN
       END
 
+      SUBROUTINE COMPUTE_BIOT_SAVART_BATCH_FAST(NP, NE,
+     *     POS_X, POS_Y, POS_Z,
+     *     SRC_X, SRC_Y, SRC_Z,
+     *     DL_X, DL_Y, DL_Z,
+     *     B_X, B_Y, B_Z)
+     *  BIND(C, NAME='compute_biot_savart_batch_fast')
+      USE ISO_C_BINDING
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER(C_INT), VALUE :: NP, NE
+      REAL(C_DOUBLE), INTENT(IN) :: POS_X(NP), POS_Y(NP), POS_Z(NP)
+      REAL(C_DOUBLE), INTENT(IN) :: SRC_X(NE), SRC_Y(NE), SRC_Z(NE)
+      REAL(C_DOUBLE), INTENT(IN) :: DL_X(NE),  DL_Y(NE),  DL_Z(NE)
+      REAL(C_DOUBLE), INTENT(OUT) :: B_X(NP),   B_Y(NP),   B_Z(NP)
+
+      INTEGER I, J
+      REAL(C_DOUBLE) RX, RY, RZ, R2, R_INV3, R_INV_SQRT
+      REAL(C_DOUBLE) CX, CY, CZ
+      REAL(C_DOUBLE) BX_ACC, BY_ACC, BZ_ACC
+
+!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(I,J,RX,RY,RZ,R2,R_INV_SQRT,
+!$OMP& R_INV3,CX,CY,CZ,BX_ACC,BY_ACC,BZ_ACC)
+      DO I = 1, NP
+         BX_ACC = 0.0D0
+         BY_ACC = 0.0D0
+         BZ_ACC = 0.0D0
+
+         DO J = 1, NE
+            RX = POS_X(I) - SRC_X(J)
+            RY = POS_Y(I) - SRC_Y(J)
+            RZ = POS_Z(I) - SRC_Z(J)
+
+            R2 = RX*RX + RY*RY + RZ*RZ
+            IF (R2 .GT. 1.0D-20) THEN
+               R_INV_SQRT = 1.0D0 / SQRT(R2)
+               R_INV3 = R_INV_SQRT * R_INV_SQRT * R_INV_SQRT
+
+               ! Cross Product DL x R
+               CX = DL_Y(J)*RZ - DL_Z(J)*RY
+               CY = DL_Z(J)*RX - DL_X(J)*RZ
+               CZ = DL_X(J)*RY - DL_Y(J)*RX
+
+               BX_ACC = BX_ACC + CX * R_INV3
+               BY_ACC = BY_ACC + CY * R_INV3
+               BZ_ACC = BZ_ACC + CZ * R_INV3
+            END IF
+         END DO
+         B_X(I) = BX_ACC
+         B_Y(I) = BY_ACC
+         B_Z(I) = BZ_ACC
+      END DO
+!$OMP END PARALLEL DO
+      RETURN
+      END
+
+
       SUBROUTINE DA_VAR_FREE(IDX)
       USE ISO_C_BINDING
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
