@@ -55,6 +55,10 @@ if [ "$COSY_COMPILER" = "ifx" ]; then
     VERSION_MARKER_NEW="*IFOR"
     FFLAGS="-fPIC -O3 -march=native -fixed -qopenmp -diag-disable=10448"
     LDFLAGS="-shared -qopenmp"
+    # Find Intel libraries for RPATH
+    INTEL_LIB_DIR=$(dirname $(ifx -print-file-name=libifport.so.5))
+    echo "Embedding RPATH: $INTEL_LIB_DIR"
+    LDFLAGS="-shared -qopenmp -Wl,-rpath,$INTEL_LIB_DIR"
 else
     FC="gfortran"
     # Gfortran markers: Switch IFOR to GFOR
@@ -131,8 +135,8 @@ $FC -c $FFLAGS "$BUILD_DIR/foxgraf.f" -o "$BUILD_DIR/foxgraf.o"
 $FC -c $FFLAGS "$BUILD_DIR/helper.f" -o "$BUILD_DIR/helper.o"
 $FC -c $FFLAGS "$BUILD_DIR/wrapper.f" -o "$BUILD_DIR/wrapper.o"
 
-echo "Linking..."
-$FC $LDFLAGS -o "$OUTPUT" \
+echo "Linking with RPATH: $INTEL_LIB_DIR"
+$FC $LDFLAGS -Wl,-rpath,"$INTEL_LIB_DIR" -o "$OUTPUT" \
     "$BUILD_DIR/dafox.o" \
     "$BUILD_DIR/foxfit.o" \
     "$BUILD_DIR/foxgraf.o" \

@@ -33,6 +33,40 @@ elif sys.platform == "darwin":
     LIB_NAME = "libcosy.dylib"
 else:
     LIB_NAME = "libcosy.so"
+    # Linux: Try to preload Intel libraries if they are missing from LD_LIBRARY_PATH
+    # This fixes issues where setvars.sh wasn't sourced or RPATH is missing.
+    try:
+        # Check standard Intel OneAPI locations
+        intel_search_paths = [
+            "/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin",
+            "/opt/intel/oneapi/compiler/latest/lib",
+             # Also try specific versions if 'latest' isn't there (heuristic)
+            "/opt/intel/oneapi/compiler/2025.3/lib", 
+        ]
+        
+        # Dependencies to preload in order
+        libs_to_load = ["libifport.so.5", "libifcoremt.so.5", "libimf.so", "libsvml.so"]
+        
+        found_path = None
+        for p in intel_search_paths:
+            if os.path.exists(p):
+                # Check if libs exist here
+                if all(os.path.exists(os.path.join(p, lib)) for lib in libs_to_load[:1]):
+                    found_path = p
+                    break
+        
+        if found_path:
+            import ctypes
+            for lib in libs_to_load:
+                full_path = os.path.join(found_path, lib)
+                if os.path.exists(full_path):
+                    try:
+                        ctypes.CDLL(full_path, mode=os.RTLD_GLOBAL)
+                    except OSError:
+                        pass # Ignore if already loaded or incompatible
+    except Exception:
+        pass # Fallback to standard loading
+
 
 LIB_PATH = os.path.join(os.path.dirname(__file__), LIB_NAME)
 
