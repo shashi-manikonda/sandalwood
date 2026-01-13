@@ -44,8 +44,16 @@ else:
             "/opt/intel/oneapi/compiler/2025.3/lib", 
         ]
         
-        # Dependencies to preload in order
-        libs_to_load = ["libifport.so.5", "libifcoremt.so.5", "libimf.so", "libsvml.so"]
+        # Dependencies to preload in correct dependency order
+        # (libintlc -> libimf -> libsvml -> libifcoremt -> libifport)
+        libs_to_load = [
+            "libintlc.so.5", 
+            "libiomp5.so", 
+            "libimf.so", 
+            "libsvml.so", 
+            "libifcoremt.so.5", 
+            "libifport.so.5"
+        ]
         
         found_path = None
         for p in intel_search_paths:
