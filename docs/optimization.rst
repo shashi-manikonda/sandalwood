@@ -80,6 +80,31 @@ Evaluating a high-order polynomial at millions of points (e.g., particle trackin
     3. The evaluation loop simply looks up `cached_powers[d][idx]` instead of calling `pow`.
 * **Memory Safety:** The `neval` method automatically detects large datasets and processes them in **Chunks** (default: 10,000 points) to keep the working set within CPU L1/L2 cache.
 
+
+5. Vectorized Object Instantiation
+----------------------------------
+
+When working with large arrays of COSY results, standard Python loops for wrapping C pointers into Python objects can be a significant bottleneck.
+
+**Anti-Pattern (Slow):**
+
+.. code-block:: python
+
+    # Slow loop creating objects one by one
+    objects = []
+    for idx in cosy_indices:
+        objects.append(MultivariateTaylorFunction(idx))
+
+**Best Practice (Fast):**
+
+Use `from_cosy_indices` to perform bulk instantiation. This moves the loop to optimized C/Fortran or vectorized Python logic, reducing overhead.
+
+.. code-block:: python
+
+    # Fast bulk creation
+    objects = MultivariateTaylorFunction.from_cosy_indices(cosy_indices)
+
+
 Summary of Speedups
 -------------------
 

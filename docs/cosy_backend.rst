@@ -18,6 +18,17 @@ The backend consists of three layers:
 
 .. code-block:: text
 
+Specialized Physics Kernels
+---------------------------
+
+The COSY backend includes specialized kernels for high-performance physics simulations, accessible via **Hybrid Dispatch**.
+
+**Biot-Savart Solver**
+The `biot_savart_batch` function automatically dispatches to the most efficient kernel based on input types:
+
+*   **Fast Path (Discrete Mode):** If inputs are `float64` arrays, the backend dispatches to a raw Fortran kernel (`COMPUTE_BIOT_SAVART_BATCH_FAST`). This bypasses the DA layer entirely, offering speeds comparable to compiled C/C++ code (~100x faster than Python loops).
+*   **Parametric Path (MTF Mode):** If inputs are DA objects, the backend uses the high-order DA kernel. This allows for computing derivatives and Taylor maps but is computationally more expensive.
+
     [ Python User ]  <--  sandalwood.mtf
            |
     [ Python Backend ]  (cosy_backend.py)
