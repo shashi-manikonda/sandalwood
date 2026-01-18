@@ -1433,18 +1433,33 @@ class CosyMtfData:
             raise ValueError(f"Invalid input shape {point.shape}")
 
     def add(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+             # Create constant CosyMtfData? Or handle in underlying CosyDA
+             # CosyDA handles scalars in __add__.
+             # We need to extract .da if it's CosyMtfData
+             return self._create_res(self.da + other)
         return self._create_res(self.da + other.da)
 
     def subtract(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+             return self._create_res(self.da - other)
         return self._create_res(self.da - other.da)
 
     def multiply(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+             return self._create_res(self.da * other)
         return self._create_res(self.da * other.da)
 
     def multiply_inplace(self, other):
-        self.da = self.da * other.da
+        if isinstance(other, (int, float, complex, np.number)):
+            self.da = self.da * other
+        else:
+            self.da = self.da * other.da
 
     def divide(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+             return self._create_res(self.da / other)
+             
         c0 = other.get_constant()
         if abs(c0) == 0:
             raise ValueError("Division by zero (constant part is zero).")
@@ -1452,6 +1467,38 @@ class CosyMtfData:
 
     def negate(self):
         return self._create_res(-self.da)
+
+    # --- Operator Overloading for CosyMtfData ---
+    def __add__(self, other):
+        return self.add(other)
+    
+    def __radd__(self, other):
+        return self.add(other)
+
+    def __sub__(self, other):
+        return self.subtract(other)
+    
+    def __rsub__(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+             return self._create_res(other - self.da)
+        return NotImplemented # Should be handled by other.__sub__
+
+    def __mul__(self, other):
+        return self.multiply(other)
+    
+    def __rmul__(self, other):
+        return self.multiply(other)
+
+    def __truediv__(self, other):
+        return self.divide(other)
+
+    def __rtruediv__(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+             return self._create_res(other / self.da)
+        return NotImplemented
+
+    def __neg__(self):
+        return self.negate()
 
     def partial_derivative(self, deriv_dim):
         res = CosyMtfData(self.dimension)

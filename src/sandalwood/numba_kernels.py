@@ -27,45 +27,92 @@ except ImportError:
 @njit(fastmath=True, cache=True, parallel=True)
 def evaluate_dense_kernel(points, exponents, coeffs, result):
     """
-    Parallelized evaluation with power caching.
-    Avoids expensive pow() calls in the inner loop.
+    Parallelized evaluation with block-based power caching and vectorization.
+    Explicitly handles memory layout to maximize SIMD usage.
+    
+    Strategy:
+    1. Process points in blocks to keep data in L1/L2 cache.
+    2. Pre-compute powers for the block in a transposed layout (dim, max_order, block_size).
+    3. Vectorize the summation over the block of points for each term.
     """
     n_pts = points.shape[0]
     n_terms = len(coeffs)
     dim = points.shape[1]
     
-    # Pre-calculate max order to size the power cache
+    # Pre-calculate max order
     max_order = 0
     for j in range(n_terms):
         for d in range(dim):
             if exponents[j, d] > max_order:
                 max_order = exponents[j, d]
+                
+    # Block size optimization
+    # 256 is a reasonable balance for cache locality and vector length
+    BLOCK_SIZE = 256
     
-    # Parallelize over points
-    for i in prange(n_pts):
-        # 1. Thread-local Power Cache
-        pow_cache = np.ones((dim, max_order + 1), dtype=points.dtype)
+    # Outer parallel loop over blocks of points
+    # We round up the number of blocks
+    num_blocks = (n_pts + BLOCK_SIZE - 1) // BLOCK_SIZE
+    
+    for b in prange(num_blocks):
+        start_idx = b * BLOCK_SIZE
+        end_idx = min(start_idx + BLOCK_SIZE, n_pts)
+        actual_size = end_idx - start_idx
+        
+        if actual_size <= 0:
+            continue
+            
+        # 1. Compute Power Cache for this block
+        # Layout: (dim, max_order + 1, actual_size) -> Contiguous in 'actual_size' (SIMD friendly)
+        # Note: Numba is smart enough to stack-allocate small arrays or heap-allocate efficiently
+        pow_cache = np.ones((dim, max_order + 1, actual_size), dtype=points.dtype)
         
         for d in range(dim):
-            val = points[i, d]
-            current_pow = 1.0
-            for p in range(1, max_order + 1):
-                current_pow *= val
-                pow_cache[d, p] = current_pow
-        
-        # 2. Compute Sum
-        # Initialize accumulator with zero of the RESULT type (handling complex)
-        sum_val = result[i] * 0
+            # Base values (order 1)
+            # Copy points slice to contiguous memory if needed, but here we just read
+            current_vals = points[start_idx:end_idx, d]
+            
+            # Fill powers
+            # pow_cache[d, 0, :] is already 1.0
+            
+            # Fill Order 1
+            for k in range(actual_size):
+                pow_cache[d, 1, k] = current_vals[k]
+                
+            # Fill Higher Orders recursively
+            for p in range(2, max_order + 1):
+                for k in range(actual_size):
+                    pow_cache[d, p, k] = pow_cache[d, p-1, k] * current_vals[k]
+
+        # 2. Accumulate Terms
+        # Initialize block accumulator with zeros
+        # We infer type from result array to handle complex support
+        block_result = np.zeros(actual_size, dtype=result.dtype)
         
         for j in range(n_terms):
-            term_val = coeffs[j]
+            coeff = coeffs[j]
+            
+            # Start with coefficient
+            term_values = np.empty(actual_size, dtype=result.dtype)
+            for k in range(actual_size):
+                term_values[k] = coeff
+            
+            # Multiply by powers of each variable
             for d in range(dim):
                 exp = exponents[j, d]
                 if exp > 0:
-                    term_val *= pow_cache[d, exp]
-            sum_val += term_val
+                    # SIMD multiplication
+                    # term_values *= pow_cache[d, exp]
+                    for k in range(actual_size):
+                        term_values[k] *= pow_cache[d, exp, k]
             
-        result[i] = sum_val
+            # Add to accumulator
+            for k in range(actual_size):
+                block_result[k] += term_values[k]
+                
+        # 3. Write back
+        for k in range(actual_size):
+            result[start_idx + k] = block_result[k]
 
 @njit(fastmath=True, parallel=True)
 def multiply_dense_parallel(idx_a, coeffs_a, idx_b, coeffs_b, table, result_size):

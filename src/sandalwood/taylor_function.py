@@ -258,6 +258,100 @@ class MultivariateTaylorFunction:
         
         if cls._IMPLEMENTATION == "python":
             cls._precompute_tables()
+            
+        # --- Fast-Path Method Binding ---
+        # Bind the correct implementation of arithmetic operators to the dunder methods
+        # to avoid if/else checks in the hot path.
+        if cls._IMPLEMENTATION == "cosy":
+            cls.__add__ = cls._add_cosy
+            cls.__sub__ = cls._sub_cosy
+            cls.__mul__ = cls._mul_cosy
+            cls.__truediv__ = cls._truediv_cosy
+            # Also bind reverse operators if needed, or rely on them calling forward
+            # __radd__ usually calls self + other, so it inherits the bound __add__
+        else:
+            cls.__add__ = cls._add_python
+            cls.__sub__ = cls._sub_python
+            cls.__mul__ = cls._mul_python
+            cls.__truediv__ = cls._truediv_python
+
+    @classmethod
+    def _batch_add(cls, mtfs):
+        """
+        Efficiently adds a list of MultivariateTaylorFunction objects.
+        
+        Args:
+            mtfs: A list of MultivariateTaylorFunction objects.
+            
+        Returns:
+            MultivariateTaylorFunction: The sum.
+        """
+        if not mtfs:
+            return cls.from_constant(0.0)
+        
+        if len(mtfs) == 1:
+            return mtfs[0]
+            
+        # Dispatch to implementation
+        if cls._IMPLEMENTATION == "cosy":
+            return cls._batch_add_cosy(mtfs)
+        else:
+            return cls._batch_add_python(mtfs)
+
+    @classmethod
+    def _batch_add_cosy(cls, mtfs):
+        # Fallback to iterative add for COSY if native batch not available
+        # But we can try to optimize if backend supports it later.
+        # For now, just reduce.
+        # TODO: Use cosy_backend.batch_add if implemented in Phase 2.
+        res = mtfs[0]
+        for m in mtfs[1:]:
+            res = res + m
+        return res
+
+    @classmethod
+    def _batch_add_python(cls, mtfs):
+        # Collect all dictionaries
+        is_complex = False
+        sample_mtf = mtfs[0]
+        dimension = sample_mtf.dimension
+        
+        # Check complexity
+        for m in mtfs:
+             if m.coeffs.dtype == np.complex128 or np.iscomplexobj(m.coeffs):
+                 is_complex = True
+                 break
+        
+        # Merge using dictionary optimization
+        summed_coeffs_dict = defaultdict(complex if is_complex else float)
+        
+        for m in mtfs:
+            # We can iterate over exponents and coeffs
+            # Using direct array access is faster
+            n_terms = len(m.coeffs)
+            if n_terms == 0:
+                continue
+                
+            exps = m.exponents
+            cs = m.coeffs
+            
+            # Map exponents to tuple for dictionary key
+            # This loop is still Python overhead but avoids object creation overhead of pairwise add
+            for i in range(n_terms):
+                exp_tuple = tuple(exps[i])
+                summed_coeffs_dict[exp_tuple] += cs[i]
+
+        if not summed_coeffs_dict:
+             return cls(coefficients={}, dimension=dimension)
+
+        unique_exponents = np.array(list(summed_coeffs_dict.keys()), dtype=np.int32)
+        summed_coeffs = np.array(list(summed_coeffs_dict.values()), dtype=np.complex128 if is_complex else np.float64)
+        
+        res = cls((unique_exponents, summed_coeffs), dimension=dimension)
+        if cls._TRUNCATE_AFTER_OPERATION:
+             res._cleanup_after_operation()
+        return res
+
 
     @classmethod
     def _precompute_tables(cls):
@@ -1152,7 +1246,7 @@ class MultivariateTaylorFunction:
 
         return results
 
-    def __add__(self, other):
+    def _add_cosy(self, other):
         if not isinstance(other, MultivariateTaylorFunction):
             try:
                 other = self.to_mtf(other, self.dimension)
@@ -1162,22 +1256,27 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for addition.")
 
-        # Ensure backend consistency
-        if self._IMPLEMENTATION == "cosy":
-            self._ensure_backend()
-            other._ensure_backend()
+        self._ensure_backend()
+        other._ensure_backend()
 
-        # Backend routing
-        if (
-            self._IMPLEMENTATION == "cosy"
-            and self.mtf_data is not None
-            and other.mtf_data is not None
-        ):
+        if self.mtf_data is not None and other.mtf_data is not None:
             res_data = self.mtf_data.add(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
             if self._TRUNCATE_AFTER_OPERATION:
                 result_mtf._cleanup_after_operation()
             return result_mtf
+        # Fallback shouldn't happen if ensured
+        return NotImplemented
+
+    def _add_python(self, other):
+        if not isinstance(other, MultivariateTaylorFunction):
+            try:
+                other = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
+
+        if self.dimension != other.dimension:
+            raise ValueError("MTF dimensions must match for addition.")
 
         # Python Implementation (Optimized with dictionary)
         is_complex = np.iscomplexobj(self.coeffs) or np.iscomplexobj(other.coeffs)
@@ -1208,30 +1307,19 @@ class MultivariateTaylorFunction:
             result_mtf._cleanup_after_operation()
         return result_mtf
 
+    def __add__(self, other):
+        # Default implementation (will be swapped out)
+        if self._IMPLEMENTATION == "cosy":
+            return self._add_cosy(other)
+        else:
+            return self._add_python(other)
+
+
     def __radd__(self, other):
         """Defines reverse addition for commutative property."""
         return self.__add__(other)
 
-    def __sub__(self, other):
-        """
-        Subtracts another MultivariateTaylorFunction or a scalar from this one.
-
-        Parameters
-        ----------
-        other : MultivariateTaylorFunction or numeric
-            The object to subtract. If it's a scalar, it is first converted
-            to a constant MTF.
-
-        Returns
-        -------
-        MultivariateTaylorFunction
-            A new MTF representing the difference.
-
-        Raises
-        ------
-        ValueError
-            If the dimensions of two MTF objects do not match.
-        """
+    def _sub_cosy(self, other):
         if not isinstance(other, MultivariateTaylorFunction):
             try:
                 other = self.to_mtf(other, self.dimension)
@@ -1241,25 +1329,63 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for subtraction.")
 
-        # Ensure backend consistency
+        self._ensure_backend()
+        other._ensure_backend()
+
+        if self.mtf_data is not None and other.mtf_data is not None:
+             res_data = self.mtf_data.subtract(other.mtf_data)
+             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+             if self._TRUNCATE_AFTER_OPERATION:
+                 result_mtf._cleanup_after_operation()
+             return result_mtf
+        return NotImplemented
+
+    def _sub_python(self, other):
+        # Fallback to neg and add or direct implementation
+        # Direct is better
+        # Reuse add logic with negative sign?
+        # Actually __neg__ creates a copy.
+        # Efficient Subtraction:
+        # Same structure as add but subtract second terms
+        
+        if not isinstance(other, MultivariateTaylorFunction):
+            try:
+                other = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
+
+        if self.dimension != other.dimension:
+            raise ValueError("MTF dimensions must match for subtraction.")
+
+        is_complex = np.iscomplexobj(self.coeffs) or np.iscomplexobj(other.coeffs)
+        summed_coeffs_dict = defaultdict(complex) if is_complex else defaultdict(float)
+
+        for i in range(self.coeffs.shape[0]):
+            exp_tuple = tuple(self.exponents[i])
+            summed_coeffs_dict[exp_tuple] += self.coeffs[i]
+
+        for i in range(other.coeffs.shape[0]):
+            exp_tuple = tuple(other.exponents[i])
+            summed_coeffs_dict[exp_tuple] -= other.coeffs[i]
+            
+        if not summed_coeffs_dict:
+             unique_exponents = np.empty((0, self.dimension), dtype=np.int32)
+             summed_coeffs = np.empty((0,), dtype=np.complex128 if is_complex else np.float64)
+        else:
+             unique_exponents = np.array(list(summed_coeffs_dict.keys()), dtype=np.int32)
+             summed_coeffs = np.array(list(summed_coeffs_dict.values()), dtype=np.complex128 if is_complex else np.float64)
+        
+        result_mtf = type(self)((unique_exponents, summed_coeffs), self.dimension)
+        if self._TRUNCATE_AFTER_OPERATION:
+             result_mtf._cleanup_after_operation()
+        return result_mtf
+
+    def __sub__(self, other):
         if self._IMPLEMENTATION == "cosy":
-            self._ensure_backend()
-            other._ensure_backend()
+            return self._sub_cosy(other)
+        else:
+            return self._sub_python(other)
 
-        # Backend routing
-        if (
-            self._IMPLEMENTATION == "cosy"
-            and self.mtf_data is not None
-            and other.mtf_data is not None
-        ):
-            res_data = self.mtf_data.subtract(other.mtf_data)
-            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-            if self._TRUNCATE_AFTER_OPERATION:
-                result_mtf._cleanup_after_operation()
-            return result_mtf
-
-        # Python Implementation
-        return self + (-other)
 
     def __rsub__(self, other):
         """Defines reverse subtraction for non-commutative property."""
@@ -1267,7 +1393,51 @@ class MultivariateTaylorFunction:
             return self.to_mtf(other, self.dimension) - self
         return -(self - other)
 
-    def __mul__(self, other):
+    def _mul_cosy(self, other):
+        if isinstance(other, (int, float, complex, np.number)):
+            # Scalar mult cosy
+             # Note: mtf_data usually handles scalar mult via promote or custom op?
+             # For now using to_complex promote or standard conversion
+             # But if it is scalar, we can skip create?
+             # Let's ensure consistency:
+             pass 
+        
+        # Standardize 'other'
+        if isinstance(other, (int, float, complex, np.number)):
+             # We can handle scalar directly if mtf_data supports it, or wrap
+             # Current implementation wraps via __mul__ path?
+             # Let's just wrap it to keep it simple or implement scalar op
+             # Existing __mul__ logic:
+             pass
+        
+        # Let's reuse the logic structure
+        if isinstance(other, (int, float, complex, np.number)):
+             # Optimized scalar
+             if self.mtf_data is not None:
+                 res_data = self.mtf_data * other
+                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+                 if self._TRUNCATE_AFTER_OPERATION:
+                     result_mtf._cleanup_after_operation()
+                 return result_mtf
+
+        if not isinstance(other, MultivariateTaylorFunction):
+            return NotImplemented
+
+        if self.dimension != other.dimension:
+             raise ValueError("MTF dimensions must match for multiplication.")
+
+        self._ensure_backend()
+        other._ensure_backend()
+        
+        if self.mtf_data is not None and other.mtf_data is not None:
+            res_data = self.mtf_data.multiply(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
+        return NotImplemented
+
+    def _mul_python(self, other):
         if isinstance(other, (int, float, complex, np.number)):
             # Scalar multiplication
             if self.coeffs.size == 0:
@@ -1281,23 +1451,6 @@ class MultivariateTaylorFunction:
 
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for multiplication.")
-
-        # Ensure backend consistency
-        if self._IMPLEMENTATION == "cosy":
-            self._ensure_backend()
-            other._ensure_backend()
-
-        # Backend routing
-        if (
-            self._IMPLEMENTATION == "cosy"
-            and self.mtf_data is not None
-            and other.mtf_data is not None
-        ):
-            res_data = self.mtf_data.multiply(other.mtf_data)
-            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-            if self._TRUNCATE_AFTER_OPERATION:
-                result_mtf._cleanup_after_operation()
-            return result_mtf
 
         if self.coeffs.size == 0 or other.coeffs.size == 0:
             dtype = np.result_type(self.coeffs.dtype, other.coeffs.dtype)
@@ -1412,6 +1565,13 @@ class MultivariateTaylorFunction:
             result_mtf._cleanup_after_operation()
         return result_mtf
 
+    def __mul__(self, other):
+        if self._IMPLEMENTATION == "cosy":
+            return self._mul_cosy(other)
+        else:
+            return self._mul_python(other)
+
+
     def __rmul__(self, other):
         """Defines reverse multiplication for commutative property."""
         return self.__mul__(other)
@@ -1513,39 +1673,54 @@ class MultivariateTaylorFunction:
 
         return self._inv_mtf_internal(self)
 
-    def __truediv__(self, other):
+    def _truediv_cosy(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-            return self * (1.0 / other)
-
+             # Let's use to_mtf or special handling
+             # Reuse existing structure
+             try:
+                 other = self.to_mtf(other, self.dimension)
+             except (TypeError, ValueError):
+                 return NotImplemented
+        
         if not isinstance(other, MultivariateTaylorFunction):
-            try:
-                other = self.to_mtf(other, self.dimension)
-            except (TypeError, ValueError):
-                return NotImplemented
+            return NotImplemented
 
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for division.")
 
-        # Ensure backend consistency
-        if self._IMPLEMENTATION == "cosy":
-            self._ensure_backend()
-            other._ensure_backend()
+        angle_data = self.mtf_data # Ensure ensure_backend called before access if needed?
+        # Check ensure
+        self._ensure_backend()
+        other._ensure_backend()
+        
+        if self.mtf_data is not None and other.mtf_data is not None:
+             res_data = self.mtf_data.divide(other.mtf_data)
+             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+             if self._TRUNCATE_AFTER_OPERATION:
+                 result_mtf._cleanup_after_operation()
+             return result_mtf
+        return NotImplemented
 
-        # Backend routing
-        if (
-            self._IMPLEMENTATION == "cosy"
-            and self.mtf_data is not None
-            and other.mtf_data is not None
-        ):
-            res_data = self.mtf_data.divide(other.mtf_data)
-            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-            if self._TRUNCATE_AFTER_OPERATION:
-                result_mtf._cleanup_after_operation()
-            return result_mtf
-
+    def _truediv_python(self, other):
         # Default Python implementation
+        if isinstance(other, (int, float, complex, np.number)):
+            return self * (1.0 / other)
+            
+        if not isinstance(other, MultivariateTaylorFunction):
+            try:
+                 other = self.to_mtf(other, self.dimension)
+            except:
+                 return NotImplemented
+                 
         inverse_other_mtf = self._inv_mtf_internal(other)
         return self * inverse_other_mtf
+
+    def __truediv__(self, other):
+        if self._IMPLEMENTATION == "cosy":
+            return self._truediv_cosy(other)
+        else:
+            return self._truediv_python(other)
+
 
     def __rtruediv__(self, other):
         if not isinstance(other, MultivariateTaylorFunction):
