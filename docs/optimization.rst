@@ -134,3 +134,31 @@ While COSY Infinity provides exact high-order derivatives, the overhead of Diffe
     3.  **General Path (DA)**: If inputs are MTFs, execution routes to the standard DA-enabled Fortran routines (`compute_biot_savart_batch`) to preserve derivative information.
 
 This ensures the best of both worlds: high-performance visualization (using Fast Path) and high-precision optimization (using DA Path).
+
+7. Phase 1 Optimizations (Vectorization & Batching)
+---------------------------------------------------
+
+Recent updates (Phase 1) focused on core arithmetic and composition bottlenecks.
+
+Vectorized Horner's Method
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+The `neval` kernel (`sandalwood.numba_kernels.evaluate_dense_kernel`) was refactored to use a **Block-Based Reduction** strategy.
+*   **Block Processing**: Points are processed in blocks of 256 to maximize cache locality.
+*   **Transposed Layout**: Powers are pre-computed in a `(dim, max_order, block_size)` layout, ensuring that the inner loop over `block_size` accesses contiguous memory, enabling SIMD vectorization.
+*   **Result**: Significant speedup in large-scale evaluations.
+
+Batch Composition
+~~~~~~~~~~~~~~~~~
+`TaylorMap.compose` previously performed term-by-term addition, incurring high overhead from repeated object creation and merging.
+*   **Optimization**: Terms are now accumulated in a list `terms_to_sum`.
+*   **Batch Add**: A new `_batch_add` method (in `taylor_function.py`) efficiently sums these terms in one pass (or using optimized reductions), minimizing intermediate object churn.
+
+Fast-Path Dispatch
+~~~~~~~~~~~~~~~~~~
+To avoid repeated `if self._IMPLEMENTATION == "cosy"` checks in hot arithmetic loops:
+*   **Method Binding**: `initialize_mtf` now dynamically binds `__add__`, `__mul__`, etc., to their generic backend implementations (`_add_python`, `_add_cosy`) at class level.
+*   **Result**: Zero-overhead dispatch for arithmetic operations.
+
+COSY Scalar Operators
+~~~~~~~~~~~~~~~~~~~~~
+`CosyMtfData` (the data holder for COSY backend) now supports direct operator overloading (e.g., `da + 1.0`), removing the need for explicit constant wrapping in standard Python arithmetic.
