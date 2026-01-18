@@ -200,21 +200,14 @@ class TaylorMap:
         component_powers_cache = [{} for _ in range(self_input_dim)]
 
         for component_mtf in self.components:
-            composed_component = MultivariateTaylorFunction.from_constant(
-                0.0, dimension=new_dimension
-            )
+            # Accumulate terms for batch summation
+            terms_to_sum = []
+
             for i in range(len(component_mtf.coeffs)):
                 exponent = component_mtf.exponents[i]
                 coeff = component_mtf.coeffs[i]
 
-                # Start term with the scalar coefficient
-                # Optimization: Initialize with coeff directly if it's the first
-                # multiplication. But here we handle dimensionality.
-                # Let's create a term_mtf initialized to 1.0 (identity)
-                # Optimization: if coeff is zero, skip? (Assuming sparse handling, but
-                # check for explicit zeros)
                 if abs(coeff) < 1e-16:
-                    # Simple check, though MTF handles this internally usually
                     continue
 
                 term_mtf = None
@@ -232,15 +225,25 @@ class TaylorMap:
                         if term_mtf is None:
                             term_mtf = factor
                         else:
-                            term_mtf *= factor
+                            term_mtf = term_mtf * factor
 
                 if term_mtf is None:
                     # Constant term (all powers 0)
                     term_mtf = MultivariateTaylorFunction.from_constant(
-                        1.0, dimension=new_dimension
+                         1.0, dimension=new_dimension
                     )
-
-                composed_component += term_mtf * coeff
+                
+                # Apply coefficient
+                term_mtf = term_mtf * coeff
+                terms_to_sum.append(term_mtf)
+            
+            # Batch Summation
+            if terms_to_sum:
+                composed_component = MultivariateTaylorFunction._batch_add(terms_to_sum)
+            else:
+                 composed_component = MultivariateTaylorFunction.from_constant(
+                    0.0, dimension=new_dimension
+                )
 
             new_components.append(composed_component)
 
