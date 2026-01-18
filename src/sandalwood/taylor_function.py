@@ -2621,7 +2621,28 @@ class MultivariateTaylorFunction:
                         pass
 
             # -----------------------------------------------------------------
-            # Scalar / Fallback Path
+            # Fallback for Object Arrays (NumPy fallback)
+            # -----------------------------------------------------------------
+            # If we reached here with arrays in inputs, it means batch path was skipped or failed.
+            # We must explicitly handle element-wise operations using python operators to support
+            # object arrays of MTFs, otherwise returning NotImplemented causes TypeError.
+            if has_array:
+                # Map ufunc to operator
+                op = None
+                if ufunc == np.add:
+                    op = lambda x, y: x + y
+                elif ufunc == np.subtract:
+                    op = lambda x, y: x - y
+                elif ufunc == np.multiply:
+                    op = lambda x, y: x * y
+                elif ufunc == np.divide or ufunc == np.true_divide:
+                    op = lambda x, y: x / y
+                
+                if op is not None:
+                     return np.vectorize(op, otypes=[object])(*inputs)
+
+            # -----------------------------------------------------------------
+            # Scalar / Fallback Path (Wrapped Conversion)
             # -----------------------------------------------------------------
             mtf_inputs = []
             for i in inputs:
