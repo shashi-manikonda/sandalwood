@@ -300,14 +300,71 @@ class MultivariateTaylorFunction:
 
     @classmethod
     def _batch_add_cosy(cls, mtfs):
-        # Fallback to iterative add for COSY if native batch not available
-        # But we can try to optimize if backend supports it later.
-        # For now, just reduce.
-        # TODO: Use cosy_backend.batch_add if implemented in Phase 2.
-        res = mtfs[0]
-        for m in mtfs[1:]:
-            res = res + m
-        return res
+        """
+        Efficiently adds a list of MultivariateTaylorFunction objects using COSY batch kernel.
+        """
+        if not mtfs:
+            return cls.from_constant(0.0)
+
+        da_list = []
+        for i, m in enumerate(mtfs):
+            if isinstance(m, cls) and hasattr(m, "mtf_data") and m.mtf_data is not None:
+                 da_list.append(m.mtf_data)
+            elif hasattr(m, "mtf_data") and m.mtf_data is not None:
+                 # Handle case where isinstance fails (e.g. reload) but supports protocol
+                 da_list.append(m.mtf_data)
+            elif isinstance(m, cls):
+                 # Has class but no data? Likely Python backend MTF mixed in.
+                 # Convert to COSY using constructor which handles backend sync
+                 # Use efficient tuple constructor
+                 new_m = cls(
+                     coefficients=(m.exponents, m.coeffs), 
+                     dimension=m.dimension
+                 )
+                 if new_m.mtf_data is None:
+                     # Should not happen if cls is COSY
+                     raise RuntimeError("Failed to create COSY MTF data during conversion.")
+                 da_list.append(new_m.mtf_data)
+            else:
+                 # Scalar or compatible
+                 da_list.append(m)
+
+        from .backends.cosy.cosy_backend import CosyBackend
+        
+        # Use linear combination with all 1.0 coeffs
+        coeffs = [1.0] * len(da_list)
+        res_da = CosyBackend.linear_combination(coeffs, da_list)
+        
+        # Create result MTF wrapper
+        from .backends.cosy.cosy_backend import CosyMtfData
+        
+        # Check complexity
+        is_complex = getattr(res_da, "is_complex", False)
+        
+        # Get dimension from first MTF
+        # Note: If mtfs list has scalars, this might fail access, but _batch_add dispatch
+        # usually ensures first element is MTF or we canonicalize.
+        # But wait, mtfs can be mixed? usually not for _batch_add argument which is specialized.
+        # Let's use dimension of the first item that has it, or default.
+        ref_dim = cls.get_max_dimension()
+        if hasattr(mtfs[0], "dimension"):
+            ref_dim = mtfs[0].dimension
+            
+        data = CosyMtfData(idx=res_da.idx, owned=True, is_complex=is_complex, dimension=ref_dim)
+        
+        new_mtf = cls.__new__(cls)
+        new_mtf.dimension = ref_dim
+        new_mtf.mtf_data = data
+        new_mtf._IMPLEMENTATION = "cosy"
+        
+        # Initialize storage as None (lazy loading)
+        new_mtf.var_name = None
+        new_mtf._exponents = None
+        new_mtf._coeffs = None
+        new_mtf._indices = None
+        new_mtf._dense_coeffs = None
+        
+        return new_mtf
 
     @classmethod
     def _batch_add_python(cls, mtfs):
