@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sandalwood"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     { name="Shashikant Manikonda", email="manikonda@outlook.com" },
 ]
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-accel = ["numba"]
+accel = ["numba>=0.57"]
 torch = ["torch"]
 demos = [
     "jupyter",

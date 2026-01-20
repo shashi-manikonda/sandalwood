@@ -201,4 +201,25 @@ We benchmarked the `RingCoil` B-field calculation (Biot-Savart Law) to measure t
 | 100,000        | 11.1953      | 0.0243       | **461.23x** |
 +----------------+--------------+--------------+-------------+
 
+
 **Conclusion**: The combination of SoA layout, Fast-Path dispatch, and Batch processing has yielded a **~460x speedup** for large-scale simulations.
+
+10. Map Composition Optimization (Phase 4)
+------------------------------------------
+
+Map composition (substituting one map into another: $F(G(x))$) is computationally expensive because it requires expanding high-order polynomials raised to high powers.
+
+*   **The Bottleneck**: In sparse mode, computing $(a + b + \dots)^n$ generates an explosion of intermediate terms before simplification.
+*   **The Solution**: We implemented a **Dense Parallel Kernel** using Numba.
+
+**Algorithm Design:**
+
+1.  **Pre-computation**: Before the main loop, we compute all necessary powers of the inner map components $(G_1(x)^p, G_2(x)^p, \dots)$ and store them in a contiguous 3D dense array `(dim, max_order+1, n_terms)`.
+2.  **Parallel Accumulation**: We iterate over the terms of the outer map $F$ in parallel.
+    *   For each term $c \cdot x_1^{p_1} x_2^{p_2} \dots$, we fetch the pre-computed dense vectors.
+    *   We multiply them using the global **Multiplication Table** kernel (`dense_mul`).
+    *   The result is accumulated into **Thread-Local Buffers** to avoid race conditions.
+3.  **Result**: The final dense array is converted back to a sparse MTF only once at the end.
+
+**Performance Impact**:
+Benchmarks show a **3x - 5x speedup** compared to the Python implementation for typical 2D and 3D maps at orders 4-8.
