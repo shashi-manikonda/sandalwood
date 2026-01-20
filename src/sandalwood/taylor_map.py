@@ -194,12 +194,92 @@ class TaylorMap:
         # The new dimension will be the input dimension of the 'other' map.
         new_dimension = other.components[0].dimension if other.map_dim > 0 else 0
 
+        # Optimization: Dense Mode Numba Kernel
+        # Check if we can use the optimized path
+        use_dense = False
+        if MultivariateTaylorFunction._MULT_TABLE is not None:
+             # Check if dense tables match the target dimension
+             # Dense tables are built for _MAX_DIMENSION (global)
+             # If new_dimension mismatch, keys (exponents) won't align in _EXP_TO_IDX.
+             if new_dimension == MultivariateTaylorFunction.get_max_dimension():
+                 from . import numba_kernels
+                 if numba_kernels._NUMBA_AVAILABLE:
+                     use_dense = True
+
+        if use_dense:
+            # 1. Pre-compute powers of inner map components as dense arrays
+            # Shape: (self_input_dim, max_order+1, n_dense_terms)
+            max_order = MultivariateTaylorFunction.get_max_order()
+            n_dense_terms = len(MultivariateTaylorFunction._IDX_TO_EXP)
+            
+            # We assume complex if any component is complex
+            is_complex = any(np.iscomplexobj(c.coeffs) for c in other.components)
+            dtype = np.complex128 if is_complex else np.float64
+            
+            inner_powers = np.zeros((self_input_dim, max_order + 1, n_dense_terms), dtype=dtype)
+            
+            # Compute powers for each component
+            for d in range(self_input_dim):
+                comp = other.components[d]
+                
+                # Zero-th power is 1.0 (constant term)
+                # Dense index 0 is usually (0,0,...) -> 1.0
+                inner_powers[d, 0, 0] = 1.0
+                
+                # First power is the component itself
+                # We need to map sparse coeffs to dense array
+                # Ensure dense coeffs are materialized or compute them
+                if comp._dense_coeffs is None:
+                     # Create dense representation
+                     dense_c = np.zeros(n_dense_terms, dtype=dtype)
+                     indices = comp._get_indices()
+                     if indices is not None:
+                         dense_c[indices] = comp.coeffs
+                     inner_powers[d, 1, :] = dense_c
+                else:
+                     inner_powers[d, 1, :] = comp._dense_coeffs
+                
+                # Higher powers computed iteratively using dense_mul
+                for p in range(2, max_order + 1):
+                    numba_kernels.dense_mul(
+                        inner_powers[d, p-1, :], 
+                        inner_powers[d, 1, :], 
+                        MultivariateTaylorFunction._MULT_TABLE, 
+                        inner_powers[d, p, :]
+                    )
+
+            # 2. Compute each component of the result using the kernel
+            for component_mtf in self.components:
+                # Ensure outer component has sparse data ready (exponents/coeffs)
+                # Also ensure we handle its complexity
+                outer_coeffs = component_mtf.coeffs.astype(dtype) # promote to complex if needed
+                outer_exps = component_mtf.exponents
+                
+                # Call Numba Kernel
+                res_dense = numba_kernels.compose_dense_kernel(
+                    outer_exps, 
+                    outer_coeffs, 
+                    inner_powers, 
+                    MultivariateTaylorFunction._MULT_TABLE, 
+                    n_dense_terms
+                )
+                
+                # Convert result back to MTF
+                new_mtf = MultivariateTaylorFunction(coefficients={}, dimension=new_dimension)
+                new_mtf._dense_coeffs = res_dense
+                # Trigger sparse materialization lazily or now
+                # materializing now is safer for downstream consistency
+                new_mtf._materialize_from_dense() 
+                
+                new_components.append(new_mtf)
+                
+            return TaylorMap(new_components)
+
+        # Fallback: Original Sparse Implementation
         # Cache for powers of the input map components to avoid re-computation.
-        # Structure: cache[var_idx][power] -> MultivariateTaylorFunction
-        # We initialize it as a list of dictionaries.
         component_powers_cache = [{} for _ in range(self_input_dim)]
 
-        for component_mtf in self.components:
+        for c_idx, component_mtf in enumerate(self.components):
             # Accumulate terms for batch summation
             terms_to_sum = []
 
@@ -216,8 +296,9 @@ class TaylorMap:
                     if power > 0:
                         # Retrieve or compute the power of the map component
                         if power not in component_powers_cache[var_idx]:
+                            base = other.components[var_idx]
                             component_powers_cache[var_idx][power] = (
-                                other.components[var_idx] ** power
+                                base ** power
                             )
 
                         factor = component_powers_cache[var_idx][power]

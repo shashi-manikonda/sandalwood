@@ -150,3 +150,129 @@ def multiply_dense_parallel(idx_a, coeffs_a, idx_b, coeffs_b, table, result_size
     # 3. Reduction
     final_result = np.sum(thread_buffers, axis=0)
     return final_result
+
+@njit(fastmath=True)
+def dense_mul(A, B, table, out):
+    """
+    Multiplies dense polynomials A and B into out using precomputed table.
+    A, B, out are 1D arrays of size n_terms.
+    """
+    # Reset out
+    out[:] = 0.0
+    
+    n_a = len(A)
+    n_b = len(B)
+    
+    # Iterate over A and B
+    for i in range(n_a):
+        val_a = A[i]
+        if abs(val_a) < 1e-16:
+            continue
+            
+        for j in range(n_b):
+            val_b = B[j]
+            if abs(val_b) < 1e-16:
+                continue
+            
+            idx = table[i, j]
+            if idx != -1:
+                out[idx] += val_a * val_b
+
+@njit(parallel=True)
+def compose_dense_kernel(outer_exps, outer_coeffs, inner_powers, table, n_terms):
+    """
+    Optimized kernel for TaylorMap composition using dense arrays.
+    
+    Parameters
+    ----------
+    outer_exps : (N, dim) int array
+        Exponents of the terms in the outer map component.
+    outer_coeffs : (N,) float/complex array
+        Coefficients of the outer map component.
+    inner_powers : (dim, max_order+1, n_terms) float/complex array
+        Precomputed powers of the inner map components.
+        inner_powers[d, p, :] is the dense array for (component_d)^p.
+    table : (n_terms, n_terms) int array
+        The multiplication table.
+    n_terms : int
+        The size of the dense vector space.
+
+    Returns
+    -------
+    final_result : (n_terms,) float/complex array
+        Dense coefficients of the composition result.
+    """
+    n_outer_terms = len(outer_coeffs)
+    dim = outer_exps.shape[1]
+    
+    # Thread-local storage for accumulation
+    # Shape: (num_threads, n_terms)
+    num_threads = get_num_threads()
+    
+    # We infer dtype from the coefficients
+    result_dtype = outer_coeffs.dtype
+    thread_accumulators = np.zeros((num_threads, n_terms), dtype=result_dtype)
+    
+    # Parallel loop over outer terms
+    for i in prange(n_outer_terms):
+        tid = 0  # Default for single thread
+        if num_threads > 1:
+            # Get thread ID (requires OpenMP backend usually, or we use explicit chunking to avoid race)
+            # Numba prange automatic reduction is safer, but we are doing complex logic.
+            # We will use manual reduction into thread_accumulators using chunk logic implies we need 't'
+            # But prange doesn't give 't'. 
+            # Pattern: Use a simple manual loop chunking strategy similar to multiply_dense_parallel 
+            # if we want explicit buffers, OR use Numba's automatic reduction if possible.
+            # However, automatic reduction for array operations is tricky.
+            pass
+
+    # Better Strategy for Parallelism compatible with Numba:
+    # We split the work manually into chunks based on thread ID, just like multiply_dense_parallel
+    
+    chunk_size = (n_outer_terms + num_threads - 1) // num_threads
+    
+    for t in prange(num_threads):
+        # Determine range for this thread
+        start = t * chunk_size
+        end = min((t + 1) * chunk_size, n_outer_terms)
+        
+        if start >= end:
+            continue
+            
+        # Thread-specific scratchpads
+        # We need a 'current_poly' accumulator for the product term
+        # And a temporary buffer for intermediate multiplications
+        current_term = np.zeros(n_terms, dtype=result_dtype)
+        temp_buffer = np.zeros(n_terms, dtype=result_dtype)
+        
+        for k in range(start, end):
+            coeff = outer_coeffs[k]
+             
+            # Initialize current_term = coeff (scalar constant)
+            # In dense representation, constant term is at index 0 (assuming order logic)
+            # BUT we prefer to construct it: product starts as Identity (1.0) * coeff
+            
+            # Reset current_term to represent just the scalar 'coeff'
+            # We assume constant index is 0. 
+            # Let's double check standard ordering: (0,0,...) is usually first.
+            current_term[:] = 0.0
+            current_term[0] = coeff
+            
+            # Multiply by powers of each variable
+            for d in range(dim):
+                p = outer_exps[k, d]
+                if p > 0:
+                     # Multiply current_term * inner_powers[d, p]
+                     # Store in temp_buffer
+                     dense_mul(current_term, inner_powers[d, p], table, temp_buffer)
+                     
+                     # Swap buffers: copy temp back to current
+                     # Or just copy. For simplicity/clarity: copy.
+                     current_term[:] = temp_buffer[:]
+
+            # Add computed term contribution to thread accumulator
+            thread_accumulators[t] += current_term
+
+    # Reduction across threads
+    final_result = np.sum(thread_accumulators, axis=0)
+    return final_result
