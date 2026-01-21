@@ -69,3 +69,28 @@ library, creates a two-variable function, and evaluates it at a point.
 
 This example demonstrates the basic workflow of defining a function and
 evaluating it. For more complex examples, see the :ref:`examples` page.
+
+Running Tests
+-------------
+
+You can run the test suite using `pytest`. First, install the development dependencies:
+
+.. code-block:: bash
+
+   uv pip install -e .[dev]
+
+Then, execute the tests from the root of the repository:
+
+.. code-block:: bash
+
+   pytest
+
+To run the demo-based tests (which are excluded by default), use the `-m demo` marker:
+
+.. code-block:: bash
+
+   # Quick verification mode (~10s)
+   pytest -v -m demo tests/test_demos_quick.py
+
+   # Full simulation mode
+   SANDALWOOD_TEST_FULL_DEMOS=1 pytest -v -m demo tests/test_demos_quick.py

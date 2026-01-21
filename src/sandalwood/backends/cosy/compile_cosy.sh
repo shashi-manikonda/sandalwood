@@ -10,7 +10,7 @@
 #   1. Internalizes dimensions and memory limits from 'cosy_config.env'.
 #   2. Prepares a temporary 'build_tmp/' directory to avoid polluting 'cosy_src/'.
 #   3. Patches the Fortran source code PARAMETER statements with configured values.
-#   4. Compiles individual object files using gfortran with optimized flags.
+#   4. Compiles individual object files using the selected compiler (ifx or gfortran).
 #   5. Links everything into a shared object (.so) for Python CTypes consumption.
 #
 # Usage:
@@ -44,7 +44,7 @@ else
     export COSY_LIA=1400000
     export COSY_LNO=99
     export COSY_LNV=40
-    export COSY_COMPILER=gfortran
+    export COSY_COMPILER=ifx
 fi
 
 # Detect Compiler

@@ -8,6 +8,9 @@ import tempfile
 import pytest
 
 
+pytestmark = pytest.mark.demo
+
+
 def find_demos():
     """Recursively finds all .ipynb and .py files in the demos directory."""
     demo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demos"))
@@ -40,7 +43,7 @@ def test_demo_quick(demo_path, backend):
     fname = os.path.basename(demo_path)
 
     def patch_line(line, backend):
-        # 1. Force Backend
+        # 1. ALWAYS Force Backend (Required for test validity)
         if "mtf.initialize_mtf(max_order=" in line:
             if "implementation=" in line:
                 line = line.replace(
@@ -54,12 +57,22 @@ def test_demo_quick(demo_path, backend):
                 )
             else:
                 line = line.replace(")", f', implementation="{backend}")')
-            
-            # 2. SPEED HACK: Force low order for tests
-            # This makes 5-second tests run in 0.1 seconds
-            line = re.sub(r'max_order=\d+', 'max_order=2', line)
-            # line = re.sub(r'max_dimension=\d+', 'max_dimension=2', line)
-            
+
+        # 2. CONDITIONAL: Optimization for Quick Checks
+        # Only apply if SANDALWOOD_TEST_FULL_DEMOS is NOT set
+        if os.environ.get("SANDALWOOD_TEST_FULL_DEMOS") != "1":
+            # Force linear order (1)
+            line = re.sub(r'max_order=\d+', 'max_order=1', line)
+
+            # Reduce loops to 1 iteration
+            line = re.sub(r'range\(\s*\d+\s*\)', 'range(1)', line)
+            line = re.sub(
+                r'\b(n_turns|steps|iterations|N|n_particles)\s*=\s*\d+',
+                r'\1=1',
+                line,
+                flags=re.IGNORECASE,
+            )
+
         return line
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -153,6 +166,10 @@ def test_demo_quick(demo_path, backend):
         )
 
         if result.returncode != 0:
+            # DEBUG: Show what actually happened
+            # print(f"DEBUG: Demo {fname} failed with returncode {result.returncode}")
+            # print(f"DEBUG: STDERR: {result.stderr}")
+
             # If it failed due to missing module, skip instead of fail
             if "ModuleNotFoundError" in result.stderr:
                 missing_mod = (
@@ -161,11 +178,19 @@ def test_demo_quick(demo_path, backend):
                 pytest.skip(f"Demo {fname} requires missing module: {missing_mod}")
 
             # If it failed due to unimplemented features in Python backend, skip
-            if ("NotImplementedError" in result.stderr and (
-                "implemented for Python backend" in result.stderr
-                or "only available for the COSY backend" in result.stderr
-            )) or ("RuntimeError" in result.stderr and "COSY backend not initialized" in result.stderr):
-                pytest.skip(f"Demo {fname} uses features not available in {backend} backend")
+            if (
+                "NotImplementedError" in result.stderr
+                and (
+                    "implemented for Python backend" in result.stderr
+                    or "only available for the COSY backend" in result.stderr
+                )
+            ) or (
+                "RuntimeError" in result.stderr
+                and "COSY backend not initialized" in result.stderr
+            ):
+                pytest.skip(
+                    f"Demo {fname} uses features not available in {backend} backend"
+                )
 
             pytest.fail(
                 f"Demo {fname} failed execution:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
