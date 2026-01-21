@@ -442,6 +442,10 @@ class CosyBackend:
 
     @staticmethod
     def initialize(order, dim):
+        # Clear stale indices from the pool to prevent reuse across re-initializations
+        CosyIndexPool._free_indices_da.clear()
+        CosyIndexPool._free_indices_cda.clear()
+
         CosyBackend._order = order
         CosyBackend._dim = dim
         c_order = c_int(order)
