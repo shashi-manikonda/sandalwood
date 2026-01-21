@@ -142,6 +142,11 @@ bind_cosy_func(
     [POINTER(c_int), POINTER(c_double), POINTER(c_int), POINTER(c_int)],
 )
 bind_cosy_func("eval_da", [POINTER(c_int), POINTER(c_double), POINTER(c_double)])
+bind_cosy_func("da_reset", [POINTER(c_int)])
+bind_cosy_func("da_reset_cd", [POINTER(c_int)])
+bind_cosy_func("compute_da_div_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_int", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func("compute_cd_poi", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 
 # Arithmetic
 bind_cosy_func("compute_da_add", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
@@ -361,11 +366,14 @@ _USE_OMP = bool(os.environ.get("COSY_USE_OMP", "0"))
 
 
 class CosyScope:
+    _depth = 0
+
     def __init__(self):
         self.ivar = c_int(0)
         self.imem = c_int(0)
 
     def __enter__(self):
+        CosyScope._depth += 1
         if not CosyBackend.is_initialized():
             raise RuntimeError("COSY backend not initialized")
         libcosy.get_mem_state(byref(self.ivar), byref(self.imem))
@@ -373,7 +381,52 @@ class CosyScope:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         libcosy.set_mem_state(byref(self.ivar), byref(self.imem))
+        CosyScope._depth -= 1
         return False
+
+
+class CosyIndexPool:
+    _free_indices_da = []
+    _free_indices_cda = []
+    _chunk_size = int(os.environ.get("SANDALWOOD_COSY_POOL_SIZE", "1024"))
+
+    @classmethod
+    def acquire(cls, is_complex=False):
+        # Bypass pool if inside a CosyScope stack context
+        if CosyScope._depth > 0:
+            res_idx = c_int(0)
+            if is_complex:
+                libcosy.create_cda_const(byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0)))
+            else:
+                libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+            return res_idx.value
+
+        pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+        
+        if not pool:
+            # Allocate a new chunk
+            for _ in range(cls._chunk_size):
+                res_idx = c_int(0)
+                if is_complex:
+                    libcosy.create_cda_const(byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0)))
+                else:
+                    libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+                pool.append(res_idx.value)
+
+        idx = pool.pop()
+        # Mathematically clean reset
+        if is_complex:
+            libcosy.da_reset_cd(byref(c_int(idx)))
+        else:
+            libcosy.da_reset(byref(c_int(idx)))
+        return idx
+
+    @classmethod
+    def release(cls, idx, is_complex=False):
+        # Only pool if outside scope; inside scope, indices are invalid after rewind
+        if CosyScope._depth == 0 and idx is not None:
+            pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+            pool.append(idx)
 
 
 class CosyBackend:
@@ -491,8 +544,7 @@ class CosyBackend:
         # We perform the loop using direct C calls for speed.
         
         # Allocate accumulator
-        c_res_idx = c_int(0)
-        libcosy.create_da_const(byref(c_res_idx), byref(c_double(0.0)))
+        c_res_idx = c_int(CosyIndexPool.acquire())
         
         c_temp_idx = c_int(0)
         c_add_res = c_int(0)
@@ -510,7 +562,7 @@ class CosyBackend:
                 # Multiply by scalar
                 # Note: compute_da_mul_const allocates result in last arg?
                 # compute_da_mul_const(idx_in, val, idx_out)
-                c_scaled_idx = c_int(0)
+                c_scaled_idx = c_int(CosyIndexPool.acquire())
                 libcosy.compute_da_mul_const(
                     byref(c_int(idx)), byref(c_double(coeff)), byref(c_scaled_idx)
                 )
@@ -524,19 +576,20 @@ class CosyBackend:
             # R = R + Term
             # result index changes at each step.
             
-            c_next_res = c_int(0)
+            c_next_res = c_int(CosyIndexPool.acquire())
             libcosy.compute_da_add(
                 byref(c_res_idx), byref(c_int(term_idx.value if hasattr(term_idx,'value') else term_idx)), byref(c_next_res)
             )
             
-            # Free old accumulator?
-            # cosydone/free logic not fully exposed/safe here without Scope?
-            # We let it leak or rely on scope cleanup?
-            # For this fallback, we just move forward.
+            # Free old accumulator
+            old_idx = c_res_idx.value
+            CosyIndexPool.release(old_idx)
             
             c_res_idx = c_next_res
             
             # If we scaled, we created a temp, technically should free it.
+            if hasattr(term_idx, 'value') and term_idx.value != idx:
+                 CosyIndexPool.release(term_idx.value)
              
         return CosyDA(idx=c_res_idx.value, owned=True)
 
@@ -572,9 +625,9 @@ class CosyBackend:
             'div': libcosy.compute_da_div_batch
         }
         
-        if op not in func_map:
-            raise ValueError(f"Unknown batch op {op}")
-            
+        for i in range(n):
+            c_idx_res[i] = CosyIndexPool.acquire()
+
         func_map[op](
             byref(c_n),
             c_idx_a, 
@@ -665,15 +718,11 @@ class CosyDA:
             self.idx = idx
         elif create_new:
             self.owned = True
-            res_idx = c_int(0)
-            libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
-            self.idx = res_idx.value
+            self.idx = CosyIndexPool.acquire()
         elif var_id is not None:
             self.owned = True
-            res_idx = c_int(0)
-            # Use 0.0 as default value for variables (Monomial x_i)
-            # Convert 0-based Python index to 1-based COSY index
             # Use safe NDA creation to avoid NST issues
+            res_idx = c_int(0)
             libcosy.create_nda_var(
                 byref(res_idx), byref(c_double(0.0)), byref(c_int(var_id + 1))
             )
@@ -682,12 +731,8 @@ class CosyDA:
             raise ValueError("Must provide idx, create_new=True, or var_id")
 
     def __del__(self):
-        # With CosyScope, manual freeing is dangerous if the scope already rewound.
-        # But for global variables (outside scope), we still need it.
-        # Ideally, we should track if we are inside a scope.
-        # For now, we rely on the user to be careful or the OS to reclaim eventually.
-        # If we are using Scope, we should probably NOT free individually.
-        pass  # Disabled manual free to rely on Scope or OS.
+        if hasattr(self, "idx") and self.owned:
+            CosyIndexPool.release(self.idx)
         # CAUTION: This means without Scope, we leak until reset.
         # But with COSY stack allocator, individual free only works for TOP element anyway.
         # So individual free was already broken for non-top elements.
@@ -748,7 +793,7 @@ class CosyDA:
     def __add__(self, other):
         if self._should_promote(other):
             return self.to_complex() + other
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, CosyDA):
             libcosy.compute_da_add(
                 byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx)
@@ -770,7 +815,7 @@ class CosyDA:
     def __sub__(self, other):
         if self._should_promote(other):
             return self.to_complex() - other
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, CosyDA):
             libcosy.compute_da_sub(
                 byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx)
@@ -789,7 +834,7 @@ class CosyDA:
     def __rsub__(self, other):
         if self._should_promote(other):
             return CosyCDA.from_const(other) - self
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, (int, float, np.number)):
             libcosy.compute_da_sub_r_const(
                 byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx)
@@ -804,7 +849,7 @@ class CosyDA:
     def __neg__(self):
         if self.is_complex:
             return self.to_complex() * -1.0
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         con = CosyDA.from_const(0.0)
         libcosy.compute_da_sub(
             byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx)
@@ -819,7 +864,7 @@ class CosyDA:
     def __mul__(self, other):
         if self._should_promote(other):
             return self.to_complex() * other
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, CosyDA):
             libcosy.compute_da_mul(
                 byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx)
@@ -839,7 +884,7 @@ class CosyDA:
     def __truediv__(self, other):
         if self._should_promote(other):
             return self.to_complex() / other
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, CosyDA):
             libcosy.compute_da_div(
                 byref(c_int(self.idx)), byref(c_int(other.idx)), byref(res_idx)
@@ -858,7 +903,7 @@ class CosyDA:
     def __rtruediv__(self, other):
         if self._should_promote(other):
             return CosyCDA.from_const(other) / self
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, (int, float, np.number)):
             libcosy.compute_da_div_r_const(
                 byref(c_int(self.idx)), byref(c_double(float(other))), byref(res_idx)
@@ -871,116 +916,107 @@ class CosyDA:
         return CosyDA(idx=res_idx.value, owned=True)
 
     def deriv(self, var_id):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         c_var = c_int(var_id + 1)
         c_idx = c_int(self.idx)
         libcosy.da_deriv_safe(byref(c_var), byref(c_idx), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def integral(self, var_id):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         c_var = c_int(var_id + 1)
         c_idx = c_int(self.idx)
         libcosy.da_integ(byref(c_var), byref(c_idx), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def poisson_bracket(self, other):
-        res_idx = c_int(0)
-        # Note: DA_POISSON wrapper might NOT allocate INC. It calls DAPOI(INA, INB, INC, SCRATCH).
-        # We need to verify if DA_POISSON fixed.
-        # Assuming we need to allocate for POISSON if wrapper doesn't.
-        # But for now, let's keep original alloc for Poisson or fix wrapper?
-        # Let's fix wrapper later if test fails. Reverting to create_da_const for Poisson just in case?
-        # Or better: check wrapper.
-        c_zero_val = c_double(0.0)
-        c_zero_int = c_int(0)
-        libcosy.create_da_var(byref(res_idx), byref(c_zero_val), byref(c_zero_int))
-
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(other, CosyDA):
             c_idx_self = c_int(self.idx)
             c_idx_other = c_int(other.idx)
             libcosy.da_poisson(byref(c_idx_self), byref(c_idx_other), byref(res_idx))
         else:
-            libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+            # Constant 0 reset
+            libcosy.da_reset(byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sin(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_sin(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def cos(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_cos(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def exp(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_exp(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def log(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_log(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sinh(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_sinh(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def cosh(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_cosh(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def tanh(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_tanh(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def tan(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_tan(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def sqrt(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_sqrt(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def arcsin(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_asin(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def arccos(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_acos(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def arctan(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_atan(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inv_sqrt(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_isrt(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inv_cbrt(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_isrt3(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def coth(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_coth(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def cot(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_cot(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
@@ -1025,19 +1061,19 @@ class CosyDA:
         for i, arg in enumerate(args_da_list):
             args_indices[i] = arg.idx
 
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_polval(
             byref(res_idx), byref(c_int(self.idx)), args_indices, byref(c_int(n_args))
         )
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inverse(self):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         libcosy.compute_da_mui(byref(c_int(self.idx)), byref(res_idx))
         return CosyDA(idx=res_idx.value, owned=True)
 
     def __pow__(self, exponent):
-        res_idx = c_int(0)
+        res_idx = c_int(CosyIndexPool.acquire())
         if isinstance(exponent, int):
             libcosy.compute_da_pep(
                 byref(c_int(self.idx)), byref(c_int(exponent)), byref(res_idx)
@@ -1047,6 +1083,7 @@ class CosyDA:
                 byref(c_int(self.idx)), byref(c_double(exponent)), byref(res_idx)
             )
         else:
+            CosyIndexPool.release(res_idx.value)
             return NotImplemented
         return CosyDA(idx=res_idx.value, owned=True)
 
@@ -1070,11 +1107,7 @@ class CosyCDA(CosyDA):
             self.idx = idx
         elif create_new:
             self.owned = True
-            res_idx = c_int(0)
-            libcosy.create_cda_const(
-                byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
-            )
-            self.idx = res_idx.value
+            self.idx = CosyIndexPool.acquire(is_complex=True)
         elif from_var:
             var_id, real_val = from_var
             self.owned = True
@@ -1096,7 +1129,9 @@ class CosyCDA(CosyDA):
                 "Must provide idx, create_new=True, from_var, or from_const"
             )
 
-    # __del__ is inherited, so it does nothing (which is good for Scope)
+    def __del__(self):
+        if hasattr(self, "idx") and self.owned:
+            CosyIndexPool.release(self.idx, is_complex=True)
 
     def get_constant(self):
         re_da = CosyDA(create_new=True)
@@ -1784,7 +1819,10 @@ def _prepare_batch_args(idx_arr_a, idx_arr_b):
 
     a_ptr = np.ascontiguousarray(idx_arr_a, dtype=np.int32)
     b_ptr = np.ascontiguousarray(idx_arr_b, dtype=np.int32)
-    res_ptr = np.zeros(n, dtype=np.int32)
+    
+    # Acquire pooled indices for results
+    res_indices = [CosyIndexPool.acquire() for _ in range(n)]
+    res_ptr = np.array(res_indices, dtype=np.int32)
 
     return n, a_ptr, b_ptr, res_ptr
 

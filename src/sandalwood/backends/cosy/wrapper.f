@@ -353,8 +353,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAADA(IDX_A, IDX_B, IDX_RES)
       RETURN
       END
@@ -369,8 +371,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DASDA(IDX_A, IDX_B, IDX_RES)
       RETURN
       END
@@ -385,8 +389,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAMDA(IDX_A, IDX_B, IDX_RES)
       RETURN
       END
@@ -401,9 +407,11 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
-      CALL DADDA(IDX_A, IDX_B, IDX_RES)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
+      CALL DADIV(IDX_A, IDX_B, IDX_RES)
       RETURN
       END
 
@@ -417,8 +425,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DADER(IVAR, IDX_IN, IDX_RES)
       RETURN
       END
@@ -433,8 +443,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAINT(IVAR, IDX_IN, IDX_RES)
       RETURN
       END
@@ -449,8 +461,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAPOI2(IDX_A, IDX_B, IDX_RES, NVMAX)
       RETURN
       END
@@ -465,8 +479,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAEXP(IDX_IN, IDX_RES)
       RETURN
       END
@@ -481,8 +497,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DALOG(IDX_IN, IDX_RES)
       RETURN
       END
@@ -525,8 +543,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DACOSE(IDX_IN, IDX_RES)
       RETURN
       END
@@ -541,8 +561,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DADTAN(IDX_IN, IDX_RES)
       RETURN
       END
@@ -557,8 +579,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DASQRT(IDX_IN, IDX_RES)
       RETURN
       END
@@ -573,8 +597,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DASQR(IDX_IN, IDX_RES)
       RETURN
       END
@@ -589,8 +615,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DASINH(IDX_IN, IDX_RES)
       RETURN
       END
@@ -605,8 +633,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DACOSH(IDX_IN, IDX_RES)
       RETURN
       END
@@ -621,8 +651,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DATANH(IDX_IN, IDX_RES)
       RETURN
       END
@@ -637,8 +669,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAASIN(IDX_IN, IDX_RES)
       RETURN
       END
@@ -653,8 +687,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAACOS(IDX_IN, IDX_RES)
       RETURN
       END
@@ -669,8 +705,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DAATAN(IDX_IN, IDX_RES)
       RETURN
       END
@@ -685,8 +723,10 @@ C     Allocate Scratchpad (20 slots)
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      IDX_RES = IC(1)
+      IF (IDX_RES .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         IDX_RES = IC(1)
+      END IF
       CALL DACOTH(IDX_IN, IDX_RES)
       RETURN
       END
@@ -2701,7 +2741,9 @@ C     ------------------------------------------------------------------
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
 
-      CALL FOXALL(IDX_RES, N, NMMAX)
+      IF (IDX_RES(1) .EQ. 0) THEN
+         CALL FOXALL(IDX_RES, N, NMMAX)
+      END IF
       DO K = 1, N
          CALL DAADA(IDX_A(K), IDX_B(K), IDX_RES(K))
       END DO
@@ -2721,7 +2763,9 @@ C     ------------------------------------------------------------------
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
 
-      CALL FOXALL(IDX_RES, N, NMMAX)
+      IF (IDX_RES(1) .EQ. 0) THEN
+         CALL FOXALL(IDX_RES, N, NMMAX)
+      END IF
       DO K = 1, N
          CALL DASDA(IDX_A(K), IDX_B(K), IDX_RES(K))
       END DO
@@ -2741,7 +2785,9 @@ C     ------------------------------------------------------------------
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
 
-      CALL FOXALL(IDX_RES, N, NMMAX)
+      IF (IDX_RES(1) .EQ. 0) THEN
+         CALL FOXALL(IDX_RES, N, NMMAX)
+      END IF
       DO K = 1, N
          CALL DAMDA(IDX_A(K), IDX_B(K), IDX_RES(K))
       END DO
@@ -2999,6 +3045,61 @@ C     ------------------------------------------------------------------
       RETURN
       END
 
+      SUBROUTINE COMPUTE_DA_DIV_BATCH(N, IDX_A, IDX_B, IDX_RES)
+     *  BIND(C, NAME='compute_da_div_batch')
+      USE ISO_C_BINDING
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER(C_INT) N
+      INTEGER(C_INT) IDX_A(N), IDX_B(N), IDX_RES(N)
+      INTEGER K
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
+     *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      IF (IDX_RES(1) .EQ. 0) THEN
+         CALL FOXALL(IDX_RES, N, NMMAX)
+      END IF
+      DO K = 1, N
+         CALL DADIV(IDX_A(K), IDX_B(K), IDX_RES(K))
+      END DO
+      RETURN
+      END
+
+      SUBROUTINE DA_RESET_CD(IDX)
+     *  BIND(C, NAME='da_reset_cd')
+      USE ISO_C_BINDING
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER(C_INT) IDX
+      INTEGER IC_TEMPS(2)
+      DOUBLE PRECISION ZERO
+      PARAMETER (ZERO=0.0D0)
+      PARAMETER(LEA=100000,LIA=1400000,LNO=99,LNV=40)
+      COMMON /DACOM/ CDA(2*LEA),EPS,EPSMAC,IE1(LEA),IE2(LEA),
+     *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
+     *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
+     *       LFLT,NFLT
+      IF (NMMAX .GT. 0) THEN
+         CALL FOXALL(IC_TEMPS, 2, NMMAX)
+      ELSE
+         CALL FOXALL(IC_TEMPS, 2, 50000)
+      END IF
+      CALL DACON(IC_TEMPS(1), ZERO)
+      CALL DACON(IC_TEMPS(2), ZERO)
+      CALL SET_CD_PARTS(IDX, IC_TEMPS(1), IC_TEMPS(2))
+      CALL FOXDAL(IC_TEMPS, 2)
+      RETURN
+      END
+
+      SUBROUTINE DA_RESET(IDX) BIND(C, NAME='da_reset')
+      USE ISO_C_BINDING
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      INTEGER(C_INT) IDX
+      DOUBLE PRECISION ZERO
+      PARAMETER (ZERO=0.0D0)
+      CALL DACON(IDX, ZERO)
+      RETURN
+      END
       END MODULE COSY_WRAPPER
 
       SUBROUTINE FOXSTL
