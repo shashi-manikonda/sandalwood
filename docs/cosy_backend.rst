@@ -16,7 +16,39 @@ The backend consists of three layers:
 2.  **C-Types Bridge (`cosy_backend.py`)**: A thin Python layer that marshals pointers and integers directly to the shared library.
 3.  **High-Level Wrapper (`CosyDA`)**: A Python class that manages the lifecycle of COSY variables using integer **Indices**, shielding the user from manual memory management.
 
-.. code-block:: text
+Memory Management Architecture
+------------------------------
+
+.. warning::
+   **The COSY Backend is not thread-safe.** 
+   COSY Infinity uses global STATIC memory (Fortran COMMON blocks) for all calculations. While Sandalwood's Numba kernels are thread-safe (utilizing thread-local buffers), the COSY backend and its `CosyIndexPool` are strictly single-threaded. 
+   
+   **Do not use CosyDA or CosyCDA objects inside `threading.Thread` or `multiprocessing` worker pools without explicit, global locks.** Overlapping calls to the COSY library will result in memory corruption and unpredictable crashes.
+
+Effective memory management is critical when bridging Python's dynamic environment with COSY's static Fortran roots.
+
+**CosyIndexPool: Object Recycling**
+To prevent the overhead of frequent ``malloc/free`` cycles in the underlying stack, Sandalwood implements a **Robust Memory Pooling** (Object Pool Pattern).
+The `CosyIndexPool` maintains a list of available COSY variable indices. When a calculation needs a temporary variable, it "acquires" an index from the pool in **O(1)** time. Once the calculation is complete, the index is "released" back to the pool for future reuse. This prevents "stack thrashing" and significantly improves performance in iterative batch operations.
+
+**Numerical Hygiene: DA_RESET**
+Reusing memory indices requires strict hygiene. Before an index is acquired from the pool, it is subjected to a **Hard Reset** via the `DA_RESET` mechanism.
+This Fortran-level routine explicitly:
+
+* Sets the variable to a constant 0.0 using `DACON`.
+* Re-initializes the internal type metadata (`NTYP`) to the base Differential Algebra type (`NDA`).
+* Clears any stale high-order coefficients.
+
+This ensures that every "new" variable is numerically clean, preventing intermediate results from leaking into subsequent calculations.
+
+**Configuration: Pool Sizing**
+The memory pool size can be tuned via the environment variable:
+
+.. code-block:: bash
+
+   export SANDALWOOD_COSY_POOL_SIZE=1024
+
+The default value is **1024**. For massive batch operations or high-order compositions involving millions of intermediate terms, increasing this value (e.g., to 4096) can reduce acquisition latency, at the cost of higher static memory usage.
 
 Specialized Physics Kernels
 ---------------------------
