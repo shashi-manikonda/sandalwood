@@ -411,7 +411,7 @@ C     Allocate Scratchpad (20 slots)
          CALL FOXALL(IC, 1, NMMAX)
          IDX_RES = IC(1)
       END IF
-      CALL DADIV(IDX_A, IDX_B, IDX_RES)
+      CALL DADDA(IDX_A, IDX_B, IDX_RES)
       RETURN
       END
 
@@ -3061,7 +3061,7 @@ C     ------------------------------------------------------------------
          CALL FOXALL(IDX_RES, N, NMMAX)
       END IF
       DO K = 1, N
-         CALL DADIV(IDX_A(K), IDX_B(K), IDX_RES(K))
+         CALL DADDA(IDX_A(K), IDX_B(K), IDX_RES(K))
       END DO
       RETURN
       END

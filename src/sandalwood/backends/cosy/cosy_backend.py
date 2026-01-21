@@ -1686,6 +1686,10 @@ class CosyMtfData:
         # Determine idx
         idx = res_da.idx if hasattr(res_da, "idx") else None
 
+        # Transfer ownership: stop res_da from freeing the index when it dies
+        if hasattr(res_da, "owned"):
+             res_da.owned = False
+
         return CosyMtfData(self.dimension, is_complex=is_complex, idx=idx, owned=True)
 
     def sin(self):
