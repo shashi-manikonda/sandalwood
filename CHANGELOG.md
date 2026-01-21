@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-01-21
+
+### Added
+- **Robust Memory Pooling**: Implemented `CosyIndexPool` (Object Pool Pattern) for O(1) variable allocation.
+- **Map Composition Optimization**: Implemented Numba JIT kernels for map composition, resulting in 3x-5x speedup.
+- **Architectural Documentation**: New sections in `cosy_backend.rst` and `optimization.rst` detailing memory management and composition strategies.
+- **Performance Configuration**: Support for `SANDALWOOD_COSY_POOL_SIZE` for fine-tuning memory usage.
+
+### Fixed
+- **Memory Leaks**: Resolved "Split Brain" leaks in COSY batch operations by implementing strict conditional allocation.
+- **Numerical Hygiene**: Implemented `DA_RESET` (Hard Reset) to ensure numerical stability across recycled indices.
+- **Mixed-Mode Arithmetic**: Fixed backend crashes by ensuring strict type promotion (Real -> Complex) in variable wrappers.
+
 ## [0.1.1] - 2026-01-18
 
 ### Fixed

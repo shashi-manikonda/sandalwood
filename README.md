@@ -130,6 +130,14 @@ The COSY Infinity backend is supported across all platforms and is **automatical
   python setup.py build_cosy
   ```
 
+## Performance Tuning
+
+Sandalwood allows for fine-grained performance tuning through environment variables:
+
+- **`SANDALWOOD_COSY_POOL_SIZE`**: (Default: `1024`) Controls the size of the internal COSY index pool. Larger pools reduce allocation latency in massive batch operations but increase static memory overhead.
+
+For advanced architectural details on memory management and high-performance kernels, see the [Documentation](https://sandalwoodrary.readthedocs.io/en/latest/).
+
 ## Running Tests
 
 The project uses `pytest` for testing. First, install the test dependencies:

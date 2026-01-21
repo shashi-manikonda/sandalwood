@@ -736,6 +736,9 @@ class CosyDA:
         else:
             raise ValueError("Must provide idx, create_new=True, or var_id")
 
+    def __repr__(self):
+        return f"<CosyDA idx={self.idx}>"
+
     def __del__(self):
         if hasattr(self, "idx") and self.owned:
             CosyIndexPool.release(self.idx)
@@ -1134,6 +1137,9 @@ class CosyCDA(CosyDA):
             raise ValueError(
                 "Must provide idx, create_new=True, from_var, or from_const"
             )
+
+    def __repr__(self):
+        return f"<CosyCDA idx={self.idx}>"
 
     def __del__(self):
         if hasattr(self, "idx") and self.owned:

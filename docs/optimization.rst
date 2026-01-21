@@ -210,7 +210,7 @@ We benchmarked the `RingCoil` B-field calculation (Biot-Savart Law) to measure t
 Map composition (substituting one map into another: $F(G(x))$) is computationally expensive because it requires expanding high-order polynomials raised to high powers.
 
 *   **The Bottleneck**: In sparse mode, computing $(a + b + \dots)^n$ generates an explosion of intermediate terms before simplification.
-*   **The Solution**: We implemented a **Dense Parallel Kernel** using Numba.
+*   **The Solution**: We implemented a **Hybrid Strategy** that combines high-level topological logic with **Just-In-Time (JIT) compiled kernels** using Numba.
 
 **Algorithm Design:**
 
@@ -222,4 +222,4 @@ Map composition (substituting one map into another: $F(G(x))$) is computationall
 3.  **Result**: The final dense array is converted back to a sparse MTF only once at the end.
 
 **Performance Impact**:
-Benchmarks show a **3x - 5x speedup** compared to the Python implementation for typical 2D and 3D maps at orders 4-8.
+Benchmarks show a **3x - 5x speedup** compared to the pure Python implementation for typical 2D and 3D maps at orders 4-8. This optimization is automatically engaged when the multiplication table is available (dense mode).
