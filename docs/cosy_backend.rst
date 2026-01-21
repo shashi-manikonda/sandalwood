@@ -137,8 +137,8 @@ A configuration file is provided at ``src/sandalwood/backends/cosy/cosy_config.e
 
 Sandalwood supports two main Fortran compilers on Linux:
 
-*   **GNU Fortran (gfortran)**: The standard open-source choice. Robust and widely available.
-*   **Intel Fortran (ifx)**: Recommended for maximum performance on Intel hardware. It provides superior auto-vectorization and highly optimized OpenMP performance.
+*   **Intel Fortran (ifx)**: **The recommended default.** Recommended for maximum performance on Intel hardware. It provides superior auto-vectorization and highly optimized OpenMP performance.
+*   **GNU Fortran (gfortran)**: The standard open-source fallback. Robust and widely available.
 
 ### Intel oneAPI Integration
 

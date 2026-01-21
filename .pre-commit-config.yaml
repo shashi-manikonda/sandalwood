@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: quick-demo-check
+        name: Verify Demos (Quick)
+        entry: pytest -v -m demo tests/test_demos_quick.py
+        language: system
+        pass_filenames: false
+        always_run: true

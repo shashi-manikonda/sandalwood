@@ -121,7 +121,7 @@ f_loaded = mtf.from_json(json_str)
 ### COSY Backend
 The COSY Infinity backend is supported across all platforms and is **automatically compiled** during the standard installation process (`uv pip install -e .`). 
 
-- **Linux/macOS**: Requires `gfortran`.
+- **Linux/macOS**: Requires **Intel Fortran (`ifx`)** (recommended) or `gfortran`.
 - **Windows**: Requires the **Intel Fortran Compiler (`ifx`)** and **Microsoft Visual Studio Build Tools**.
     - Install [Intel oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html) and [HPC Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/hpc-toolkit.html).
     - Ensure `ifx` is available in your Intel environment if initialized manually, though `setup.py` attempts to auto-detect the environment.
@@ -156,3 +156,16 @@ Then, run the test suite from the root of the repository:
 ```bash
 pytest
 ```
+
+### Running Demo Tests
+
+Demo tests are excluded by default to keep the core test suite fast. To run them, use the `-m demo` marker:
+
+*   **Quick Mode (Verification)**: Automatically reduces simulation complexity for fast feedback (~10s).
+    ```bash
+    pytest -v -m demo tests/test_demos_quick.py
+    ```
+*   **Full Mode (Simulation)**: Runs demos with their original, high-fidelity parameters.
+    ```bash
+    SANDALWOOD_TEST_FULL_DEMOS=1 pytest -v -m demo tests/test_demos_quick.py
+    ```
