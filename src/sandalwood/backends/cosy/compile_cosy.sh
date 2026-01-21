@@ -135,8 +135,8 @@ $FC -c $FFLAGS "$BUILD_DIR/foxgraf.f" -o "$BUILD_DIR/foxgraf.o"
 $FC -c $FFLAGS "$BUILD_DIR/helper.f" -o "$BUILD_DIR/helper.o"
 $FC -c $FFLAGS "$BUILD_DIR/wrapper.f" -o "$BUILD_DIR/wrapper.o"
 
-echo "Linking with RPATH: $INTEL_LIB_DIR"
-$FC $LDFLAGS -Wl,-rpath,"$INTEL_LIB_DIR" -o "$OUTPUT" \
+echo "Linking..."
+$FC $LDFLAGS -o "$OUTPUT" \
     "$BUILD_DIR/dafox.o" \
     "$BUILD_DIR/foxfit.o" \
     "$BUILD_DIR/foxgraf.o" \

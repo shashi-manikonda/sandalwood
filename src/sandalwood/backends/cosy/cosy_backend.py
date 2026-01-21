@@ -419,12 +419,14 @@ class CosyIndexPool:
             libcosy.da_reset_cd(byref(c_int(idx)))
         else:
             libcosy.da_reset(byref(c_int(idx)))
+        # print(f"ACQUIRE {idx} complex={is_complex}")
         return idx
 
     @classmethod
     def release(cls, idx, is_complex=False):
         # Only pool if outside scope; inside scope, indices are invalid after rewind
         if CosyScope._depth == 0 and idx is not None:
+            # print(f"RELEASE {idx} complex={is_complex}")
             pool = cls._free_indices_cda if is_complex else cls._free_indices_da
             pool.append(idx)
 
@@ -1488,6 +1490,8 @@ class CosyMtfData:
         if abs(c0) == 0:
             raise ValueError("Inversion of zero constant (Division by zero).")
         res_da = self.da.inverse()
+        if hasattr(res_da, "owned"):
+            res_da.owned = False
         is_complex = isinstance(res_da, CosyCDA)
         return CosyMtfData(
             self.dimension, is_complex=is_complex, idx=res_da.idx, owned=True
@@ -1496,6 +1500,8 @@ class CosyMtfData:
     def __pow__(self, other):
         if isinstance(other, (int, float)):
             res_da = self.da**other
+            if hasattr(res_da, "owned"):
+                res_da.owned = False
             is_complex = isinstance(res_da, CosyCDA)
             return CosyMtfData(
                 self.dimension, is_complex=is_complex, idx=res_da.idx, owned=True
@@ -1685,6 +1691,10 @@ class CosyMtfData:
 
         # Determine idx
         idx = res_da.idx if hasattr(res_da, "idx") else None
+
+        # Transfer ownership: stop res_da from freeing the index when it dies
+        if hasattr(res_da, "owned"):
+             res_da.owned = False
 
         return CosyMtfData(self.dimension, is_complex=is_complex, idx=idx, owned=True)
 
