@@ -342,14 +342,14 @@ class MultivariateTaylorFunction:
         is_complex = getattr(res_da, "is_complex", False)
         
         # Get dimension from first MTF
-        # Note: If mtfs list has scalars, this might fail access, but _batch_add dispatch
-        # usually ensures first element is MTF or we canonicalize.
-        # But wait, mtfs can be mixed? usually not for _batch_add argument which is specialized.
-        # Let's use dimension of the first item that has it, or default.
         ref_dim = cls.get_max_dimension()
         if hasattr(mtfs[0], "dimension"):
             ref_dim = mtfs[0].dimension
             
+        # Transfer ownership to prevent double-free
+        if hasattr(res_da, "owned"):
+            res_da.owned = False
+
         data = CosyMtfData(idx=res_da.idx, owned=True, is_complex=is_complex, dimension=ref_dim)
         
         new_mtf = cls.__new__(cls)
