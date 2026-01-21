@@ -36,6 +36,7 @@ demos = [
     "tqdm",
     "ipykernel",
     "jupytext",
+    "psutil",
 ]
 test = [
     "pytest",
@@ -49,6 +50,7 @@ test = [
     "ipython",
     "sympy",
     "jupyter",
+    "psutil",
 ]
 docs = [
     "sphinx",
