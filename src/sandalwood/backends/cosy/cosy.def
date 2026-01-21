@@ -90,3 +90,6 @@ EXPORTS
     set_cd_parts
     set_mem_state
     setup_cosy
+    da_reset
+    da_reset_cd
+    compute_da_div_batch
