@@ -1764,8 +1764,10 @@ C     Integer Power: C = A^N
      *       IEO(LEA),IA1(0:LIA),IA2(0:LIA),NCFLT(LEA),
      *       IEW(LNV),IED(LNV),LEW,LEWI,IESP,NOMAX,NVMAX,NMMAX,NOCUT,
      *       LFLT,NFLT
-      CALL FOXALL(IC, 1, NMMAX)
-      INC = IC(1)
+      IF (INC .EQ. 0) THEN
+         CALL FOXALL(IC, 1, NMMAX)
+         INC = IC(1)
+      END IF
 C     Init INC = 1.0 (Constant DA)
       CALL DACON(INC, 1.0D0)
 
@@ -1851,12 +1853,14 @@ C     Init INC = 1.0 (Constant DA)
   10     CONTINUE
       ENDIF
 
-      IF (NMMAX .LE. 0) THEN
-         CALL FOXALL(IC, 1, 50000)
-      ELSE
-         CALL FOXALL(IC, 1, NMMAX)
-      ENDIF
-      INC = IC(1)
+      IF (INC .EQ. 0) THEN
+         IF (NMMAX .LE. 0) THEN
+            CALL FOXALL(IC, 1, 50000)
+         ELSE
+            CALL FOXALL(IC, 1, NMMAX)
+         ENDIF
+         INC = IC(1)
+      END IF
       CALL DAFUN(INA, CNORM, XF, NOCUT, INC)
       
       RETURN
