@@ -6,6 +6,7 @@ These rules govern the development of the **Sandalwood** MTF library to ensure p
 
 *   **Memory Pooling**: Strictly enforce the use of `CosyIndexPool` when acquiring indices for temporary COSY variables. Avoid direct index manipulation outside the pool logic.
 *   **Scope Management**: Use `CosyScope` (context manager) for any complex sequence of COSY operations. This ensures predictable O(1) "rewinding" of the Fortran stack and prevents leaks.
+*   **Windows Memory Limits**: The Windows PE/NTCOFF format has a **2GB limit** for static sections. When modifying `cosy_config.env`, ensure that `LVAR` and `LMEM` values do not exceed this limit collectively. Use `_WIN32` suffixes for platform-specific overrides to maintain high limits on Linux.
 *   **Thread Safety**: The COSY backend is **single-threaded**. Never invoke `CosyDA` or `CosyCDA` operations within a `threading.Thread` or `multiprocessing` worker without a global lock.
 
 ## 🚀 Performance & Backends
