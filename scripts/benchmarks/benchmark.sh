@@ -131,8 +131,11 @@ if [ ! -f "$COSY_BIN" ]; then
         echo "Compilation complete."
         rm -rf "$BUILD_DIR"
     else
-        echo "Error: gfortran not found. Cannot compile COSY binary."
-        echo "Please install gfortran."
+        echo "Error: Compiler '$FC' not found. Cannot compile COSY binary."
+        echo "Please ensure your Fortran compiler is installed and in your PATH."
+        if [ "$FC" = "ifx" ]; then
+            echo "Tip: Try sourcing your Intel oneAPI environment (e.g., source /opt/intel/oneapi/setvars.sh)."
+        fi
         exit 1
     fi
 fi
