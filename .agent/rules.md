@@ -23,3 +23,9 @@ These rules govern the development of the **Sandalwood** MTF library to ensure p
 *   **Public API Hygiene**: Every public-facing method in the `mtf` module MUST have a Google-style docstring including at least one `Example` block showing standard usage.
 *   **Documentation Sync**: When implementing a new operator (e.g., `sin`, `exp`), you MUST update `docs/api_reference.md` to reflect the change.
 *   **Versioning**: Modifying the Fortran `wrapper.f` or `src/sandalwood/backends/cosy/cosy_config.env` requires a version bump and specialized verification of binary compatibility across platforms.
+
+## Workspace & Environment
+
+*   **Windows Setup Authority**: The single source of truth for the Windows development environment is `C:\Users\manik\Work\DAProjects\setup_windows_env.bat`. This script handles backend build, env activation, and package installation.
+*   **Virtual Environment**: Always use `C:\Users\manik\Work\DAProjects\.venv` for development.
+
