@@ -3,10 +3,19 @@
 [![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
 
 
-A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), with performance acceleration via the COSY Infinity backend.
+A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), featuring a high-performance hybrid architecture (Python + Numba + COSY Infinity).
 
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-blue)
 ![Fortran Compiler](https://img.shields.io/badge/compiler-gfortran%20%7C%20ifx-green)
+![Numba Accelerated](https://img.shields.io/badge/accel-numba-orange)
+
+## 🚀 Key Features
+
+*   **Hybrid Backend**: Seamlessly switch between a pure Python/Numba backend for portability and a compiled Fortran (COSY Infinity) backend for maximum performance.
+*   **Arbitrary Order & Dimension**: Calculate derivatives and compositions up to very high orders (e.g., order 20+).
+*   **Memory Efficiency**: Robust object pooling (`CosyIndexPool`) for ultra-low latency variable allocation.
+*   **Parallel Acceleration**: OpenMP-parallelized evaluation and Numba-JIT optimized algebraic kernels.
+*   **Seamless Integration**: Full support for NumPy, JSON serialization, and symbolic LaTeX rendering.
 
 ## Installation
 
@@ -130,11 +139,22 @@ The COSY Infinity backend is supported across all platforms and is **automatical
   python setup.py build_cosy
   ```
 
-## Performance Tuning
+## 🏗️ Architecture
+
+`sandalwood` employs a **Layered Hybrid Strategy** to overcome the "Python tax":
+
+1.  **Symbolic Layer (Python)**: Provides the intuitive `mtf` API and high-level logic.
+2.  **Accelerator Layer (Numba)**: JIT-compiles dense algebraic kernels (multiplication, evaluation) into machine code, achieving 5-10x speedups over pure Python.
+3.  **HPC Layer (COSY Infinity)**: Bridges to a compiled Fortran core for massive batch operations and map compositions using a **Direct Memory Bridge**.
+4.  **Memory Management**: Implements an **Object Pool Pattern** (`CosyIndexPool`) and **Stack-based Scoping** (`CosyScope`) to bridge Python's GC with Fortran's static memory.
+
+## ⚙️ Performance Tuning
 
 Sandalwood allows for fine-grained performance tuning through environment variables:
 
-- **`SANDALWOOD_COSY_POOL_SIZE`**: (Default: `1024`) Controls the size of the internal COSY index pool. Larger pools reduce allocation latency in massive batch operations but increase static memory overhead.
+*   **`SANDALWOOD_COSY_POOL_SIZE`**: (Default: `1024`) Controls the size of the internal COSY index pool. Larger pools reduce allocation latency in massive batch operations but increase static memory overhead.
+*   **`SANDALWOOD_NUMBA_PARALLEL`**: (Default: `1`) Set to `1` to enable Numba's multi-threaded execution for algebraic kernels.
+*   **`SANDALWOOD_COSY_LMEM`**: Override the default COSY stack size for extremely large calculations.
 
 For advanced architectural details on memory management and high-performance kernels, see the [Documentation](https://sandalwoodrary.readthedocs.io/en/latest/).
 

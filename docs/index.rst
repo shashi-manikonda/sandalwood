@@ -11,10 +11,10 @@ to perform high-order differentiation, integration, and function composition
 in a computationally efficient manner.
 
 #### Features
-* **Numba-Optimized Python Backend:** Utilizes JIT compilation and Dense Mode architecture for order-of-magnitude speedups in native Python.
-* **COSY Backend (Fortran):** Leverages the battle-tested COSY Infinity core for extremely high-order calculations and symplectic tracking.
-* **Backend Flexibility:** Supports both NumPy and PyTorch, automatically switching backends to leverage GPU acceleration when PyTorch tensors are used.
-* **Comprehensive Functionality:** Includes a wide range of elementary functions and core operations like composition, differentiation, and integration.
+* **Hybrid Multicore Architecture:** Seamlessly combines JIT-compiled Python (Numba), vectorized Fortran (COSY Infinity), and GPU-accelerated backends.
+* **Robust Memory Management:** Features the `CosyIndexPool` for O(1) memory allocation and strict `CosyScope` tracking for complex simulations.
+* **Massive Order Support:** Efficiently handles Taylor expansions up to order 128+ with specialized dense-mode multiplication tables.
+* **High-Performance Physics:** Includes optimized kernels for Biot-Savart integration and high-order symplectic Map Composition.
 
 
 .. toctree::
