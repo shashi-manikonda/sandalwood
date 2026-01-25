@@ -6,9 +6,14 @@ Use this when modifying `wrapper.f` or `cosy_config.env`.
 
 1.  // turbo
     **Rebuild Shared Library**:
-    ```bash
-    bash src/sandalwood/backends/cosy/compile_cosy.sh
-    ```
+    - **Linux/macOS**:
+      ```bash
+      bash src/sandalwood/backends/cosy/compile_cosy.sh
+      ```
+    - **Windows**:
+      ```bash
+      python setup.py build_cosy
+      ```
 2.  **Verify Linking**:
     ```bash
     ldd src/sandalwood/backends/cosy/libcosy.so
