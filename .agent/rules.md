@@ -8,6 +8,7 @@ These rules govern the development of the **Sandalwood** MTF library to ensure p
 *   **Scope Management**: Use `CosyScope` (context manager) for any complex sequence of COSY operations. This ensures predictable O(1) "rewinding" of the Fortran stack and prevents leaks.
 *   **Windows Memory Limits**: The Windows PE/NTCOFF format has a **2GB limit** for static sections. When modifying `cosy_config.env`, ensure that `LVAR` and `LMEM` values do not exceed this limit collectively. Use `_WIN32` suffixes for platform-specific overrides to maintain high limits on Linux.
 *   **Thread Safety**: The COSY backend is **single-threaded**. Never invoke `CosyDA` or `CosyCDA` operations within a `threading.Thread` or `multiprocessing` worker without a global lock.
+*   **Source Integrity**: **NEVER modify the original COSY Infinity F77 source files** (e.g., `cosy.f`). All logic extensions must be implemented in the `wrapper.f` bridge. All static memory limits (LMEM, LVAR, etc.) must be controlled via `src/sandalwood/backends/cosy/cosy_config.env`, never by hardcoding values in Fortran.
 
 ## 🚀 Performance & Backends
 
