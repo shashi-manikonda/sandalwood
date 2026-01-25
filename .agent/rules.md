@@ -18,4 +18,6 @@ These rules govern the development of the **Sandalwood** MTF library to ensure p
 ## 🧹 Quality Control
 
 *   **Numerical Stability**: New elementary functions must be verified against high-precision analytical values (or `mpmath`).
+*   **Numba JIT Signatures**: Prefer using explicit type signatures in `@numba.njit` for core kernels. This improves compile-time error reporting and ensures SIMD alignment.
+*   **Public API Hygiene**: Every public-facing method in the `mtf` module MUST have a Google-style docstring including at least one `Example` block showing standard usage.
 *   **Versioning**: Modifying the Fortran `wrapper.f` or `cosy_config.env` requires a version bump and specialized verification of binary compatibility across platforms.
