@@ -100,7 +100,25 @@ class BuildCosy(Command):
         # 1. Setup Paths
         dir_path = os.path.abspath(os.path.dirname(__file__))
         backend_dir = os.path.join(dir_path, "src", "sandalwood", "backends", "cosy")
-        cosy_src_orig = os.path.join(backend_dir, "cosy_src")
+        
+        # Determine Source Path: Priority: ENV > Local cosy_src
+        cosy_src_env = os.environ.get("SANDALWOOD_COSY_SRC")
+        if cosy_src_env and os.path.exists(cosy_src_env):
+            cosy_src_orig = os.path.abspath(cosy_src_env)
+            print(f"Using COSY source from environment variable: {cosy_src_orig}")
+        else:
+            cosy_src_orig = os.path.join(backend_dir, "cosy_src")
+            print(f"Checking for COSY source in local directory: {cosy_src_orig}")
+
+        # Verify source exists
+        required_files = ["dafox.f", "foxfit.f", "foxgraf.f", "version.f"]
+        missing = [f for f in required_files if not os.path.exists(os.path.join(cosy_src_orig, f))]
+        
+        if missing:
+            print(f"Warning: COSY source files missing in {cosy_src_orig}: {missing}")
+            print("COSY backend will not be built. Please set SANDALWOOD_COSY_SRC if you have a COSY license.")
+            return
+
         build_temp = os.path.join(backend_dir, "build_tmp")
         config_path = os.path.join(backend_dir, "cosy_config.env")
 
@@ -186,14 +204,19 @@ class BuildCosy(Command):
             shutil.rmtree(build_temp)
         os.makedirs(build_temp)
 
-        src_files = ["dafox.f", "foxfit.f", "foxgraf.f", "helper.f"]
-        
-        # Copy core COSY files
-        for f in src_files:
+        # A. Core COSY files (from external source)
+        cosy_core_files = ["dafox.f", "foxfit.f", "foxgraf.f"]
+        for f in cosy_core_files:
             shutil.copy2(os.path.join(cosy_src_orig, f), build_temp)
         
-        # Copy wrapper.f (it lives one level up)
-        shutil.copy2(os.path.join(backend_dir, "wrapper.f"), build_temp)
+        # B. Sandalwood bridge files (from local directory)
+        sandalwood_bridge_files = ["wrapper.f", "helper.f"]
+        for f in sandalwood_bridge_files:
+            src_path = os.path.join(backend_dir, f)
+            if os.path.exists(src_path):
+                shutil.copy2(src_path, build_temp)
+            else:
+                print(f"Warning: Sandalwood bridge file missing: {src_path}")
 
         # 3.5 Load and Apply Memory Patches
         config_map = {}

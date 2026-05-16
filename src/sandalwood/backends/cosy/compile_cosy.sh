@@ -73,12 +73,33 @@ echo "  LMEM: $COSY_LMEM"
 echo "  LVAR: $COSY_LVAR"
 echo "  LEA:  $COSY_LEA"
 
-# 2. Prepare Build Directory (Copy sources to keep originals safe)
+# 2. Prepare Build Directory
 echo "Preparing build directory..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
-cp "$COSY_SRC_ORIG"/*.f "$BUILD_DIR/"
+
+# Determine Source: Priority: ENV > Local cosy_src
+if [ -n "$SANDALWOOD_COSY_SRC" ] && [ -d "$SANDALWOOD_COSY_SRC" ]; then
+    COSY_SRC_PATH="$SANDALWOOD_COSY_SRC"
+    echo "Using COSY source from environment: $COSY_SRC_PATH"
+else
+    COSY_SRC_PATH="$COSY_SRC_ORIG"
+    echo "Using local COSY source: $COSY_SRC_PATH"
+fi
+
+# Check for required files
+for f in dafox.f foxfit.f foxgraf.f version.f; do
+    if [ ! -f "$COSY_SRC_PATH/$f" ]; then
+        echo "Error: Required COSY file missing: $COSY_SRC_PATH/$f"
+        echo "Please set SANDALWOOD_COSY_SRC or install COSY source to $COSY_SRC_ORIG"
+        exit 1
+    fi
+    cp "$COSY_SRC_PATH/$f" "$BUILD_DIR/"
+done
+
+# Copy Sandalwood bridge files
 cp "$DIR/wrapper.f" "$BUILD_DIR/"
+cp "$DIR/helper.f" "$BUILD_DIR/"
 
 # 2.5 Compile and Run Version Utility
 echo "Switching code version to $FC and NORM (serial)..."

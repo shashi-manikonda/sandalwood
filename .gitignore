@@ -231,3 +231,6 @@ cosy_bin
 COSY.bin
 build_tmp/
 foxyinp.dat
+
+# Sandalwood COSY backend external source
+src/sandalwood/backends/cosy/cosy_src/
