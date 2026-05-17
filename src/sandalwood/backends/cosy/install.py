@@ -208,6 +208,21 @@ class CosyInstaller:
                     self.compiler_type = "ifx" if "ifx" in p else "gfortran"
                     break
 
+        # Linux/macOS Fallback Searches
+        if not self.compiler and sys.platform != "win32":
+            possible_paths = [
+                "/opt/intel/oneapi/compiler/latest/linux/bin/intel64/ifx",
+                "/opt/intel/oneapi/compiler/latest/bin/ifx",
+                "/usr/bin/gfortran",
+                "/usr/local/bin/gfortran",
+                "/opt/homebrew/bin/gfortran",
+            ]
+            for p in possible_paths:
+                if os.path.exists(p):
+                    self.compiler = p
+                    self.compiler_type = "ifx" if "ifx" in p else "gfortran"
+                    break
+
         if not self.compiler:
             print("Error: No working Fortran compiler found (ifx or gfortran).")
             print("Please install a Fortran compiler and make sure it is added to your PATH.")

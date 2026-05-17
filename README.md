@@ -127,17 +127,19 @@ f_loaded = mtf.from_json(json_str)
 
 `sandalwood` supports Linux, Windows, and macOS.
 
-### COSY Backend
-The COSY Infinity backend is supported across all platforms and is **automatically compiled** during the standard installation process (`uv pip install -e .`). 
+### COSY Backend (Side-Load)
 
-- **Linux/macOS**: Requires **Intel Fortran (`ifx`)** (recommended) or `gfortran`.
-- **Windows**: Requires the **Intel Fortran Compiler (`ifx`)** and **Microsoft Visual Studio Build Tools**.
-    - Install [Intel oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html) and [HPC Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/hpc-toolkit.html).
-    - Ensure `ifx` is available in your Intel environment if initialized manually, though `setup.py` attempts to auto-detect the environment.
-- **Manual Rebuild**: If you modify the Fortran source code, you can trigger a rebuild of the COSY shared library without re-installing the entire package:
-  ```bash
-  python setup.py build_cosy
-  ```
+Due to licensing restrictions, the proprietary COSY Infinity Fortran source files are not distributed with the Sandalwood library. Sandalwood will default to its high-performance **Python/Numba** JIT backend.
+
+Licensed users can easily enable and compile the COSY Infinity backend on **Windows** or **Linux** post-installation via a single command:
+
+```bash
+sandalwood-setup-cosy --src "/path/to/COSY10p2/src" -v
+```
+
+This utility automatically detects your Fortran compiler (`ifx` or `gfortran`), resolves linker search paths, patches static memory limits, and compiles the shared bridge directly into your active Sandalwood installation.
+
+For detailed system requirements, compiler options, and step-by-step instructions, see the comprehensive [COSY Installation Guide](docs/INSTALL_COSY.md).
 
 ## 🏗️ Architecture
 
