@@ -403,9 +403,15 @@ class BuildCosy(Command):
         # shutil.rmtree(build_temp)
 
 class CustomBuildPy(build_py):
-    """Custom build_py to ensure COSY is built before packaging."""
+    """Custom build_py that compiles the COSY backend only if explicitly requested via environment variable."""
     def run(self):
-        self.run_command("build_cosy")
+        if os.environ.get("SANDALWOOD_BUILD_COSY_ON_INSTALL") == "1":
+            print("Environment variable SANDALWOOD_BUILD_COSY_ON_INSTALL=1 detected. Compiling COSY backend...")
+            self.run_command("build_cosy")
+        else:
+            print("Skipping COSY compilation by default for standard package build.")
+            print("To build with COSY backend during installation, set environment variable SANDALWOOD_BUILD_COSY_ON_INSTALL=1")
+            print("Alternatively, use the post-installation CLI tool: sandalwood-setup-cosy")
         super().run()
 
 setup(

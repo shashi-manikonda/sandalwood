@@ -90,11 +90,14 @@ dev = [
 "Homepage" = "https://github.com/shashi-manikonda/sandalwood"
 "Bug Tracker" = "https://github.com/shashi-manikonda/sandalwood/issues"
 
+[project.scripts]
+sandalwood-setup-cosy = "sandalwood.backends.cosy.install:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"sandalwood.backends.cosy" = ["libcosy.*"]
+"sandalwood.backends.cosy" = ["libcosy.*", "*.f", "cosy_config.env", "cosy.def"]
 
 [tool.ruff]
 line-length = 88
