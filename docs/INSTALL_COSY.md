@@ -107,9 +107,30 @@ pip install -e .[dev]
 ---
 
 ## ⚙️ 3. Customizing Memory Limits
-You can customize the memory limits and dimensions of the COSY backend by editing `src/sandalwood/backends/cosy/cosy_config.env`. 
+You can customize the memory limits and dimensions of the COSY backend (such as expanding the stack `LMEM` size or the variables limit `LVAR`) during compilation. The compilation utility automatically patches the COSY Fortran source code with these values before compiling (e.g. `LMEM`, `LDIM`, `LNV`, `LVAR`, `LNO`).
 
-The compilation utility will automatically patch the COSY Fortran source code with these values during compilation (e.g. `LMEM`, `LDIM`, `LNV`, `LVAR`, `LNO`).
+Depending on how you installed Sandalwood, choose one of the following methods:
+
+### Method A: For Pip Users (Recommended)
+You do not need to modify the files inside your Python `site-packages` directory. Instead, create a custom configuration file anywhere on your machine (e.g. `my_cosy_config.env`) and specify your desired variables:
+
+```bash
+# my_cosy_config.env
+export COSY_LMEM=300000000
+export COSY_LDIM=1500
+export COSY_LVAR=20000000
+```
+
+Then compile the backend by passing the path of your custom file using the `--config` parameter:
+```bash
+sandalwood-setup-cosy --src "/path/to/COSY/src" --config "/path/to/my_cosy_config.env" -v
+```
+
+### Method B: For Developers & Source Installs
+If you are developing Sandalwood or building the package from source:
+1. Edit the default configuration file in your cloned repository:
+   `src/sandalwood/backends/cosy/cosy_config.env`
+2. Run standard installation/build commands (e.g., `pip install -e .[dev]` or `sandalwood-setup-cosy`).
 
 ---
 
