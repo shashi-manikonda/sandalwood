@@ -223,6 +223,15 @@ You can run the quality checks manually on all files:
   pre-commit run --all-files
   ```
 
+### Release and Publishing
+
+This project uses Trusted Publishing to automatically build and upload releases to PyPI when a GitHub release is created.
+
+To publish a new version:
+1. Update the version number in `pyproject.toml`.
+2. Commit and push the version change to `main`.
+3. Create and publish a new Release on GitHub. The `Upload Python Package` workflow will trigger automatically to build platform wheels via `cibuildwheel` and upload them directly to PyPI.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
