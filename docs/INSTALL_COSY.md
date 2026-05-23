@@ -24,15 +24,18 @@ To compile the COSY backend, your system must have the following dependencies:
 ## 📂 1. Obtain COSY Infinity Source
 You must have a valid license for COSY Infinity. You can request it from the official [COSY Infinity website](https://cosyinfinity.org/).
 
-Sandalwood specifically looks for and requires the following **4 proprietary COSY Infinity Fortran source files**:
+Sandalwood requires the following proprietary files from your COSY Infinity installation:
 
-### Files Linked into the Shared Library (`libcosy.dll` / `libcosy.so`):
+### Core Fortran Files (Linked into `libcosy.dll` / `libcosy.so`):
 *   **`dafox.f`**: Core COSY Differential Algebra arithmetic routines.
 *   **`foxfit.f`**: COSY fit/optimization algorithms and solvers.
 *   **`foxgraf.f`**: COSY plotting/graphical stub interfaces.
 
-### Utility File Used During Compilation:
+### Pre-processing Utility:
 *   **`version.f`**: The COSY version utility. This file is compiled into a temporary standalone executable during compilation to run the pre-processing adaptation passes on the `.f` source files (such as switching compiler-specific markers like `*GFOR`/`*IFOR` and disabling MPI flags).
+
+### Macro Package (For Benchmarks):
+*   **`cosy.fox`** (typically located in the COSY `apps/` directory): The COSY Infinity macro package. While the core Sandalwood library does not need `cosy.fox` at runtime (since it calls the compiled library directly), it is required for running benchmarking comparisons (which compare Sandalwood with raw COSY execution). Make sure this file is available in your COSY source path (or in the parent directory) during install so the benchmark suite can locate it.
 
 > [!NOTE]
 > *   **`foxy.f`** (the original interactive COSY demo/test application) is **not** required or used, since Sandalwood implements its own Python-to-Fortran memory and symbol bridging.

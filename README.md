@@ -191,3 +191,8 @@ Demo tests are excluded by default to keep the core test suite fast. To run them
     ```bash
     SANDALWOOD_TEST_FULL_DEMOS=1 pytest -v -m demo tests/test_demos_quick.py
     ```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

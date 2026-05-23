@@ -144,6 +144,21 @@ fi
 COSY_LIB_BIN="$BENCH_DIR/COSY.bin"
 if [ ! -f "$COSY_LIB_BIN" ]; then
     echo "Generating COSY.bin..."
+
+    # Ensure COSY.fox is present locally in BENCH_DIR. If not, try to fetch it.
+    if [ ! -f "$BENCH_DIR/COSY.fox" ]; then
+        if [ ! -z "$SANDALWOOD_COSY_SRC" ] && [ -f "$SANDALWOOD_COSY_SRC/cosy.fox" ]; then
+            cp "$SANDALWOOD_COSY_SRC/cosy.fox" "$BENCH_DIR/COSY.fox"
+        elif [ ! -z "$SANDALWOOD_COSY_SRC" ] && [ -f "$SANDALWOOD_COSY_SRC/../apps/cosy.fox" ]; then
+            cp "$SANDALWOOD_COSY_SRC/../apps/cosy.fox" "$BENCH_DIR/COSY.fox"
+        else
+            echo "Error: COSY.fox not found in $BENCH_DIR."
+            echo "Since COSY Infinity is proprietary, its files are not distributed with Sandalwood."
+            echo "Please copy your licensed cosy.fox to $BENCH_DIR/COSY.fox or set the SANDALWOOD_COSY_SRC environment variable."
+            exit 1
+        fi
+    fi
+
     # Create foxyinp.dat for COSY compilation
     echo "COSY" > "$BENCH_DIR/foxyinp.dat"
 

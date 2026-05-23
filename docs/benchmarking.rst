@@ -32,6 +32,9 @@ The suite supports several specialized modes:
 2. **Three-Way Comparison (`raw`)**:
    Adds a third competitor: **Raw COSY**. This executes the logic inside a standalone Fortran binary, measuring the absolute minimum time required by the COSY core. This reveals the "Bridge Overhead" introduced by CTypes and Python marshalling.
 
+   .. note::
+      The ``raw`` and ``full`` benchmarking modes execute standalone COSY scripts and require the proprietary ``cosy.fox`` file (the main COSY macro package). Since this file is proprietary, it is not distributed with Sandalwood. You must place a copy of your licensed ``cosy.fox`` in ``scripts/benchmarks/COSY.fox`` or set the ``SANDALWOOD_COSY_SRC`` environment variable pointing to your COSY source directory before running these benchmarks.
+
 3. **Batch Evaluation (`batch`)**:
    Tests the performance of the ``neval()`` method. This highlights the efficiency of the OpenMP-optimized batch evaluator in the COSY backend versus the vectorized NumPy/PyTorch implementations.
 

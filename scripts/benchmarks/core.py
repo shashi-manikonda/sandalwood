@@ -141,10 +141,30 @@ class BenchmarkEngine:
         # COSY needs COSY.fox to be present to run properly
         src_fox = os.path.join(BASE_DIR, "COSY.fox")
         dst_fox = os.path.join(ARTIFACTS_DIR, "COSY.fox")
+        
+        # If local COSY.fox is missing, try to find it from external source
+        if not os.path.exists(src_fox):
+            cosy_src_env = os.environ.get("SANDALWOOD_COSY_SRC")
+            if cosy_src_env:
+                candidate_paths = [
+                    os.path.join(cosy_src_env, "cosy.fox"),
+                    os.path.join(cosy_src_env, "../apps/cosy.fox"),
+                    os.path.join(cosy_src_env, "apps/cosy.fox"),
+                ]
+                for path in candidate_paths:
+                    if os.path.exists(path):
+                        src_fox = path
+                        break
+        
         if os.path.exists(src_fox) and not os.path.exists(dst_fox):
             import shutil
-
             shutil.copy(src_fox, dst_fox)
+        elif not os.path.exists(src_fox) and not os.path.exists(dst_fox):
+            raise FileNotFoundError(
+                "COSY.fox not found. Since COSY Infinity is proprietary, its files are not distributed "
+                "with Sandalwood. Please place a copy of your licensed cosy.fox in scripts/benchmarks/COSY.fox "
+                "or set the SANDALWOOD_COSY_SRC environment variable."
+            )
 
         # Also copy COSY.bin and DAINI.DAT if available
         for fname in ["COSY.bin", "DAINI.DAT"]:
@@ -152,7 +172,6 @@ class BenchmarkEngine:
             dst = os.path.join(ARTIFACTS_DIR, fname)
             if os.path.exists(src) and not os.path.exists(dst):
                 import shutil
-
                 shutil.copy(src, dst)
 
         timings = []

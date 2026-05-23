@@ -234,3 +234,6 @@ foxyinp.dat
 
 # Sandalwood COSY backend external source
 src/sandalwood/backends/cosy/cosy_src/
+
+# Benchmark COSY source files
+scripts/benchmarks/COSY.fox
