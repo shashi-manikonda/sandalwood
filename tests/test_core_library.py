@@ -364,14 +364,10 @@ def test_mtf_power(setup_function):
     assert np.allclose(mtf_inv_sq.extract_coefficient(exponent_four), 5.0)
 
     # Non-integer power
-    if mtf._IMPLEMENTATION == "cosy":
-        res = mtf_instance**2.5
-        # Check approximation consistency (1+x)^2.5 approx 1 + 2.5x
-        assert np.allclose(res.extract_coefficient(exponent_zero), 1.0)
-        assert np.allclose(res.extract_coefficient(exponent_one), 2.5)
-    else:
-        with pytest.raises(ValueError):
-            mtf_instance**2.5  # Non-integer power not allowed
+    res = mtf_instance**2.5
+    # Check approximation consistency (1+x)^2.5 approx 1 + 2.5x
+    assert np.allclose(res.extract_coefficient(exponent_zero), 1.0)
+    assert np.allclose(res.extract_coefficient(exponent_one), 2.5)
 
 
 def test_mtf_negation(setup_function):

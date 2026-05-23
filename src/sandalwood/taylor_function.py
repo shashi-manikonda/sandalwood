@@ -50,7 +50,7 @@ try:
 except ImportError:
     _NUMBA_AVAILABLE = False
 
-logger = logging.getLogger("sandalwood")
+logger = logging.getLogger(__name__)
 
 
 def _generate_exponent(order, var_index, dimension):
@@ -1715,15 +1715,15 @@ class MultivariateTaylorFunction:
                 power //= 2
             return result
 
-        elif isinstance(power, float):
+        elif isinstance(power, (float, np.floating)):
             if power == 0.5:
                 return self.sqrt()
             elif power == -0.5:
                 return self.isqrt()
             else:
-                raise ValueError("Power must be an integer, 0.5, or -0.5.")
+                return (self.log() * power).exp()
         else:
-            raise ValueError("Power must be an integer, 0.5, or -0.5.")
+            raise ValueError("Power must be an integer or float.")
 
     def __neg__(self):
         """
@@ -2716,15 +2716,7 @@ class MultivariateTaylorFunction:
         raise NotImplementedError("inv_pow_3_2 is only available for the COSY backend")
 
     def inv_cbrt(self) -> "MultivariateTaylorFunction":
-        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            # DAISR3 is actually 1/x^1.5, so we can't use it for inv_cbrt.
-            # We could use self ** (-1/3) if __pow__ supported it.
-            raise NotImplementedError(
-                "inv_cbrt not yet implemented for COSY backend (DAISR3 is 1/x^1.5)"
-            )
-        raise NotImplementedError(
-            "inv_cbrt will be implemented in future for Python backend"
-        )
+        return self ** (-1.0 / 3.0)
 
     def erf(self) -> "MultivariateTaylorFunction":
         # COSY's DAERF/REERF are under development and trigger errors for orders > 6.

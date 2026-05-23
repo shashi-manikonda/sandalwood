@@ -38,12 +38,24 @@ def test_inv_sqrt(implementation):
 
 @pytest.mark.parametrize("implementation", ["python", "cosy"])
 def test_inv_cbrt(implementation):
-    """Test inv_cbrt (currently unimplemented)"""
+    """Test inv_cbrt"""
     safe_initialize(implementation)
+
+    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not available")
+
     x = 8.0 + taylor.MultivariateTaylorFunction.var(1)
 
-    with pytest.raises(NotImplementedError):
-        x.inv_cbrt()
+    res = x.inv_cbrt()
+
+    # Expected constant part: 1/cbrt(8) = 0.5
+    val = res.eval([0, 0])[0]
+    assert np.isclose(val, 0.5), f"Expected 0.5, got {val}"
+
+    # Expected derivative for 1/cbrt(x) at 8: -1/3 * x^(-4/3) = -1/3 * (1/16) = -1/48
+    df = res.deriv(1)
+    val_deriv = df.eval([0, 0])[0]
+    assert np.isclose(val_deriv, -1.0 / 48.0), f"Expected {-1.0/48.0}, got {val_deriv}"
 
 
 @pytest.mark.parametrize("implementation", ["python", "cosy"])
