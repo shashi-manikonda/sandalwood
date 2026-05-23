@@ -1577,10 +1577,6 @@ class CosyMtfData:
 
         data["coeffs"] = coeffs
         return data
-
-    def eval(self, points):
-        points = np.asarray(points, dtype=np.float64)
-
     def eval(self, point):
         """
         Evaluate the DA vector at the given point(s).

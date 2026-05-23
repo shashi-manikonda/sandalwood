@@ -885,8 +885,6 @@ def _erf_taylor(variable, order: Optional[int] = None) -> MultivariateTaylorFunc
         variable, "erf", order, dynamic_erf
     ).truncate(order)
 
-    return arccos_mtf.truncate(order)  # Truncate to the desired order
-
 
 def _integrate(
     mtf_instance,

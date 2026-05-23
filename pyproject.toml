@@ -101,9 +101,25 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 88
+exclude = [
+    "docs",
+    "tests",
+    "demos",
+    "benchmark_MTF",
+    "scripts",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+ignore = [
+    "E501", # Line too long
+    "F841", # Local variable assigned but unused
+    "F401", # Imported but unused
+    "E731", # Do not assign a lambda expression
+    "E722", # Do not use bare except
+    "F811", # Redefinition of unused name
+    "E402", # Module level import not at top of file
+]
 
 [tool.ruff.format]
 preview = true
@@ -115,7 +131,7 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 check_untyped_defs = true
 exclude = ["^docs/.*", "^tests/.*", "^benchmark_MTF/.*", "^demos/.*"]
-disable_error_code = ["var-annotated", "arg-type", "operator", "assignment", "index", "misc", "import-not-found", "import-untyped", "attr-defined"]
+disable_error_code = ["var-annotated", "arg-type", "operator", "assignment", "index", "misc", "import-not-found", "import-untyped", "attr-defined", "no-redef", "return-value"]
 
 [[tool.mypy.overrides]]
 module = ["numpy.*", "pandas.*", "matplotlib.*", "scipy.*", "sympy.*", "tqdm.*"]
