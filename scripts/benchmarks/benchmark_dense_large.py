@@ -16,8 +16,8 @@ def benchmark_dense_large():
 
     x = MTF.var(1)
     # Sum variables
-    poly1 = sum(MTF.var(i + 1) for i in range(DIM)) ** 5
-    poly2 = sum(MTF.var(i + 1) for i in range(DIM)) ** 5
+    poly1: MTF = sum(MTF.var(i + 1) for i in range(DIM)) ** 5
+    poly2: MTF = sum(MTF.var(i + 1) for i in range(DIM)) ** 5
 
     # Force materialization to ensure we have dense indices cached
     _ = poly1.coeffs

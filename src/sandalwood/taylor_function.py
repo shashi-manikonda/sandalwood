@@ -15,11 +15,12 @@ See Also
 
 import cmath
 import json
+import logging
 import math
 import numbers
 from collections import defaultdict
 from functools import reduce
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,8 @@ try:
         _NUMBA_AVAILABLE = False
 except ImportError:
     _NUMBA_AVAILABLE = False
+
+logger = logging.getLogger("sandalwood")
 
 
 def _generate_exponent(order, var_index, dimension):
@@ -225,28 +228,28 @@ class MultivariateTaylorFunction:
                     cls._IMPLEMENTATION = "cosy"
                 else:
                     if implementation == "cosy":
-                        print(
-                            "Warning: COSY backend requested but not available. Falling back to Python."
+                        logger.warning(
+                            "COSY backend requested but not available. Falling back to Python."
                         )
                     cls._IMPLEMENTATION = "python"
 
-            print(
+            logger.info(
                 f"Initializing MTF globals with: _MAX_ORDER={cls._MAX_ORDER}, "
                 f"_MAX_DIMENSION={cls._MAX_DIMENSION} using {cls._IMPLEMENTATION} backend"
             )
 
             if cls._IMPLEMENTATION == "cosy":
-                print("Initializing COSY backend...")
+                logger.info("Initializing COSY backend...")
                 cosy_backend.CosyBackendManager.initialize(
                     cls._MAX_ORDER, cls._MAX_DIMENSION
                 )
 
             cls._INITIALIZED = True
-            print(
+            logger.info(
                 f"MTF globals initialized: _MAX_ORDER={cls._MAX_ORDER}, "
                 f"_MAX_DIMENSION={cls._MAX_DIMENSION}, _INITIALIZED={cls._INITIALIZED}"
             )
-            print(
+            logger.info(
                 f"Max coefficient count (order={cls._MAX_ORDER}, "
                 f"nvars={cls._MAX_DIMENSION}): {cls.get_max_coefficient_count()}"
             )
@@ -380,7 +383,9 @@ class MultivariateTaylorFunction:
                 break
 
         # Merge using dictionary optimization
-        summed_coeffs_dict = defaultdict(complex if is_complex else float)
+        summed_coeffs_dict: Dict[Tuple[int, ...], Any] = defaultdict(
+            complex if is_complex else float
+        )
 
         for m in mtfs:
             # We can iterate over exponents and coeffs
@@ -420,7 +425,7 @@ class MultivariateTaylorFunction:
         if cls._MAX_ORDER is None or cls._MAX_DIMENSION is None:
             return
 
-        print("Precomputing multiplication tables for Dense Mode...")
+        logger.info("Precomputing multiplication tables for Dense Mode...")
 
         # 1. Generate all valid exponents
         exponents = []
@@ -471,14 +476,14 @@ class MultivariateTaylorFunction:
                     tup = tuple(sum_exps[i, j])
                     cls._MULT_TABLE[i, j] = cls._EXP_TO_IDX[tup]
 
-        print(f"Dense Mode tables ready. {n_terms} terms.")
+        logger.info(f"Dense Mode tables ready. {n_terms} terms.")
 
     @classmethod
     def _auto_initialize(cls):
         """Auto-initializes the library with defaults if not already initialized."""
         if not cls._INITIALIZED:
-            print(
-                "Warning: sandalwood not initialized. Auto-initializing with defaults "
+            logger.warning(
+                "sandalwood not initialized. Auto-initializing with defaults "
                 "(Order=4, Dimension=3)."
             )
             cls.initialize_mtf(max_order=4, max_dimension=3)
@@ -790,6 +795,12 @@ class MultivariateTaylorFunction:
         self._ensure_synced()
         return self._coeffs
 
+    @coeffs.setter
+    def coeffs(self, value):
+        self._coeffs = value
+        # Invalidate backend data since we are modifying Python side manually
+        self.mtf_data = None
+
     def _get_indices(self):
         """Cached accessor for dense indices."""
         if not hasattr(self, "_indices") or self._indices is None:
@@ -801,12 +812,6 @@ class MultivariateTaylorFunction:
             self._indices = np.array(idx_list, dtype=np.int32)
 
         return self._indices
-
-    @coeffs.setter
-    def coeffs(self, value):
-        self._coeffs = value
-        # Invalidate backend data since we are modifying Python side manually
-        self.mtf_data = None
 
     @classmethod
     def from_constant(cls, constant_value, dimension=None):
@@ -1345,7 +1350,9 @@ class MultivariateTaylorFunction:
 
         # Python Implementation (Optimized with dictionary)
         is_complex = np.iscomplexobj(self.coeffs) or np.iscomplexobj(other.coeffs)
-        summed_coeffs_dict = defaultdict(complex) if is_complex else defaultdict(float)
+        summed_coeffs_dict: Dict[Tuple[int, ...], Any] = (
+            defaultdict(complex) if is_complex else defaultdict(float)
+        )
 
         for i in range(self.coeffs.shape[0]):
             exp_tuple = tuple(self.exponents[i])
@@ -1357,7 +1364,7 @@ class MultivariateTaylorFunction:
 
         if not summed_coeffs_dict:
             unique_exponents = np.empty((0, self.dimension), dtype=np.int32)
-            summed_coeffs = np.empty(
+            summed_coeffs: np.ndarray = np.empty(
                 (0,), dtype=np.complex128 if is_complex else np.float64
             )
         else:
@@ -1422,7 +1429,9 @@ class MultivariateTaylorFunction:
             raise ValueError("MTF dimensions must match for subtraction.")
 
         is_complex = np.iscomplexobj(self.coeffs) or np.iscomplexobj(other.coeffs)
-        summed_coeffs_dict = defaultdict(complex) if is_complex else defaultdict(float)
+        summed_coeffs_dict: Dict[Tuple[int, ...], Any] = (
+            defaultdict(complex) if is_complex else defaultdict(float)
+        )
 
         for i in range(self.coeffs.shape[0]):
             exp_tuple = tuple(self.exponents[i])
@@ -1434,7 +1443,7 @@ class MultivariateTaylorFunction:
 
         if not summed_coeffs_dict:
             unique_exponents = np.empty((0, self.dimension), dtype=np.int32)
-            summed_coeffs = np.empty(
+            summed_coeffs: np.ndarray = np.empty(
                 (0,), dtype=np.complex128 if is_complex else np.float64
             )
         else:
@@ -1985,7 +1994,7 @@ class MultivariateTaylorFunction:
         # Use a dictionary to group and sum coefficients, as bincount does not
         # support complex numbers
         is_result_complex = np.iscomplexobj(new_coeffs) or np.iscomplexobj(value)
-        summed_coeffs_dict = (
+        summed_coeffs_dict: Dict[Tuple[int, ...], Any] = (
             defaultdict(complex) if is_result_complex else defaultdict(float)
         )
         for i, exp in enumerate(new_exponents):
@@ -2173,36 +2182,47 @@ class MultivariateTaylorFunction:
                 substitutions[i] = type(self).var(i, dimension=result_dim)
 
         # COSY Backend Optimization: Use POLVAL for fast composition
-        if False and self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
-            # Construct ordered list of CosyDA objects corresponding to variables 1..self.dimension
-            args_da_list = []
-            for i in range(1, self.dimension + 1):
-                # We can rely on substitutions dict which is fully populated above
-                mtf_arg = substitutions[i]
-                if mtf_arg.mtf_data is None:
-                    # This should not happen if backend is consistent, but safeguard
-                    raise RuntimeError(f"Argument for var {i} has no COSY data")
-                args_da_list.append(mtf_arg.mtf_data.da)
+        # Only use COSY backend if composition is real-valued (complex composition is not supported by COSY POLVAL)
+        if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
+            # Check if self or any argument is complex
+            is_complex_composition = getattr(
+                self.mtf_data.da, "is_complex", False
+            ) or any(
+                getattr(substitutions[i].mtf_data.da, "is_complex", False)
+                for i in range(1, self.dimension + 1)
+            )
+            if not is_complex_composition:
+                # Construct ordered list of CosyDA objects corresponding to variables 1..self.dimension
+                args_da_list = []
+                for i in range(1, self.dimension + 1):
+                    # We can rely on substitutions dict which is fully populated above
+                    mtf_arg = substitutions[i]
+                    if mtf_arg.mtf_data is None:
+                        # This should not happen if backend is consistent, but safeguard
+                        raise RuntimeError(f"Argument for var {i} has no COSY data")
+                    args_da_list.append(mtf_arg.mtf_data.da)
 
-            res_da = self.mtf_data.da.compose_polval(args_da_list)
+                res_da = self.mtf_data.da.compose_polval(args_da_list)
 
-            # The result should be wrapped in CosyMtfData
-            # We need to access CosyMtfData class. It is available via self.mtf_data.__class__
-            res_data = self.mtf_data.__class__(result_dim, idx=res_da.idx, owned=True)
-            # Be careful: compose_polval returns CosyDA(owned=True).
-            # CosyMtfData(..., idx=..., owned=True) will take ownership.
-            # res_da is a temporary wrapper; extracting idx handles transfer if we don't close res_da?
-            # CosyDA.__del__ calls cosy_free_ if owned.
-            # So: res_da owns it. We pass idx to res_data. We must detach ownership from res_da or set res_data.da = res_da?
-            # Current CosyMtfData implementation:
-            # def __init__(self, dimension, idx=None, ... owned=False):
-            #     if idx is not None: self.da = CosyDA(idx=idx, owned=owned)
-            # So passing idx and owned=True works, BUT res_da ALSO thinks it owns it.
-            # When res_da goes out of scope, it frees idx. Then res_data has dangling ptr.
-            # Fix: res_da.owned = False after transfer.
-            res_da.owned = False
+                # The result should be wrapped in CosyMtfData
+                # We need to access CosyMtfData class. It is available via self.mtf_data.__class__
+                res_data = self.mtf_data.__class__(
+                    result_dim, is_complex=False, idx=res_da.idx, owned=True
+                )
+                # Be careful: compose_polval returns CosyDA(owned=True).
+                # CosyMtfData(..., idx=..., owned=True) will take ownership.
+                # res_da is a temporary wrapper; extracting idx handles transfer if we don't close res_da?
+                # CosyDA.__del__ calls cosy_free_ if owned.
+                # So: res_da owns it. We pass idx to res_data. We must detach ownership from res_da or set res_data.da = res_da?
+                # Current CosyMtfData implementation:
+                # def __init__(self, dimension, idx=None, ... owned=False):
+                #     if idx is not None: self.da = CosyDA(idx=idx, owned=owned)
+                # So passing idx and owned=True works, BUT res_da ALSO thinks it owns it.
+                # When res_da goes out of scope, it frees idx. Then res_data has dangling ptr.
+                # Fix: res_da.owned = False after transfer.
+                res_da.owned = False
 
-            return type(self)(mtf_data=res_data, dimension=result_dim)
+                return type(self)(mtf_data=res_data, dimension=result_dim)
 
         # The final MTF will be initialized as a zero constant of the correct
         # dimension.
@@ -3270,23 +3290,6 @@ def sqrt_taylor_1D_expansion(
     # n=0: 1
     # n=1: 0.5
     # n>1: a_n = a_(n-1) * (0.5 - (n-1)) / n
-
-    current_coeff = 1.0
-    for n_order in range(order + 1):
-        if n_order == 0:
-            current_coeff = 1.0
-        elif n_order == 1:
-            current_coeff = 0.5
-        else:
-            current_coeff = (
-                current_coeff
-                * (0.5 - (n_order - 1))
-                / (n_order - 1)
-                * (0.5 - (n_order - 1))
-                / n_order
-            )  # Wait, previous loop logic was using stored coeff.
-            # Let's start clean.
-            pass
 
     coeffs = [0.0] * (order + 1)
     coeffs[0] = 1.0

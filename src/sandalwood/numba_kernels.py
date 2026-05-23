@@ -28,12 +28,6 @@ except ImportError:
     def get_num_threads():
         return 1
 
-    def evaluate_dense_kernel(*args):
-        pass
-
-    def multiply_dense_parallel(*args):
-        pass
-
 
 @njit(fastmath=True, cache=True, parallel=True)
 def evaluate_dense_kernel(points, exponents, coeffs, result):

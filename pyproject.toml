@@ -132,7 +132,7 @@ warn_unused_configs = true
 disallow_untyped_defs = false
 check_untyped_defs = true
 exclude = ["^docs/.*", "^tests/.*", "^benchmark_MTF/.*", "^demos/.*"]
-disable_error_code = ["var-annotated", "arg-type", "operator", "assignment", "index", "misc", "import-not-found", "import-untyped", "attr-defined", "no-redef", "return-value"]
+disable_error_code = ["arg-type", "operator", "assignment", "index", "import-not-found", "import-untyped", "attr-defined", "return-value"]
 
 [[tool.mypy.overrides]]
 module = ["numpy.*", "pandas.*", "matplotlib.*", "scipy.*", "sympy.*", "tqdm.*"]
