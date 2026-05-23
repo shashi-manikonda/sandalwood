@@ -1,6 +1,7 @@
 # sandalwood: Multivariate Taylor Function Library
 
 [![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
+[![Run Tests](https://github.com/shashi-manikonda/sandalwood/actions/workflows/test.yml/badge.svg)](https://github.com/shashi-manikonda/sandalwood/actions/workflows/test.yml)
 
 
 A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), featuring a high-performance hybrid architecture (Python + Numba + COSY Infinity).
