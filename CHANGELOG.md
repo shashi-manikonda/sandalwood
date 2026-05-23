@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-05-23
+
+### Added
+- **Local Pre-commit hooks**: Quality checks using `pre-commit` (Ruff and MyPy).
+- **Read the Docs integration**: Integrated automated Sphinx builds with Jupyter notebook execution.
+- **Continuous Integration**: Added GitHub Actions workflow (`test.yml`) verifying the package on Windows/Ubuntu for Python 3.9-3.13.
+- **Continuous Delivery**: Added GitHub Actions publish workflow (`python-publish.yml`) to build wheels using `cibuildwheel` and publish to PyPI.
+
+### Fixed
+- **Mypy Type Checking**: Resolved numpy typing overload issue in `np.append` for `TaylorMap`.
+- **WSL/Linux Memory Limits**: Added Linux-specific `COSY_LMEM_LINUX` environment override to prevent page-mapping errors under the WSL VM.
+
 ## [0.2.0] - 2026-01-21
 
 ### Added
