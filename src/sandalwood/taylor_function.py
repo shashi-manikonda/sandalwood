@@ -2921,7 +2921,7 @@ class MultivariateTaylorFunction:
 
                         return res_flat.reshape(shape)
 
-                    except Exception:
+                    except Exception as e:
                         # If anything fails (dimensions, types), fallback to slow loop
                         # print(f"Batch optimization failed: {e}")
                         pass
