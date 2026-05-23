@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from sandalwood.taylor_function import MultivariateTaylorFunction as mtf
 
 # --- Fixtures & Setup ---
@@ -39,17 +38,17 @@ def test_arithmetic_commutativity(implementation):
     sum1 = x + y
     sum2 = y + x
     diff_sum = sum1 - sum2
-    assert np.allclose(diff_sum.get_max_coefficient(), 0.0, atol=1e-15), (
-        "Addition not commutative"
-    )
+    assert np.allclose(
+        diff_sum.get_max_coefficient(), 0.0, atol=1e-15
+    ), "Addition not commutative"
 
     # Multiplication
     prod1 = x * y
     prod2 = y * x
     diff_prod = prod1 - prod2
-    assert np.allclose(diff_prod.get_max_coefficient(), 0.0, atol=1e-15), (
-        "Multiplication not commutative"
-    )
+    assert np.allclose(
+        diff_prod.get_max_coefficient(), 0.0, atol=1e-15
+    ), "Multiplication not commutative"
 
 
 def test_arithmetic_associativity(implementation):
@@ -64,17 +63,17 @@ def test_arithmetic_associativity(implementation):
     lhs = (x + y) + z
     rhs = x + (y + z)
     diff = lhs - rhs
-    assert np.allclose(diff.get_max_coefficient(), 0.0, atol=1e-15), (
-        "Addition not associative"
-    )
+    assert np.allclose(
+        diff.get_max_coefficient(), 0.0, atol=1e-15
+    ), "Addition not associative"
 
     # Multiplication
     lhs_mul = (x * y) * z
     rhs_mul = x * (y * z)
     diff_mul = lhs_mul - rhs_mul
-    assert np.allclose(diff_mul.get_max_coefficient(), 0.0, atol=1e-15), (
-        "Multiplication not associative"
-    )
+    assert np.allclose(
+        diff_mul.get_max_coefficient(), 0.0, atol=1e-15
+    ), "Multiplication not associative"
 
 
 def test_arithmetic_distributivity(implementation):
@@ -88,9 +87,9 @@ def test_arithmetic_distributivity(implementation):
     lhs = a * (b + c)
     rhs = (a * b) + (a * c)
     diff = lhs - rhs
-    assert np.allclose(diff.get_max_coefficient(), 0.0, atol=1e-15), (
-        "Distributivity arithmetic failed"
-    )
+    assert np.allclose(
+        diff.get_max_coefficient(), 0.0, atol=1e-15
+    ), "Distributivity arithmetic failed"
 
 
 def test_calculus_fundamental_theorem(implementation):
@@ -106,9 +105,9 @@ def test_calculus_fundamental_theorem(implementation):
 
     # The integration constant is 0 by default implementation, so int_df should match f
     diff = int_df - f
-    assert np.allclose(diff.get_max_coefficient(), 0.0, atol=1e-15), (
-        "Calculus identity failed"
-    )
+    assert np.allclose(
+        diff.get_max_coefficient(), 0.0, atol=1e-15
+    ), "Calculus identity failed"
 
 
 def test_calculus_trig_derivatives(implementation):

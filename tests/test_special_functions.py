@@ -2,7 +2,6 @@ import math
 
 import numpy as np
 import pytest
-
 import sandalwood.taylor_function as taylor
 
 
@@ -95,9 +94,9 @@ def test_erf(implementation):
     df = res.deriv(1)
     val_deriv = df.eval([0, 0])[0]
     expected_deriv = 2.0 / math.sqrt(math.pi)
-    assert np.isclose(val_deriv, expected_deriv), (
-        f"Expected {expected_deriv}, got {val_deriv}"
-    )
+    assert np.isclose(
+        val_deriv, expected_deriv
+    ), f"Expected {expected_deriv}, got {val_deriv}"
 
 
 @pytest.mark.parametrize("implementation", ["python", "cosy"])

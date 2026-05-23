@@ -28,6 +28,7 @@ Output:
     - Console-printed results.
     - Markdown and HTML reports in the 'artifacts/' directory.
 """
+
 import argparse
 import os
 import signal
@@ -63,10 +64,8 @@ class TimeLimit:
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 )
-from sandalwood import TaylorMap, mtf
-
 from core import ARTIFACTS_DIR, BenchmarkEngine
-
+from sandalwood import TaylorMap, mtf
 
 
 def generate_benchmark_cases(dims):
@@ -415,15 +414,13 @@ def run_batch_math(engine, args):
     res_loop_add = [a + b for a, b in zip(list_a, list_b)]
     t_loop_add = time.process_time() - start
 
-    results.append(
-        {
-            "Type": "Add",
-            "Operations": args.iters,
-            "Batch Backend Time": engine.format_time(t_vec_add),
-            "Python Loop Time": engine.format_time(t_loop_add),
-            "Speedup": f"{t_loop_add / t_vec_add:.1f}x" if t_vec_add > 0 else "N/A",
-        }
-    )
+    results.append({
+        "Type": "Add",
+        "Operations": args.iters,
+        "Batch Backend Time": engine.format_time(t_vec_add),
+        "Python Loop Time": engine.format_time(t_loop_add),
+        "Speedup": f"{t_loop_add / t_vec_add:.1f}x" if t_vec_add > 0 else "N/A",
+    })
 
     # --- MUL ---
     print("Running Vectorized Mul (Fortran Batch)...")
@@ -436,15 +433,13 @@ def run_batch_math(engine, args):
     res_loop_mul = [a * b for a, b in zip(list_a, list_b)]
     t_loop_mul = time.process_time() - start
 
-    results.append(
-        {
-            "Type": "Mul",
-            "Operations": args.iters,
-            "Batch Backend Time": engine.format_time(t_vec_mul),
-            "Python Loop Time": engine.format_time(t_loop_mul),
-            "Speedup": f"{t_loop_mul / t_vec_mul:.1f}x" if t_vec_mul > 0 else "N/A",
-        }
-    )
+    results.append({
+        "Type": "Mul",
+        "Operations": args.iters,
+        "Batch Backend Time": engine.format_time(t_vec_mul),
+        "Python Loop Time": engine.format_time(t_loop_mul),
+        "Speedup": f"{t_loop_mul / t_vec_mul:.1f}x" if t_vec_mul > 0 else "N/A",
+    })
 
     df = pd.DataFrame(results)
     try:
@@ -604,31 +599,37 @@ def run_full_benchmark(args):
     print(f"HTML Report: {report_path}")
 
 
-
 def run_neval_benchmark(engine, args):
     """Benchmarks neval performance."""
     import time
+
     print(f"Benchmarking neval with N={args.iters} points...")
-    
+
     # Setup: High order polynomial to stress memory
     globals_dict = engine.setup_mtf("python")
-    x, y, z, u = globals_dict["x"], globals_dict["y"], globals_dict["z"], globals_dict["u"]
-    
+    x, y, z, u = (
+        globals_dict["x"],
+        globals_dict["y"],
+        globals_dict["z"],
+        globals_dict["u"],
+    )
+
     # (x+y+z+u)^8 has 495 terms
     print("Creating polynomial...")
-    poly = (x + y + z + u)**8
+    poly = (x + y + z + u) ** 8
     print(f"Polynomial terms: {len(poly.coeffs)}")
-    
+
     # Points
     points = np.random.rand(args.iters, 4)
-    
+
     print("Running neval...")
     start = time.time()
     res = poly.neval(points)
     end = time.time()
-    
+
     print(f"Time: {end - start:.4f} s")
     print(f"Throughput: {args.iters / (end - start):.2f} pts/s")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Unified Sandalwood Benchmark Suite")

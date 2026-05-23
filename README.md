@@ -192,6 +192,36 @@ Demo tests are excluded by default to keep the core test suite fast. To run them
     SANDALWOOD_TEST_FULL_DEMOS=1 pytest -v -m demo tests/test_demos_quick.py
     ```
 
+## Code Quality & Pre-commit Hooks
+
+This project uses `pre-commit` to automate code quality checks (formatting, linting, and type checking) before each commit.
+
+### Installation & Setup
+
+1. Install development tools:
+   ```bash
+   uv pip install -e .[dev]
+   ```
+2. Activate your virtual environment and register the hooks with Git:
+   ```bash
+   pre-commit install
+   ```
+
+### Manual Run
+
+You can run the quality checks manually on all files:
+* **Windows (PowerShell)**:
+  ```powershell
+  # Ensure the environment is active so local hooks find pytest
+  & "path/to/.venv/Scripts/Activate.ps1"
+  pre-commit run --all-files
+  ```
+* **WSL / Linux**:
+  ```bash
+  source .venv/bin/activate
+  pre-commit run --all-files
+  ```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

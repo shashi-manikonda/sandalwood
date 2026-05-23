@@ -1,7 +1,6 @@
 import cmath
 
 import pytest
-
 from sandalwood import ComplexMultivariateTaylorFunction as CMTF
 from sandalwood import MultivariateTaylorFunction as MTF
 
@@ -13,7 +12,6 @@ def safe_initialize(order, dim, backend):
         # Re-initialize with new settings
         MTF._INITIALIZED = False
         MTF.initialize_mtf(max_order=order, max_dimension=dim, implementation=backend)
-
 
 
 @pytest.mark.parametrize("backend", ["python", "cosy"])

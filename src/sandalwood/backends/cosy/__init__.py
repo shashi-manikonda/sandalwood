@@ -1,1 +1,1 @@
-from .cosy_backend import CosyBackend, COSY_AVAILABLE
+from .cosy_backend import COSY_AVAILABLE, CosyBackend

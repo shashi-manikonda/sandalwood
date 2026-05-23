@@ -17,7 +17,7 @@ if sys.platform == "win32":
                     os.add_dll_directory(p)
                 except OSError:
                     pass
-        
+
         # 2. Search Standard Locations (if typical path didn't work)
         std_paths = [
             r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\windows\redist\intel64_win\compiler",
@@ -40,40 +40,43 @@ else:
         intel_search_paths = [
             "/opt/intel/oneapi/compiler/latest/linux/compiler/lib/intel64_lin",
             "/opt/intel/oneapi/compiler/latest/lib",
-             # Also try specific versions if 'latest' isn't there (heuristic)
-            "/opt/intel/oneapi/compiler/2025.3/lib", 
+            # Also try specific versions if 'latest' isn't there (heuristic)
+            "/opt/intel/oneapi/compiler/2025.3/lib",
         ]
-        
+
         # Dependencies to preload in correct dependency order
         # (libintlc -> libimf -> libsvml -> libifcoremt -> libifport)
         libs_to_load = [
-            "libintlc.so.5", 
-            "libiomp5.so", 
-            "libimf.so", 
-            "libsvml.so", 
-            "libifcoremt.so.5", 
-            "libifport.so.5"
+            "libintlc.so.5",
+            "libiomp5.so",
+            "libimf.so",
+            "libsvml.so",
+            "libifcoremt.so.5",
+            "libifport.so.5",
         ]
-        
+
         found_path = None
         for p in intel_search_paths:
             if os.path.exists(p):
                 # Check if libs exist here
-                if all(os.path.exists(os.path.join(p, lib)) for lib in libs_to_load[:1]):
+                if all(
+                    os.path.exists(os.path.join(p, lib)) for lib in libs_to_load[:1]
+                ):
                     found_path = p
                     break
-        
+
         if found_path:
             import ctypes
+
             for lib in libs_to_load:
                 full_path = os.path.join(found_path, lib)
                 if os.path.exists(full_path):
                     try:
                         ctypes.CDLL(full_path, mode=os.RTLD_GLOBAL)
                     except OSError:
-                        pass # Ignore if already loaded or incompatible
+                        pass  # Ignore if already loaded or incompatible
     except Exception:
-        pass # Fallback to standard loading
+        pass  # Fallback to standard loading
 
 
 LIB_PATH = os.path.join(os.path.dirname(__file__), LIB_NAME)
@@ -144,7 +147,10 @@ bind_cosy_func(
 bind_cosy_func("eval_da", [POINTER(c_int), POINTER(c_double), POINTER(c_double)])
 bind_cosy_func("da_reset", [POINTER(c_int)])
 bind_cosy_func("da_reset_cd", [POINTER(c_int)])
-bind_cosy_func("compute_da_div_batch", [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)])
+bind_cosy_func(
+    "compute_da_div_batch",
+    [POINTER(c_int), POINTER(c_int), POINTER(c_int), POINTER(c_int)],
+)
 bind_cosy_func("compute_cd_int", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 bind_cosy_func("compute_cd_poi", [POINTER(c_int), POINTER(c_int), POINTER(c_int)])
 
@@ -396,19 +402,23 @@ class CosyIndexPool:
         if CosyScope._depth > 0:
             res_idx = c_int(0)
             if is_complex:
-                libcosy.create_cda_const(byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0)))
+                libcosy.create_cda_const(
+                    byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
+                )
             else:
                 libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
             return res_idx.value
 
         pool = cls._free_indices_cda if is_complex else cls._free_indices_da
-        
+
         if not pool:
             # Allocate a new chunk
             for _ in range(cls._chunk_size):
                 res_idx = c_int(0)
                 if is_complex:
-                    libcosy.create_cda_const(byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0)))
+                    libcosy.create_cda_const(
+                        byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
+                    )
                 else:
                     libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
                 pool.append(res_idx.value)
@@ -475,7 +485,7 @@ class CosyBackend:
         """
         n_pts = len(pos_x)
         n_src = len(src_x)
-        
+
         # Helper to get indices and keep temporaries alive
         def get_indices(da_list):
             indices = (c_int * len(da_list))()
@@ -483,7 +493,11 @@ class CosyBackend:
             for i, item in enumerate(da_list):
                 if isinstance(item, CosyDA):
                     indices[i] = item.idx
-                elif hasattr(item, "mtf_data") and hasattr(item.mtf_data, "da") and isinstance(item.mtf_data.da, CosyDA):
+                elif (
+                    hasattr(item, "mtf_data")
+                    and hasattr(item.mtf_data, "da")
+                    and isinstance(item.mtf_data.da, CosyDA)
+                ):
                     # Handle Sandalwood MultivariateTaylorFunction wrapper
                     indices[i] = item.mtf_data.da.idx
                 else:
@@ -492,31 +506,40 @@ class CosyBackend:
                     keep_alive.append(obj)
                     indices[i] = obj.idx
             return indices, keep_alive
-            
+
         c_pos_x, k_pos_x = get_indices(pos_x)
         c_pos_y, k_pos_y = get_indices(pos_y)
         c_pos_z, k_pos_z = get_indices(pos_z)
-        
+
         c_src_x, k_src_x = get_indices(src_x)
         c_src_y, k_src_y = get_indices(src_y)
         c_src_z, k_src_z = get_indices(src_z)
-        
+
         c_dl_x, k_dl_x = get_indices(dl_x)
         c_dl_y, k_dl_y = get_indices(dl_y)
         c_dl_z, k_dl_z = get_indices(dl_z)
-        
+
         c_b_x = (c_int * n_pts)()
         c_b_y = (c_int * n_pts)()
         c_b_z = (c_int * n_pts)()
-        
+
         libcosy.compute_biot_savart_batch(
-            byref(c_int(n_pts)), byref(c_int(n_src)),
-            c_pos_x, c_pos_y, c_pos_z,
-            c_src_x, c_src_y, c_src_z,
-            c_dl_x, c_dl_y, c_dl_z,
-            c_b_x, c_b_y, c_b_z
+            byref(c_int(n_pts)),
+            byref(c_int(n_src)),
+            c_pos_x,
+            c_pos_y,
+            c_pos_z,
+            c_src_x,
+            c_src_y,
+            c_src_z,
+            c_dl_x,
+            c_dl_y,
+            c_dl_z,
+            c_b_x,
+            c_b_y,
+            c_b_z,
         )
-        
+
         # Return raw C-arrays of indices (caller must wrap them)
         return c_b_x, c_b_y, c_b_z
 
@@ -528,41 +551,41 @@ class CosyBackend:
         n = len(da_list)
         if n == 0:
             return CosyDA.from_const(0.0)
-        
+
         # Prepare inputs
         c_n = c_int(n)
         c_coeffs = (c_double * n)(*coeffs)
         c_indices = (c_int * n)()
-        
+
         # Handle both CosyDA and CosyMtfData/wrapper objects
         for i, item in enumerate(da_list):
             if hasattr(item, "idx"):
-                 c_indices[i] = item.idx
+                c_indices[i] = item.idx
             elif hasattr(item, "da") and hasattr(item.da, "idx"):
-                 c_indices[i] = item.da.idx
+                c_indices[i] = item.da.idx
             else:
-                 # Fallback for constant
-                 tmp = CosyDA.from_const(item)
-                 c_indices[i] = tmp.idx
+                # Fallback for constant
+                tmp = CosyDA.from_const(item)
+                c_indices[i] = tmp.idx
 
         # Fallback to iterative addition/scaling because da_lin_comb seems unstable/broken
         # (getting "VARIABLE 2 HAS WRONG TYPE" errors).
         # We perform the loop using direct C calls for speed.
-        
+
         # Allocate accumulator
         c_res_idx = c_int(CosyIndexPool.acquire())
-        
+
         c_temp_idx = c_int(0)
         c_add_res = c_int(0)
-        
+
         for i in range(n):
             idx = c_indices[i]
             coeff = c_coeffs[i]
-            
+
             # If coeff is 0, skip
             if abs(coeff) < 1e-16:
                 continue
-                
+
             # Scale if needed
             if abs(coeff - 1.0) > 1e-16:
                 # Multiply by scalar
@@ -575,28 +598,32 @@ class CosyBackend:
                 term_idx = c_scaled_idx
             else:
                 term_idx = c_int(idx)
-                
+
             # Add to accumulator
             # compute_da_add(a, b, res) -> allocated new res usually
             # But we want to accumulate.
             # R = R + Term
             # result index changes at each step.
-            
+
             c_next_res = c_int(CosyIndexPool.acquire())
             libcosy.compute_da_add(
-                byref(c_res_idx), byref(c_int(term_idx.value if hasattr(term_idx,'value') else term_idx)), byref(c_next_res)
+                byref(c_res_idx),
+                byref(
+                    c_int(term_idx.value if hasattr(term_idx, "value") else term_idx)
+                ),
+                byref(c_next_res),
             )
-            
+
             # Free old accumulator
             old_idx = c_res_idx.value
             CosyIndexPool.release(old_idx)
-            
+
             c_res_idx = c_next_res
-            
+
             # If we scaled, we created a temp, technically should free it.
-            if hasattr(term_idx, 'value') and term_idx.value != idx:
-                 CosyIndexPool.release(term_idx.value)
-             
+            if hasattr(term_idx, "value") and term_idx.value != idx:
+                CosyIndexPool.release(term_idx.value)
+
         return CosyDA(idx=c_res_idx.value, owned=True)
 
     @staticmethod
@@ -608,7 +635,7 @@ class CosyBackend:
         """
         n = len(list_a)
         if len(list_b) != n:
-             raise ValueError("Batch arithmetic lists must be same length")
+            raise ValueError("Batch arithmetic lists must be same length")
 
         c_n = c_int(n)
         c_idx_a = (c_int * n)()
@@ -616,8 +643,10 @@ class CosyBackend:
         c_idx_res = (c_int * n)()
 
         def get_idx(item):
-            if hasattr(item, "idx"): return item.idx
-            if hasattr(item, "da"): return item.da.idx
+            if hasattr(item, "idx"):
+                return item.idx
+            if hasattr(item, "da"):
+                return item.da.idx
             return CosyDA.from_const(item).idx
 
         for i in range(n):
@@ -625,62 +654,58 @@ class CosyBackend:
             c_idx_b[i] = get_idx(list_b[i])
 
         func_map = {
-            'add': libcosy.compute_da_add_batch,
-            'sub': libcosy.compute_da_sub_batch,
-            'mul': libcosy.compute_da_mul_batch,
-            'div': libcosy.compute_da_div_batch
+            "add": libcosy.compute_da_add_batch,
+            "sub": libcosy.compute_da_sub_batch,
+            "mul": libcosy.compute_da_mul_batch,
+            "div": libcosy.compute_da_div_batch,
         }
-        
+
         for i in range(n):
             c_idx_res[i] = CosyIndexPool.acquire()
 
-        func_map[op](
-            byref(c_n),
-            c_idx_a, 
-            c_idx_b, 
-            c_idx_res
-        )
+        func_map[op](byref(c_n), c_idx_a, c_idx_b, c_idx_res)
 
         return [CosyDA(idx=c_idx_res[i], owned=True) for i in range(n)]
 
     @staticmethod
-    def biot_savart_batch(
-        pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z
-    ):
+    def biot_savart_batch(pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z):
         """
         Batch Biot-Savart calculation with Hybrid Dispatch.
         - If inputs are floats: Uses Fast Path (scalars), returns numpy arrays of floats.
         - If inputs are DAs: Uses General Path, returns lists of CosyDA objects.
         """
         # Check input type availability
-        is_float_src = len(src_x) > 0 and isinstance(src_x[0], (float, np.floating, int, np.integer))
-        
+        is_float_src = len(src_x) > 0 and isinstance(
+            src_x[0], (float, np.floating, int, np.integer)
+        )
+
         if is_float_src:
             # FAST PATH: Floats
             n_pts = len(pos_x)
             n_src = len(src_x)
-            
+
             # Helper: Cast to contiguous doubles
             def to_doubles(arr):
                 return np.ascontiguousarray(arr, dtype=np.float64)
-                
+
             c_pos_x = to_doubles(pos_x)
             c_pos_y = to_doubles(pos_y)
             c_pos_z = to_doubles(pos_z)
             c_src_x = to_doubles(src_x)
             c_src_y = to_doubles(src_y)
             c_src_z = to_doubles(src_z)
-            c_dl_x  = to_doubles(dl_x)
-            c_dl_y  = to_doubles(dl_y)
-            c_dl_z  = to_doubles(dl_z)
-            
+            c_dl_x = to_doubles(dl_x)
+            c_dl_y = to_doubles(dl_y)
+            c_dl_z = to_doubles(dl_z)
+
             # Outputs
             out_x = np.zeros(n_pts, dtype=np.float64)
             out_y = np.zeros(n_pts, dtype=np.float64)
             out_z = np.zeros(n_pts, dtype=np.float64)
-            
+
             libcosy.compute_biot_savart_batch_fast(
-                c_int(n_pts), c_int(n_src),
+                c_int(n_pts),
+                c_int(n_src),
                 c_pos_x.ctypes.data_as(POINTER(c_double)),
                 c_pos_y.ctypes.data_as(POINTER(c_double)),
                 c_pos_z.ctypes.data_as(POINTER(c_double)),
@@ -695,19 +720,19 @@ class CosyBackend:
                 out_z.ctypes.data_as(POINTER(c_double)),
             )
             return out_x, out_y, out_z
-            
+
         else:
             # GENERAL PATH: DAs
             c_b_x, c_b_y, c_b_z = CosyBackend.biot_savart_batch_indices(
                 pos_x, pos_y, pos_z, src_x, src_y, src_z, dl_x, dl_y, dl_z
             )
             n_pts = len(pos_x)
-            
+
             # Wrap results (Legacy behavior used by tests/direct callers)
             res_x = [CosyDA(idx=c_b_x[i], owned=True) for i in range(n_pts)]
             res_y = [CosyDA(idx=c_b_y[i], owned=True) for i in range(n_pts)]
             res_z = [CosyDA(idx=c_b_z[i], owned=True) for i in range(n_pts)]
-            
+
             return res_x, res_y, res_z
 
 
@@ -1447,7 +1472,7 @@ class CosyMtfData:
             if not isinstance(self.da, CosyCDA):
                 old_idx = self.da.idx
                 self.da = CosyCDA(create_mode="new")
-                # Note: We lose old real data here if we don't copy, 
+                # Note: We lose old real data here if we don't copy,
                 # but from_numpy usually overwrites.
 
             flat_coeffs = coeffs.astype(np.complex128).flatten()
@@ -1456,23 +1481,33 @@ class CosyMtfData:
 
             c_re = (c_double * len(flat_re))(*flat_re)
             c_im = (c_double * len(flat_im))(*flat_im)
-            
+
             # Use specific complex setter if available, otherwise manual split
             if hasattr(libcosy, "cosy_set_cd_coeffs_"):
-                 # Fast Path
-                 bind_cosy_func(
+                # Fast Path
+                bind_cosy_func(
                     "cosy_set_cd_coeffs",
-                    [POINTER(c_int), POINTER(c_double), POINTER(c_double), POINTER(c_int), POINTER(c_int)],
+                    [
+                        POINTER(c_int),
+                        POINTER(c_double),
+                        POINTER(c_double),
+                        POINTER(c_int),
+                        POINTER(c_int),
+                    ],
                 )
-                 libcosy.cosy_set_cd_coeffs(
-                    byref(c_int(self.da.idx)), c_re, c_im, c_exps, byref(c_int(len(coeffs)))
+                libcosy.cosy_set_cd_coeffs(
+                    byref(c_int(self.da.idx)),
+                    c_re,
+                    c_im,
+                    c_exps,
+                    byref(c_int(len(coeffs))),
                 )
             else:
                 # Robust Fallback: Set Real and Imag parts separately
                 # 1. Create temporary Real DAs
                 re_da = CosyDA(create_new=True)
                 im_da = CosyDA(create_new=True)
-                
+
                 # 2. Set coefficients for them
                 libcosy.cosy_set_coeffs(
                     byref(c_int(re_da.idx)), c_re, c_exps, byref(c_int(len(coeffs)))
@@ -1480,9 +1515,13 @@ class CosyMtfData:
                 libcosy.cosy_set_coeffs(
                     byref(c_int(im_da.idx)), c_im, c_exps, byref(c_int(len(coeffs)))
                 )
-                
+
                 # 3. Merge into Complex DA
-                libcosy.set_cd_parts(byref(c_int(self.da.idx)), byref(c_int(re_da.idx)), byref(c_int(im_da.idx)))
+                libcosy.set_cd_parts(
+                    byref(c_int(self.da.idx)),
+                    byref(c_int(re_da.idx)),
+                    byref(c_int(im_da.idx)),
+                )
 
         else:
             # Real case
@@ -1608,20 +1647,20 @@ class CosyMtfData:
 
     def add(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             # Create constant CosyMtfData? Or handle in underlying CosyDA
-             # CosyDA handles scalars in __add__.
-             # We need to extract .da if it's CosyMtfData
-             return self._create_res(self.da + other)
+            # Create constant CosyMtfData? Or handle in underlying CosyDA
+            # CosyDA handles scalars in __add__.
+            # We need to extract .da if it's CosyMtfData
+            return self._create_res(self.da + other)
         return self._create_res(self.da + other.da)
 
     def subtract(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             return self._create_res(self.da - other)
+            return self._create_res(self.da - other)
         return self._create_res(self.da - other.da)
 
     def multiply(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             return self._create_res(self.da * other)
+            return self._create_res(self.da * other)
         return self._create_res(self.da * other.da)
 
     def multiply_inplace(self, other):
@@ -1632,8 +1671,8 @@ class CosyMtfData:
 
     def divide(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             return self._create_res(self.da / other)
-             
+            return self._create_res(self.da / other)
+
         c0 = other.get_constant()
         if abs(c0) == 0:
             raise ValueError("Division by zero (constant part is zero).")
@@ -1645,21 +1684,21 @@ class CosyMtfData:
     # --- Operator Overloading for CosyMtfData ---
     def __add__(self, other):
         return self.add(other)
-    
+
     def __radd__(self, other):
         return self.add(other)
 
     def __sub__(self, other):
         return self.subtract(other)
-    
+
     def __rsub__(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             return self._create_res(other - self.da)
-        return NotImplemented # Should be handled by other.__sub__
+            return self._create_res(other - self.da)
+        return NotImplemented  # Should be handled by other.__sub__
 
     def __mul__(self, other):
         return self.multiply(other)
-    
+
     def __rmul__(self, other):
         return self.multiply(other)
 
@@ -1668,7 +1707,7 @@ class CosyMtfData:
 
     def __rtruediv__(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             return self._create_res(other / self.da)
+            return self._create_res(other / self.da)
         return NotImplemented
 
     def __neg__(self):
@@ -1704,7 +1743,7 @@ class CosyMtfData:
 
         # Transfer ownership: stop res_da from freeing the index when it dies
         if hasattr(res_da, "owned"):
-             res_da.owned = False
+            res_da.owned = False
 
         return CosyMtfData(self.dimension, is_complex=is_complex, idx=idx, owned=True)
 
@@ -1839,7 +1878,7 @@ def _prepare_batch_args(idx_arr_a, idx_arr_b):
 
     a_ptr = np.ascontiguousarray(idx_arr_a, dtype=np.int32)
     b_ptr = np.ascontiguousarray(idx_arr_b, dtype=np.int32)
-    
+
     # Acquire pooled indices for results
     res_indices = [CosyIndexPool.acquire() for _ in range(n)]
     res_ptr = np.array(res_indices, dtype=np.int32)

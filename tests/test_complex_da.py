@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from sandalwood.taylor_function import MultivariateTaylorFunction as mtf
 
 

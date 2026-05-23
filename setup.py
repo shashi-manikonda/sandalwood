@@ -4,8 +4,10 @@ import re
 import shutil
 import subprocess
 import sys
+
 from setuptools import Command, setup
 from setuptools.command.build_py import build_py
+
 
 class BuildCosy(Command):
     """Custom command to build the COSY backend with source patching."""
@@ -26,7 +28,7 @@ class BuildCosy(Command):
 
         # Check if link.exe is functional (basic check)
         has_link = shutil.which("link") and "LIB" in os.environ
-        
+
         if not has_link:
             print("Configuring Visual Studio environment...")
             possible_roots = [
@@ -58,41 +60,42 @@ class BuildCosy(Command):
                             # Update PATH, LIB, INCLUDE, LIBPATH
                             if key.upper() in ["PATH", "LIB", "INCLUDE", "LIBPATH"]:
                                 os.environ[key] = value
-                    
+
                     # Explicitly verify link.exe again
                     if not shutil.which("link"):
-                         print("Warning: link.exe still not found in PATH after loading VsDevCmd.")
-                         
+                        print(
+                            "Warning: link.exe still not found in PATH after loading VsDevCmd."
+                        )
+
                 except subprocess.CalledProcessError as e:
                     print(f"Error loading Visual Studio environment: {e}")
 
         # Try standard path
         intel_lib_dir = r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\lib"
-        
+
         # Also check relative to ifx if available
         ifx_path = shutil.which("ifx")
         if ifx_path:
-             root = os.path.dirname(os.path.dirname(ifx_path))
-             c1 = os.path.join(root, "lib")
-             c2 = os.path.join(root, "windows", "compiler", "lib", "intel64_win")
-             if os.path.exists(os.path.join(c1, "libiomp5md.lib")):
-                 intel_lib_dir = c1
-             elif os.path.exists(os.path.join(c2, "libiomp5md.lib")):
-                 intel_lib_dir = c2
-        
+            root = os.path.dirname(os.path.dirname(ifx_path))
+            c1 = os.path.join(root, "lib")
+            c2 = os.path.join(root, "windows", "compiler", "lib", "intel64_win")
+            if os.path.exists(os.path.join(c1, "libiomp5md.lib")):
+                intel_lib_dir = c1
+            elif os.path.exists(os.path.join(c2, "libiomp5md.lib")):
+                intel_lib_dir = c2
+
         if os.path.exists(os.path.join(intel_lib_dir, "libiomp5md.lib")):
-             print(f"Found Intel libraries at: {intel_lib_dir}")
-             # Always add it if not clearly present
-             if "LIB" not in os.environ:
-                  os.environ["LIB"] = intel_lib_dir
-             elif intel_lib_dir.lower() not in os.environ["LIB"].lower():
-                  print(f"Adding {intel_lib_dir} to LIB")
-                  os.environ["LIB"] += os.pathsep + intel_lib_dir
+            print(f"Found Intel libraries at: {intel_lib_dir}")
+            # Always add it if not clearly present
+            if "LIB" not in os.environ:
+                os.environ["LIB"] = intel_lib_dir
+            elif intel_lib_dir.lower() not in os.environ["LIB"].lower():
+                print(f"Adding {intel_lib_dir} to LIB")
+                os.environ["LIB"] += os.pathsep + intel_lib_dir
         else:
-             print(f"Warning: Could not locate libiomp5md.lib at {intel_lib_dir}")
+            print(f"Warning: Could not locate libiomp5md.lib at {intel_lib_dir}")
 
         print(f"LIB environment variable length: {len(os.environ.get('LIB', ''))}")
-
 
     def run(self):
         """Runs the COSY compilation logic."""
@@ -100,7 +103,7 @@ class BuildCosy(Command):
         # 1. Setup Paths
         dir_path = os.path.abspath(os.path.dirname(__file__))
         backend_dir = os.path.join(dir_path, "src", "sandalwood", "backends", "cosy")
-        
+
         # Determine Source Path: Priority: ENV > Local cosy_src
         cosy_src_env = os.environ.get("SANDALWOOD_COSY_SRC")
         if cosy_src_env and os.path.exists(cosy_src_env):
@@ -112,11 +115,17 @@ class BuildCosy(Command):
 
         # Verify source exists
         required_files = ["dafox.f", "foxfit.f", "foxgraf.f", "version.f"]
-        missing = [f for f in required_files if not os.path.exists(os.path.join(cosy_src_orig, f))]
-        
+        missing = [
+            f
+            for f in required_files
+            if not os.path.exists(os.path.join(cosy_src_orig, f))
+        ]
+
         if missing:
             print(f"Warning: COSY source files missing in {cosy_src_orig}: {missing}")
-            print("COSY backend will not be built. Please set SANDALWOOD_COSY_SRC if you have a COSY license.")
+            print(
+                "COSY backend will not be built. Please set SANDALWOOD_COSY_SRC if you have a COSY license."
+            )
             return
 
         build_temp = os.path.join(backend_dir, "build_tmp")
@@ -145,7 +154,7 @@ class BuildCosy(Command):
                             compiler = val
                             compiler_type = "ifx" if "ifx" in val else "gfortran"
                             break
-        
+
         if not compiler:
             compiler = os.environ.get("COSY_COMPILER")
             if compiler:
@@ -159,7 +168,7 @@ class BuildCosy(Command):
             elif shutil.which("gfortran"):
                 compiler = "gfortran"
                 compiler_type = "gfortran"
-        
+
         # C. Windows fallback search for MinGW/Chocolatey
         if not compiler and sys.platform == "win32":
             possible_paths = [
@@ -193,7 +202,9 @@ class BuildCosy(Command):
                         break
 
         if not compiler:
-            print("Warning: No Fortran compiler (ifx or gfortran) found. COSY backend will not be built.")
+            print(
+                "Warning: No Fortran compiler (ifx or gfortran) found. COSY backend will not be built."
+            )
             return
 
         print(f"Using Compiler: {compiler} ({compiler_type})")
@@ -208,7 +219,7 @@ class BuildCosy(Command):
         cosy_core_files = ["dafox.f", "foxfit.f", "foxgraf.f"]
         for f in cosy_core_files:
             shutil.copy2(os.path.join(cosy_src_orig, f), build_temp)
-        
+
         # B. Sandalwood bridge files (from local directory)
         sandalwood_bridge_files = ["wrapper.f", "helper.f"]
         for f in sandalwood_bridge_files:
@@ -249,11 +260,15 @@ class BuildCosy(Command):
             # First pass: collect bases
             bases = set()
             for k in raw_config:
-                if k.endswith("_WIN32"): bases.add(k[:-6])
-                elif k.endswith("_LINUX"): bases.add(k[:-6])
-                elif k.endswith("_DARWIN"): bases.add(k[:-7])
-                else: bases.add(k)
-            
+                if k.endswith("_WIN32"):
+                    bases.add(k[:-6])
+                elif k.endswith("_LINUX"):
+                    bases.add(k[:-6])
+                elif k.endswith("_DARWIN"):
+                    bases.add(k[:-7])
+                else:
+                    bases.add(k)
+
             for base in bases:
                 # Check for specific override first
                 override_key = base + target_suffix
@@ -264,19 +279,23 @@ class BuildCosy(Command):
 
         if config_map:
             print(f"Applying memory patches: {config_map}")
-            target_patch_files = [os.path.join(build_temp, f) for f in os.listdir(build_temp) if f.endswith(".f")]
+            target_patch_files = [
+                os.path.join(build_temp, f)
+                for f in os.listdir(build_temp)
+                if f.endswith(".f")
+            ]
             for file_path in target_patch_files:
                 with open(file_path, "r") as f:
                     content = f.read()
-                
+
                 modified = False
                 for param, value in config_map.items():
                     # Pattern matches "PARAM = NUMBER"
-                    pattern = fr"({param}\s*=\s*)\d+"
+                    pattern = rf"({param}\s*=\s*)\d+"
                     if re.search(pattern, content):
-                        content = re.sub(pattern, fr"\g<1>{value}", content)
+                        content = re.sub(pattern, rf"\g<1>{value}", content)
                         modified = True
-                
+
                 if modified:
                     with open(file_path, "w") as f:
                         f.write(content)
@@ -284,8 +303,10 @@ class BuildCosy(Command):
         # 4. Version Switching using version.f
         print(f"Switching code versions using {compiler_type}...")
         version_src = os.path.join(cosy_src_orig, "version.f")
-        version_bin = os.path.join(build_temp, "version.exe" if sys.platform == "win32" else "version")
-        
+        version_bin = os.path.join(
+            build_temp, "version.exe" if sys.platform == "win32" else "version"
+        )
+
         try:
             # Compile version utility
             v_cmd = [compiler]
@@ -293,34 +314,46 @@ class BuildCosy(Command):
                 v_cmd.extend(["/nologo", f"/Fe{version_bin}", version_src])
             else:
                 v_cmd.extend(["-O3", version_src, "-o", version_bin])
-            
+
             print(f"Compiling version utility: {' '.join(v_cmd)}")
             subprocess.run(v_cmd, check=True)
-            
+
             # Determine markers
             if compiler_type == "ifx":
                 old_m, new_m = "*GFOR", "*IFOR"
             else:
                 old_m, new_m = "*IFOR", "*GFOR"
-            
+
             print(f"Applying version markers: {old_m} -> {new_m}")
-            
+
             # Run on all copied .f files
             for f_name in os.listdir(build_temp):
                 if f_name.endswith(".f") and f_name != "version.f":
                     f_path = os.path.join(build_temp, f_name)
                     f_tmp = f_path + ".tmp"
-                    
+
                     # Pass 1: Platform switching (GFOR <-> IFOR)
-                    p1 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    p1 = subprocess.Popen(
+                        [version_bin],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
                     p1.communicate(input=f"{f_path}\n{f_tmp}\n{old_m}\n{new_m}\n")
                     os.replace(f_tmp, f_path)
-                    
+
                     # Pass 2: Serial switching (MPI -> NORM)
-                    p2 = subprocess.Popen([version_bin], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    p2 = subprocess.Popen(
+                        [version_bin],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
                     p2.communicate(input=f"{f_path}\n{f_tmp}\n*MPI\n*NORM\n")
                     os.replace(f_tmp, f_path)
-            
+
             print("Version switching complete.")
         except subprocess.CalledProcessError as e:
             print(f"Warning: Could not use version.f utility: {e}")
@@ -386,7 +419,7 @@ class BuildCosy(Command):
                 "-march=native",
                 "-ffixed-form",
                 "-fopenmp",
-                *files_to_compile, # Unpack list
+                *files_to_compile,  # Unpack list
                 "-o",
                 output_path,
             ])
@@ -398,21 +431,30 @@ class BuildCosy(Command):
         except subprocess.CalledProcessError as e:
             print(f"Error building COSY library: {e}")
             print("Continuing installation without COSY backend...")
-        
+
         # Cleanup (Optional - keep commented for debugging)
         # shutil.rmtree(build_temp)
 
+
 class CustomBuildPy(build_py):
     """Custom build_py that compiles the COSY backend only if explicitly requested via environment variable."""
+
     def run(self):
         if os.environ.get("SANDALWOOD_BUILD_COSY_ON_INSTALL") == "1":
-            print("Environment variable SANDALWOOD_BUILD_COSY_ON_INSTALL=1 detected. Compiling COSY backend...")
+            print(
+                "Environment variable SANDALWOOD_BUILD_COSY_ON_INSTALL=1 detected. Compiling COSY backend..."
+            )
             self.run_command("build_cosy")
         else:
             print("Skipping COSY compilation by default for standard package build.")
-            print("To build with COSY backend during installation, set environment variable SANDALWOOD_BUILD_COSY_ON_INSTALL=1")
-            print("Alternatively, use the post-installation CLI tool: sandalwood-setup-cosy")
+            print(
+                "To build with COSY backend during installation, set environment variable SANDALWOOD_BUILD_COSY_ON_INSTALL=1"
+            )
+            print(
+                "Alternatively, use the post-installation CLI tool: sandalwood-setup-cosy"
+            )
         super().run()
+
 
 setup(
     ext_modules=[],

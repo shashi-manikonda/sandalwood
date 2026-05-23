@@ -47,8 +47,7 @@ def test_batch_eval_correctness():
         return d
 
     poly = (
-        da
-        .add(x.multiply(make_const(2.0)))
+        da.add(x.multiply(make_const(2.0)))
         .add(y.multiply(make_const(3.0)))
         .add(x.multiply(x).multiply(make_const(0.5)))
         .add(y.multiply(y).multiply(make_const(0.5)))

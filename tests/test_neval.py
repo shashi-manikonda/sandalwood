@@ -117,17 +117,18 @@ def test_neval_torch_tensor(sample_mtf):
     assert result.shape == (3,)
     assert np.allclose(result.numpy(), expected)
 
+
 def test_neval_large_batch(sample_mtf):
     """Tests neval with a batch size larger than the internal chunk size (10000)."""
     # Create 15000 points to trigger batching
     N = 15000
     points = np.ones((N, 2))
-    
+
     # We know f(1,1) = 1^2 + 2*1*1 + 1^2 + 1 = 5
     # for sample_mtf = x^2 + 2xy + y^2 + 1
-    
+
     # Ensure batched path is taken (if Numba not available) or just verified
     result = sample_mtf.neval(points)
-    
+
     assert result.shape == (N,)
     assert np.allclose(result, 5.0)

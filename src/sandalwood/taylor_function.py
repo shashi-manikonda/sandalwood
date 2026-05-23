@@ -34,15 +34,14 @@ try:
         _COSY_BACKEND_AVAILABLE = cosy_backend.COSY_AVAILABLE
     else:
         # Fallback for legacy behavior
-        _COSY_BACKEND_AVAILABLE = (
-            cosy_backend.libcosy.__class__.__name__ != "DummyLib"
-        )
+        _COSY_BACKEND_AVAILABLE = cosy_backend.libcosy.__class__.__name__ != "DummyLib"
 except Exception:
     _COSY_BACKEND_AVAILABLE = False
 
 # Numba availability
 try:
     from . import numba_kernels
+
     if numba_kernels._NUMBA_AVAILABLE:
         _NUMBA_AVAILABLE = True
     else:
@@ -255,10 +254,10 @@ class MultivariateTaylorFunction:
             raise RuntimeError(
                 "Re-initialization with different max_order or max_dimension is "
             )
-        
+
         if cls._IMPLEMENTATION == "python":
             cls._precompute_tables()
-            
+
         # --- Fast-Path Method Binding ---
         # Bind the correct implementation of arithmetic operators to the dunder methods
         # to avoid if/else checks in the hot path.
@@ -279,19 +278,19 @@ class MultivariateTaylorFunction:
     def _batch_add(cls, mtfs):
         """
         Efficiently adds a list of MultivariateTaylorFunction objects.
-        
+
         Args:
             mtfs: A list of MultivariateTaylorFunction objects.
-            
+
         Returns:
             MultivariateTaylorFunction: The sum.
         """
         if not mtfs:
             return cls.from_constant(0.0)
-        
+
         if len(mtfs) == 1:
             return mtfs[0]
-            
+
         # Dispatch to implementation
         if cls._IMPLEMENTATION == "cosy":
             return cls._batch_add_cosy(mtfs)
@@ -309,61 +308,62 @@ class MultivariateTaylorFunction:
         da_list = []
         for i, m in enumerate(mtfs):
             if isinstance(m, cls) and hasattr(m, "mtf_data") and m.mtf_data is not None:
-                 da_list.append(m.mtf_data)
+                da_list.append(m.mtf_data)
             elif hasattr(m, "mtf_data") and m.mtf_data is not None:
-                 # Handle case where isinstance fails (e.g. reload) but supports protocol
-                 da_list.append(m.mtf_data)
+                # Handle case where isinstance fails (e.g. reload) but supports protocol
+                da_list.append(m.mtf_data)
             elif isinstance(m, cls):
-                 # Has class but no data? Likely Python backend MTF mixed in.
-                 # Convert to COSY using constructor which handles backend sync
-                 # Use efficient tuple constructor
-                 new_m = cls(
-                     coefficients=(m.exponents, m.coeffs), 
-                     dimension=m.dimension
-                 )
-                 if new_m.mtf_data is None:
-                     # Should not happen if cls is COSY
-                     raise RuntimeError("Failed to create COSY MTF data during conversion.")
-                 da_list.append(new_m.mtf_data)
+                # Has class but no data? Likely Python backend MTF mixed in.
+                # Convert to COSY using constructor which handles backend sync
+                # Use efficient tuple constructor
+                new_m = cls(coefficients=(m.exponents, m.coeffs), dimension=m.dimension)
+                if new_m.mtf_data is None:
+                    # Should not happen if cls is COSY
+                    raise RuntimeError(
+                        "Failed to create COSY MTF data during conversion."
+                    )
+                da_list.append(new_m.mtf_data)
             else:
-                 # Scalar or compatible
-                 da_list.append(m)
+                # Scalar or compatible
+                da_list.append(m)
 
         from .backends.cosy.cosy_backend import CosyBackend
-        
+
         # Use linear combination with all 1.0 coeffs
         coeffs = [1.0] * len(da_list)
         res_da = CosyBackend.linear_combination(coeffs, da_list)
-        
+
         # Create result MTF wrapper
         from .backends.cosy.cosy_backend import CosyMtfData
-        
+
         # Check complexity
         is_complex = getattr(res_da, "is_complex", False)
-        
+
         # Get dimension from first MTF
         ref_dim = cls.get_max_dimension()
         if hasattr(mtfs[0], "dimension"):
             ref_dim = mtfs[0].dimension
-            
+
         # Transfer ownership to prevent double-free
         if hasattr(res_da, "owned"):
             res_da.owned = False
 
-        data = CosyMtfData(idx=res_da.idx, owned=True, is_complex=is_complex, dimension=ref_dim)
-        
+        data = CosyMtfData(
+            idx=res_da.idx, owned=True, is_complex=is_complex, dimension=ref_dim
+        )
+
         new_mtf = cls.__new__(cls)
         new_mtf.dimension = ref_dim
         new_mtf.mtf_data = data
         new_mtf._IMPLEMENTATION = "cosy"
-        
+
         # Initialize storage as None (lazy loading)
         new_mtf.var_name = None
         new_mtf._exponents = None
         new_mtf._coeffs = None
         new_mtf._indices = None
         new_mtf._dense_coeffs = None
-        
+
         return new_mtf
 
     @classmethod
@@ -372,26 +372,26 @@ class MultivariateTaylorFunction:
         is_complex = False
         sample_mtf = mtfs[0]
         dimension = sample_mtf.dimension
-        
+
         # Check complexity
         for m in mtfs:
-             if m.coeffs.dtype == np.complex128 or np.iscomplexobj(m.coeffs):
-                 is_complex = True
-                 break
-        
+            if m.coeffs.dtype == np.complex128 or np.iscomplexobj(m.coeffs):
+                is_complex = True
+                break
+
         # Merge using dictionary optimization
         summed_coeffs_dict = defaultdict(complex if is_complex else float)
-        
+
         for m in mtfs:
             # We can iterate over exponents and coeffs
             # Using direct array access is faster
             n_terms = len(m.coeffs)
             if n_terms == 0:
                 continue
-                
+
             exps = m.exponents
             cs = m.coeffs
-            
+
             # Map exponents to tuple for dictionary key
             # This loop is still Python overhead but avoids object creation overhead of pairwise add
             for i in range(n_terms):
@@ -399,16 +399,18 @@ class MultivariateTaylorFunction:
                 summed_coeffs_dict[exp_tuple] += cs[i]
 
         if not summed_coeffs_dict:
-             return cls(coefficients={}, dimension=dimension)
+            return cls(coefficients={}, dimension=dimension)
 
         unique_exponents = np.array(list(summed_coeffs_dict.keys()), dtype=np.int32)
-        summed_coeffs = np.array(list(summed_coeffs_dict.values()), dtype=np.complex128 if is_complex else np.float64)
-        
+        summed_coeffs = np.array(
+            list(summed_coeffs_dict.values()),
+            dtype=np.complex128 if is_complex else np.float64,
+        )
+
         res = cls((unique_exponents, summed_coeffs), dimension=dimension)
         if cls._TRUNCATE_AFTER_OPERATION:
-             res._cleanup_after_operation()
+            res._cleanup_after_operation()
         return res
-
 
     @classmethod
     def _precompute_tables(cls):
@@ -422,7 +424,7 @@ class MultivariateTaylorFunction:
 
         # 1. Generate all valid exponents
         exponents = []
-        
+
         # Helper to generate terms with sum <= max_order
         def generate_exponents(dim, current_order, current_exp):
             if dim == 0:
@@ -439,36 +441,36 @@ class MultivariateTaylorFunction:
                 generate_exponents(dim - 1, current_order + i, current_exp + [i])
 
         generate_exponents(cls._MAX_DIMENSION, 0, [])
-        
+
         # Sort exponents (total order, then lex)
         exponents.sort(key=lambda x: (sum(x), x))
-        
+
         cls._IDX_TO_EXP = np.array(exponents, dtype=np.int32)
         cls._EXP_TO_IDX = {exp: i for i, exp in enumerate(exponents)}
-        
+
         n_terms = len(exponents)
-        
+
         # 2. Build Multiplication Table
         # shape: (n_terms, n_terms)
         # value: index of result, or -1 if truncated
         cls._MULT_TABLE = np.full((n_terms, n_terms), -1, dtype=np.int32)
-        
-        exps_arr = cls._IDX_TO_EXP # (N, D)
-        
+
+        exps_arr = cls._IDX_TO_EXP  # (N, D)
+
         # Sum of exponents: (N, 1, D) + (1, N, D) -> (N, N, D)
         sum_exps = exps_arr[:, np.newaxis, :] + exps_arr[np.newaxis, :, :]
-        
+
         # Check orders: (N, N)
         orders = np.sum(sum_exps, axis=2)
         valid_mask = orders <= cls._MAX_ORDER
-        
+
         # Fill table
         for i in range(n_terms):
             for j in range(n_terms):
                 if valid_mask[i, j]:
-                     tup = tuple(sum_exps[i, j])
-                     cls._MULT_TABLE[i, j] = cls._EXP_TO_IDX[tup]
-        
+                    tup = tuple(sum_exps[i, j])
+                    cls._MULT_TABLE[i, j] = cls._EXP_TO_IDX[tup]
+
         print(f"Dense Mode tables ready. {n_terms} terms.")
 
     @classmethod
@@ -756,7 +758,7 @@ class MultivariateTaylorFunction:
         # Check tolerance
         mask = np.abs(self._dense_coeffs) > self._ETOL
         indices = np.nonzero(mask)[0]
-        
+
         self._coeffs = self._dense_coeffs[indices]
         self._exponents = self._IDX_TO_EXP[indices]
         # Also cache the indices since we have them!
@@ -764,8 +766,10 @@ class MultivariateTaylorFunction:
 
     @property
     def exponents(self):
-        if (self._exponents is None or self._exponents.size == 0) and self._dense_coeffs is not None:
-             self._materialize_from_dense()
+        if (
+            self._exponents is None or self._exponents.size == 0
+        ) and self._dense_coeffs is not None:
+            self._materialize_from_dense()
         self._ensure_synced()
         return self._exponents
 
@@ -779,8 +783,10 @@ class MultivariateTaylorFunction:
 
     @property
     def coeffs(self):
-        if (self._coeffs is None or self._coeffs.size == 0) and self._dense_coeffs is not None:
-             self._materialize_from_dense()
+        if (
+            self._coeffs is None or self._coeffs.size == 0
+        ) and self._dense_coeffs is not None:
+            self._materialize_from_dense()
         self._ensure_synced()
         return self._coeffs
 
@@ -793,7 +799,7 @@ class MultivariateTaylorFunction:
             # Compute and cache
             idx_list = [self._EXP_TO_IDX.get(tuple(e), -1) for e in self.exponents]
             self._indices = np.array(idx_list, dtype=np.int32)
-            
+
         return self._indices
 
     @coeffs.setter
@@ -871,19 +877,19 @@ class MultivariateTaylorFunction:
     @classmethod
     def from_cosy_indices(cls, indices: np.ndarray, dimension: int) -> np.ndarray:
         """
-        Factory: Wraps a numpy array of integer COSY indices into an array of 
+        Factory: Wraps a numpy array of integer COSY indices into an array of
         MultivariateTaylorFunction objects in one go.
-        
+
         This avoids the overhead of calling __init__ and checking types for each
         element when we know we have raw low-level indices.
-        
+
         Parameters
         ----------
         indices : np.ndarray
             Array of int32 indices referencing COSY DA objects.
         dimension : int
             The dimension for all created objects.
-            
+
         Returns
         -------
         np.ndarray
@@ -891,18 +897,22 @@ class MultivariateTaylorFunction:
         """
         n = len(indices)
         objs = np.empty(n, dtype=object)
-        
+
         # Determine backend availability
         if not _COSY_BACKEND_AVAILABLE or cls._IMPLEMENTATION != "cosy":
-             raise RuntimeError("bulk creation from_cosy_indices only valid when COSY backend is active")
-             
+            raise RuntimeError(
+                "bulk creation from_cosy_indices only valid when COSY backend is active"
+            )
+
         from .backends.cosy import cosy_backend
-        
+
         for i in range(n):
             # Bypass __init__ overhead
             obj = cls.__new__(cls)
             # Initialize minimal state
-            obj.mtf_data = cosy_backend.CosyMtfData(dimension=dimension, is_complex=False, idx=indices[i], owned=True)
+            obj.mtf_data = cosy_backend.CosyMtfData(
+                dimension=dimension, is_complex=False, idx=indices[i], owned=True
+            )
             obj.dimension = dimension
             obj.var_name = None
             obj._exponents = None
@@ -910,9 +920,8 @@ class MultivariateTaylorFunction:
             obj._indices = None
             obj._dense_coeffs = None
             objs[i] = obj
-            
-        return objs
 
+        return objs
 
     @staticmethod
     def list2pd(mtfs, column_names=None):
@@ -1254,25 +1263,24 @@ class MultivariateTaylorFunction:
         exponents = backend.from_numpy(self.exponents)
 
         if _NUMBA_AVAILABLE and isinstance(evaluation_points, np.ndarray):
-             # Numba Parallel Evaluation
-             # Prepare output array
-             results = backend.zeros(evaluation_points.shape[0], dtype=self.coeffs.dtype)
-             
-             # Ensure types match for Numba (float64 or complex128)
-             # Numba is picky about type matching and contiguity
-             pts_c = np.ascontiguousarray(evaluation_points)
-             exps_c = np.ascontiguousarray(self.exponents).astype(np.int32)
-             coeffs_c = np.ascontiguousarray(self.coeffs)
-             
-             numba_kernels.evaluate_dense_kernel(pts_c, exps_c, coeffs_c, results)
-             return results
+            # Numba Parallel Evaluation
+            # Prepare output array
+            results = backend.zeros(evaluation_points.shape[0], dtype=self.coeffs.dtype)
 
+            # Ensure types match for Numba (float64 or complex128)
+            # Numba is picky about type matching and contiguity
+            pts_c = np.ascontiguousarray(evaluation_points)
+            exps_c = np.ascontiguousarray(self.exponents).astype(np.int32)
+            coeffs_c = np.ascontiguousarray(self.coeffs)
+
+            numba_kernels.evaluate_dense_kernel(pts_c, exps_c, coeffs_c, results)
+            return results
 
         # Fallback to Iterative Reduction (NumPy)
         # BATCHING: Process points in chunks to avoid OOM
-        BATCH_SIZE = 10000 
+        BATCH_SIZE = 10000
         n_points = evaluation_points.shape[0]
-        
+
         if n_points > BATCH_SIZE:
             results = backend.zeros(n_points, dtype=evaluation_points.dtype)
             for i in range(0, n_points, BATCH_SIZE):
@@ -1286,17 +1294,17 @@ class MultivariateTaylorFunction:
         n_points = evaluation_points.shape[0]
         n_terms = coeffs.shape[0]
         dtype = evaluation_points.dtype
-        
+
         term_values = backend.ones((n_points, n_terms), dtype=dtype)
-        
+
         for d in range(self.dimension):
-             # Extract d-th component: (N, 1)
-             pts_d = evaluation_points[:, d:d+1] 
-             # Extract d-th exponents: (1, M)
-             exps_d = exponents[np.newaxis, :, d]
-             
-             col_vals = backend.power(pts_d, exps_d)
-             term_values *= col_vals
+            # Extract d-th component: (N, 1)
+            pts_d = evaluation_points[:, d : d + 1]
+            # Extract d-th exponents: (1, M)
+            exps_d = exponents[np.newaxis, :, d]
+
+            col_vals = backend.power(pts_d, exps_d)
+            term_values *= col_vals
 
         # Dot product of term values and coefficients
         results = backend.dot(term_values, coeffs)
@@ -1371,7 +1379,6 @@ class MultivariateTaylorFunction:
         else:
             return self._add_python(other)
 
-
     def __radd__(self, other):
         """Defines reverse addition for commutative property."""
         return self.__add__(other)
@@ -1390,11 +1397,11 @@ class MultivariateTaylorFunction:
         other._ensure_backend()
 
         if self.mtf_data is not None and other.mtf_data is not None:
-             res_data = self.mtf_data.subtract(other.mtf_data)
-             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-             if self._TRUNCATE_AFTER_OPERATION:
-                 result_mtf._cleanup_after_operation()
-             return result_mtf
+            res_data = self.mtf_data.subtract(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
         return NotImplemented
 
     def _sub_python(self, other):
@@ -1404,7 +1411,7 @@ class MultivariateTaylorFunction:
         # Actually __neg__ creates a copy.
         # Efficient Subtraction:
         # Same structure as add but subtract second terms
-        
+
         if not isinstance(other, MultivariateTaylorFunction):
             try:
                 other = self.to_mtf(other, self.dimension)
@@ -1424,17 +1431,22 @@ class MultivariateTaylorFunction:
         for i in range(other.coeffs.shape[0]):
             exp_tuple = tuple(other.exponents[i])
             summed_coeffs_dict[exp_tuple] -= other.coeffs[i]
-            
+
         if not summed_coeffs_dict:
-             unique_exponents = np.empty((0, self.dimension), dtype=np.int32)
-             summed_coeffs = np.empty((0,), dtype=np.complex128 if is_complex else np.float64)
+            unique_exponents = np.empty((0, self.dimension), dtype=np.int32)
+            summed_coeffs = np.empty(
+                (0,), dtype=np.complex128 if is_complex else np.float64
+            )
         else:
-             unique_exponents = np.array(list(summed_coeffs_dict.keys()), dtype=np.int32)
-             summed_coeffs = np.array(list(summed_coeffs_dict.values()), dtype=np.complex128 if is_complex else np.float64)
-        
+            unique_exponents = np.array(list(summed_coeffs_dict.keys()), dtype=np.int32)
+            summed_coeffs = np.array(
+                list(summed_coeffs_dict.values()),
+                dtype=np.complex128 if is_complex else np.float64,
+            )
+
         result_mtf = type(self)((unique_exponents, summed_coeffs), self.dimension)
         if self._TRUNCATE_AFTER_OPERATION:
-             result_mtf._cleanup_after_operation()
+            result_mtf._cleanup_after_operation()
         return result_mtf
 
     def __sub__(self, other):
@@ -1442,7 +1454,6 @@ class MultivariateTaylorFunction:
             return self._sub_cosy(other)
         else:
             return self._sub_python(other)
-
 
     def __rsub__(self, other):
         """Defines reverse subtraction for non-commutative property."""
@@ -1453,39 +1464,39 @@ class MultivariateTaylorFunction:
     def _mul_cosy(self, other):
         if isinstance(other, (int, float, complex, np.number)):
             # Scalar mult cosy
-             # Note: mtf_data usually handles scalar mult via promote or custom op?
-             # For now using to_complex promote or standard conversion
-             # But if it is scalar, we can skip create?
-             # Let's ensure consistency:
-             pass 
-        
+            # Note: mtf_data usually handles scalar mult via promote or custom op?
+            # For now using to_complex promote or standard conversion
+            # But if it is scalar, we can skip create?
+            # Let's ensure consistency:
+            pass
+
         # Standardize 'other'
         if isinstance(other, (int, float, complex, np.number)):
-             # We can handle scalar directly if mtf_data supports it, or wrap
-             # Current implementation wraps via __mul__ path?
-             # Let's just wrap it to keep it simple or implement scalar op
-             # Existing __mul__ logic:
-             pass
-        
+            # We can handle scalar directly if mtf_data supports it, or wrap
+            # Current implementation wraps via __mul__ path?
+            # Let's just wrap it to keep it simple or implement scalar op
+            # Existing __mul__ logic:
+            pass
+
         # Let's reuse the logic structure
         if isinstance(other, (int, float, complex, np.number)):
-             # Optimized scalar
-             if self.mtf_data is not None:
-                 res_data = self.mtf_data * other
-                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-                 if self._TRUNCATE_AFTER_OPERATION:
-                     result_mtf._cleanup_after_operation()
-                 return result_mtf
+            # Optimized scalar
+            if self.mtf_data is not None:
+                res_data = self.mtf_data * other
+                result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+                if self._TRUNCATE_AFTER_OPERATION:
+                    result_mtf._cleanup_after_operation()
+                return result_mtf
 
         if not isinstance(other, MultivariateTaylorFunction):
             return NotImplemented
 
         if self.dimension != other.dimension:
-             raise ValueError("MTF dimensions must match for multiplication.")
+            raise ValueError("MTF dimensions must match for multiplication.")
 
         self._ensure_backend()
         other._ensure_backend()
-        
+
         if self.mtf_data is not None and other.mtf_data is not None:
             res_data = self.mtf_data.multiply(other.mtf_data)
             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
@@ -1523,19 +1534,19 @@ class MultivariateTaylorFunction:
         if self._MULT_TABLE is not None:
             # Check if we can use cached dense coefficients directly
             # or if we need to get indices from sparse exponents
-            
+
             n_total_terms = self._MULT_TABLE.shape[0]
-            
+
             # Get indices for A
             if self._dense_coeffs is not None:
-                # If we are already dense, finding non-zeros is fast 
+                # If we are already dense, finding non-zeros is fast
                 # or we track them. For now, just use nonzero on the array.
                 idx_a = np.nonzero(self._dense_coeffs)[0].astype(np.int32)
                 coeffs_a = self._dense_coeffs[idx_a]
             else:
                 idx_a = self._get_indices()
                 coeffs_a = self.coeffs
-                
+
             # Get indices for B
             if other._dense_coeffs is not None:
                 idx_b = np.nonzero(other._dense_coeffs)[0].astype(np.int32)
@@ -1552,34 +1563,38 @@ class MultivariateTaylorFunction:
                         coeffs_a = coeffs_a.astype(dtype)
                     if coeffs_b.dtype != dtype:
                         coeffs_b = coeffs_b.astype(dtype)
-                        
+
                     # Use new Parallel Kernel
                     dense_result = numba_kernels.multiply_dense_parallel(
-                        idx_a, coeffs_a, 
-                        idx_b, coeffs_b, 
-                        self._MULT_TABLE, 
-                        n_total_terms
+                        idx_a,
+                        coeffs_a,
+                        idx_b,
+                        coeffs_b,
+                        self._MULT_TABLE,
+                        n_total_terms,
                     )
                 else:
                     # Fallback to NumPy (broadcast)
                     # BroadCast to get all pairs pairs (N, M)
-                    res_indices_mat = self._MULT_TABLE[idx_a[:, np.newaxis], idx_b[np.newaxis, :]]
-                    
+                    res_indices_mat = self._MULT_TABLE[
+                        idx_a[:, np.newaxis], idx_b[np.newaxis, :]
+                    ]
+
                     # Calculate products
-                    prod_coeffs = (coeffs_a[:, np.newaxis] * coeffs_b[np.newaxis, :])
-                    
+                    prod_coeffs = coeffs_a[:, np.newaxis] * coeffs_b[np.newaxis, :]
+
                     # Flatten
                     res_indices_flat = res_indices_mat.ravel()
                     prod_coeffs_flat = prod_coeffs.ravel()
-                    
+
                     # Filter out -1
                     valid_mask = res_indices_flat != -1
                     res_indices_valid = res_indices_flat[valid_mask]
                     prod_coeffs_valid = prod_coeffs_flat[valid_mask]
-                    
+
                     dtype = np.result_type(coeffs_a, coeffs_b)
                     dense_result = np.zeros(n_total_terms, dtype=dtype)
-                    
+
                     np.add.at(dense_result, res_indices_valid, prod_coeffs_valid)
 
                 # --- LAZY RETURN ---
@@ -1588,7 +1603,7 @@ class MultivariateTaylorFunction:
                 result_mtf = type(self)(coefficients={}, dimension=self.dimension)
                 result_mtf._dense_coeffs = dense_result
                 # We leave _exponents and _coeffs empty/dummy for now.
-                
+
                 return result_mtf
 
         # Vectorized Implementation
@@ -1606,7 +1621,7 @@ class MultivariateTaylorFunction:
         new_exps_c = np.ascontiguousarray(new_exps)
         void_dtype = np.dtype((np.void, new_exps.dtype.itemsize * new_exps.shape[1]))
         view = new_exps_c.view(void_dtype).ravel()
-        
+
         _, unique_indices, inverse_indices = np.unique(
             view, return_index=True, return_inverse=True
         )
@@ -1627,7 +1642,6 @@ class MultivariateTaylorFunction:
             return self._mul_cosy(other)
         else:
             return self._mul_python(other)
-
 
     def __rmul__(self, other):
         """Defines reverse multiplication for commutative property."""
@@ -1702,7 +1716,6 @@ class MultivariateTaylorFunction:
         else:
             raise ValueError("Power must be an integer, 0.5, or -0.5.")
 
-
     def __neg__(self):
         """
         Negates the MultivariateTaylorFunction.
@@ -1732,43 +1745,45 @@ class MultivariateTaylorFunction:
 
     def _truediv_cosy(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-             # Let's use to_mtf or special handling
-             # Reuse existing structure
-             try:
-                 other = self.to_mtf(other, self.dimension)
-             except (TypeError, ValueError):
-                 return NotImplemented
-        
+            # Let's use to_mtf or special handling
+            # Reuse existing structure
+            try:
+                other = self.to_mtf(other, self.dimension)
+            except (TypeError, ValueError):
+                return NotImplemented
+
         if not isinstance(other, MultivariateTaylorFunction):
             return NotImplemented
 
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for division.")
 
-        angle_data = self.mtf_data # Ensure ensure_backend called before access if needed?
+        angle_data = (
+            self.mtf_data
+        )  # Ensure ensure_backend called before access if needed?
         # Check ensure
         self._ensure_backend()
         other._ensure_backend()
-        
+
         if self.mtf_data is not None and other.mtf_data is not None:
-             res_data = self.mtf_data.divide(other.mtf_data)
-             result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
-             if self._TRUNCATE_AFTER_OPERATION:
-                 result_mtf._cleanup_after_operation()
-             return result_mtf
+            res_data = self.mtf_data.divide(other.mtf_data)
+            result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
+            if self._TRUNCATE_AFTER_OPERATION:
+                result_mtf._cleanup_after_operation()
+            return result_mtf
         return NotImplemented
 
     def _truediv_python(self, other):
         # Default Python implementation
         if isinstance(other, (int, float, complex, np.number)):
             return self * (1.0 / other)
-            
+
         if not isinstance(other, MultivariateTaylorFunction):
             try:
-                 other = self.to_mtf(other, self.dimension)
+                other = self.to_mtf(other, self.dimension)
             except:
-                 return NotImplemented
-                 
+                return NotImplemented
+
         inverse_other_mtf = self._inv_mtf_internal(other)
         return self * inverse_other_mtf
 
@@ -1777,7 +1792,6 @@ class MultivariateTaylorFunction:
             return self._truediv_cosy(other)
         else:
             return self._truediv_python(other)
-
 
     def __rtruediv__(self, other):
         if not isinstance(other, MultivariateTaylorFunction):
@@ -2869,9 +2883,9 @@ class MultivariateTaylorFunction:
                     op = lambda x, y: x * y
                 elif ufunc == np.divide or ufunc == np.true_divide:
                     op = lambda x, y: x / y
-                
+
                 if op is not None:
-                     return np.vectorize(op, otypes=[object])(*inputs)
+                    return np.vectorize(op, otypes=[object])(*inputs)
 
             # -----------------------------------------------------------------
             # Scalar / Fallback Path (Wrapped Conversion)

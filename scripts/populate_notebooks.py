@@ -1,7 +1,7 @@
 """
 populate_notebooks.py
 ======================
-Purpose: 
+Purpose:
     Automated execution and validation of all Jupyter notebooks in the 'demos/' directory.
     This ensures that all demos are runnable and their outputs are up-to-date.
 
@@ -19,6 +19,7 @@ Output:
     - In-place updates to .ipynb files with new execution outputs.
     - Console logs indicating success or failure of each notebook.
 """
+
 import os
 import shutil
 import subprocess

@@ -1,5 +1,4 @@
 import pytest
-
 from sandalwood import TaylorMap, mtf
 
 
@@ -15,7 +14,6 @@ def setup_mtf(backend_implementation):
 
 
 def test_map_inversion_from_demo(backend_implementation):
-
     # 2. Create the invertible map
     x = mtf.var(1, 2)
     y = mtf.var(2, 2)

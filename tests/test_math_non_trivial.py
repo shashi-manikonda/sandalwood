@@ -2,7 +2,6 @@ import math
 
 import numpy as np
 import pytest
-
 from sandalwood import mtf
 
 
@@ -24,8 +23,9 @@ def safe_init(impl, order=4, dim=3):
         pass
 
     if mtf._IMPLEMENTATION != impl:
-        pytest.skip(f"Implementation {impl} not available, fell back to {mtf._IMPLEMENTATION}")
-
+        pytest.skip(
+            f"Implementation {impl} not available, fell back to {mtf._IMPLEMENTATION}"
+        )
 
 
 @pytest.mark.parametrize("implementation", ["python", "cosy"])

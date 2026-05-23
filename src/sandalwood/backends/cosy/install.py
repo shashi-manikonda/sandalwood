@@ -5,12 +5,13 @@ This script compiles the proprietary COSY Infinity Fortran files along with the
 Sandalwood wrapper bridge into a shared library, placed in the installed package.
 """
 
-import os
-import sys
-import shutil
-import re
-import subprocess
 import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+
 
 class CosyInstaller:
     def __init__(self, cosy_src=None, compiler=None, config_path=None, verbose=False):
@@ -55,7 +56,7 @@ class CosyInstaller:
             return
 
         has_link = shutil.which("link") and "LIB" in os.environ
-        
+
         if not has_link:
             print("Configuring Visual Studio environment...")
             possible_roots = [
@@ -83,10 +84,12 @@ class CosyInstaller:
                         if "=" in line:
                             key, value = line.split("=", 1)
                             os.environ[key] = value
-                    
+
                     if not shutil.which("link"):
-                         print("Warning: link.exe still not found in PATH after loading VsDevCmd.")
-                         
+                        print(
+                            "Warning: link.exe still not found in PATH after loading VsDevCmd."
+                        )
+
                 except subprocess.CalledProcessError as e:
                     print(f"Error loading Visual Studio environment: {e}")
 
@@ -100,10 +103,16 @@ class CosyInstaller:
                 lib_candidate = os.path.join(curr, "lib")
                 if os.path.exists(lib_candidate):
                     # Check for key Intel Fortran libraries in the candidate directory
-                    if os.path.exists(os.path.join(lib_candidate, "ifconsol.lib")) or \
-                       os.path.exists(os.path.join(lib_candidate, "libiomp5md.lib")) or \
-                       os.path.exists(os.path.join(lib_candidate, "intel64", "libiomp5md.lib")) or \
-                       os.path.exists(os.path.join(lib_candidate, "intel64_win", "libiomp5md.lib")):
+                    if (
+                        os.path.exists(os.path.join(lib_candidate, "ifconsol.lib"))
+                        or os.path.exists(os.path.join(lib_candidate, "libiomp5md.lib"))
+                        or os.path.exists(
+                            os.path.join(lib_candidate, "intel64", "libiomp5md.lib")
+                        )
+                        or os.path.exists(
+                            os.path.join(lib_candidate, "intel64_win", "libiomp5md.lib")
+                        )
+                    ):
                         intel_lib_dir = lib_candidate
                         break
                 curr = os.path.dirname(curr)
@@ -115,14 +124,14 @@ class CosyInstaller:
         if os.path.exists(intel_lib_dir):
             if self.verbose:
                 print(f"Found Intel libraries directory at: {intel_lib_dir}")
-            
+
             # Add both root lib and subfolders (intel64, intel64_win) to search path if present
             lib_paths = [intel_lib_dir]
             for sub in ["intel64", "intel64_win", "windows/compiler/lib/intel64_win"]:
                 sub_path = os.path.join(intel_lib_dir, sub)
                 if os.path.exists(sub_path):
                     lib_paths.append(sub_path)
-            
+
             for path in lib_paths:
                 if "LIB" not in os.environ:
                     os.environ["LIB"] = path
@@ -140,24 +149,42 @@ class CosyInstaller:
     def verify_source(self):
         """Verifies that both COSY source files and bridge wrapper files exist."""
         print(f"Checking for COSY source in: {self.cosy_src_orig}")
-        
+
         required_cosy = ["dafox.f", "foxfit.f", "foxgraf.f", "version.f"]
-        missing_cosy = [f for f in required_cosy if not os.path.exists(os.path.join(self.cosy_src_orig, f))]
-        
+        missing_cosy = [
+            f
+            for f in required_cosy
+            if not os.path.exists(os.path.join(self.cosy_src_orig, f))
+        ]
+
         if missing_cosy:
-            print(f"Error: COSY core files missing in '{self.cosy_src_orig}': {missing_cosy}")
-            print("Please ensure your proprietary COSY Infinity source files are placed in that directory,")
+            print(
+                f"Error: COSY core files missing in '{self.cosy_src_orig}': {missing_cosy}"
+            )
+            print(
+                "Please ensure your proprietary COSY Infinity source files are placed in that directory,"
+            )
             print("or set the environment variable: SANDALWOOD_COSY_SRC")
             return False
 
         print("COSY source verified successfully.")
 
-        required_bridge = ["wrapper.f", "helper.f", "cosy.def" if sys.platform == "win32" else None]
+        required_bridge = [
+            "wrapper.f",
+            "helper.f",
+            "cosy.def" if sys.platform == "win32" else None,
+        ]
         required_bridge = [f for f in required_bridge if f is not None]
-        missing_bridge = [f for f in required_bridge if not os.path.exists(os.path.join(self.backend_dir, f))]
+        missing_bridge = [
+            f
+            for f in required_bridge
+            if not os.path.exists(os.path.join(self.backend_dir, f))
+        ]
 
         if missing_bridge:
-            print(f"Error: Sandalwood package bridge files missing in '{self.backend_dir}': {missing_bridge}")
+            print(
+                f"Error: Sandalwood package bridge files missing in '{self.backend_dir}': {missing_bridge}"
+            )
             print("Please ensure the package was correctly installed.")
             return False
 
@@ -171,7 +198,9 @@ class CosyInstaller:
                 self.compiler_type = "ifx" if "ifx" in self.compiler else "gfortran"
                 return True
             else:
-                print(f"Error: Provided compiler '{self.compiler}' is not executable or not in PATH.")
+                print(
+                    f"Error: Provided compiler '{self.compiler}' is not executable or not in PATH."
+                )
                 return False
 
         # Attempt to parse from cosy_config.env
@@ -225,7 +254,9 @@ class CosyInstaller:
 
         if not self.compiler:
             print("Error: No working Fortran compiler found (ifx or gfortran).")
-            print("Please install a Fortran compiler and make sure it is added to your PATH.")
+            print(
+                "Please install a Fortran compiler and make sure it is added to your PATH."
+            )
             return False
 
         print(f"Using compiler: {self.compiler} ({self.compiler_type})")
@@ -282,10 +313,14 @@ class CosyInstaller:
 
                 bases = set()
                 for k in raw_config:
-                    if k.endswith("_WIN32"): bases.add(k[:-6])
-                    elif k.endswith("_LINUX"): bases.add(k[:-6])
-                    elif k.endswith("_DARWIN"): bases.add(k[:-7])
-                    else: bases.add(k)
+                    if k.endswith("_WIN32"):
+                        bases.add(k[:-6])
+                    elif k.endswith("_LINUX"):
+                        bases.add(k[:-6])
+                    elif k.endswith("_DARWIN"):
+                        bases.add(k[:-7])
+                    else:
+                        bases.add(k)
 
                 for base in bases:
                     override_key = base + target_suffix
@@ -301,14 +336,14 @@ class CosyInstaller:
                         f_path = os.path.join(self.build_temp, f_name)
                         with open(f_path, "r") as f:
                             content = f.read()
-                        
+
                         modified = False
                         for param, value in config_map.items():
-                            pattern = fr"({param}\s*=\s*)\d+"
+                            pattern = rf"({param}\s*=\s*)\d+"
                             if re.search(pattern, content):
-                                content = re.sub(pattern, fr"\g<1>{value}", content)
+                                content = re.sub(pattern, rf"\g<1>{value}", content)
                                 modified = True
-                        
+
                         if modified:
                             with open(f_path, "w") as f:
                                 f.write(content)
@@ -316,7 +351,9 @@ class CosyInstaller:
             # 3. Version switching
             print("Running COSY code compiler/platform adaptation...")
             version_src = os.path.join(self.cosy_src_orig, "version.f")
-            version_bin = os.path.join(self.build_temp, "version.exe" if sys.platform == "win32" else "version")
+            version_bin = os.path.join(
+                self.build_temp, "version.exe" if sys.platform == "win32" else "version"
+            )
 
             v_cmd = [self.compiler]
             if self.compiler_type == "ifx" and sys.platform == "win32":
@@ -328,17 +365,28 @@ class CosyInstaller:
                 print(f"Compiling version utility: {' '.join(v_cmd)}")
                 res = subprocess.run(v_cmd, capture_output=True, text=True)
                 if res.returncode != 0:
-                    raise subprocess.CalledProcessError(res.returncode, v_cmd, output=res.stdout, stderr=res.stderr)
+                    raise subprocess.CalledProcessError(
+                        res.returncode, v_cmd, output=res.stdout, stderr=res.stderr
+                    )
             else:
-                subprocess.run(v_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(
+                    v_cmd,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
 
-            old_m, new_m = ("*GFOR", "*IFOR") if self.compiler_type == "ifx" else ("*IFOR", "*GFOR")
-            
+            old_m, new_m = (
+                ("*GFOR", "*IFOR")
+                if self.compiler_type == "ifx"
+                else ("*IFOR", "*GFOR")
+            )
+
             for f_name in os.listdir(self.build_temp):
                 if f_name.endswith(".f") and f_name != "version.f":
                     # Use relative names to avoid COSY's hardcoded 20-character filename limit (version.f)
                     f_tmp_name = f_name + ".tmp"
-                    
+
                     # Platform versioning pass
                     p1 = subprocess.Popen(
                         [version_bin],
@@ -346,13 +394,20 @@ class CosyInstaller:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         cwd=self.build_temp,
-                        text=True
+                        text=True,
                     )
-                    stdout, stderr = p1.communicate(input=f"{f_name}\n{f_tmp_name}\n{old_m}\n{new_m}\n")
+                    stdout, stderr = p1.communicate(
+                        input=f"{f_name}\n{f_tmp_name}\n{old_m}\n{new_m}\n"
+                    )
                     if p1.returncode != 0:
-                        raise RuntimeError(f"Platform versioning failed for {f_name}: {stderr}")
-                    os.replace(os.path.join(self.build_temp, f_tmp_name), os.path.join(self.build_temp, f_name))
-                    
+                        raise RuntimeError(
+                            f"Platform versioning failed for {f_name}: {stderr}"
+                        )
+                    os.replace(
+                        os.path.join(self.build_temp, f_tmp_name),
+                        os.path.join(self.build_temp, f_name),
+                    )
+
                     # Serial MPI versioning pass
                     p2 = subprocess.Popen(
                         [version_bin],
@@ -360,17 +415,26 @@ class CosyInstaller:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         cwd=self.build_temp,
-                        text=True
+                        text=True,
                     )
-                    stdout, stderr = p2.communicate(input=f"{f_name}\n{f_tmp_name}\n*MPI\n*NORM\n")
+                    stdout, stderr = p2.communicate(
+                        input=f"{f_name}\n{f_tmp_name}\n*MPI\n*NORM\n"
+                    )
                     if p2.returncode != 0:
-                        raise RuntimeError(f"MPI versioning failed for {f_name}: {stderr}")
-                    os.replace(os.path.join(self.build_temp, f_tmp_name), os.path.join(self.build_temp, f_name))
+                        raise RuntimeError(
+                            f"MPI versioning failed for {f_name}: {stderr}"
+                        )
+                    os.replace(
+                        os.path.join(self.build_temp, f_tmp_name),
+                        os.path.join(self.build_temp, f_name),
+                    )
 
             print("COSY code adaptation complete.")
 
             # 4. Link & Compile shared library
-            print(f"Compiling shared bridge library directly into installed library path...")
+            print(
+                "Compiling shared bridge library directly into installed library path..."
+            )
             files_to_compile = [
                 os.path.join(self.build_temp, "dafox.f"),
                 os.path.join(self.build_temp, "foxfit.f"),
@@ -431,16 +495,25 @@ class CosyInstaller:
                 print(f"Executing: {' '.join(cmd)}")
                 res = subprocess.run(cmd, capture_output=True, text=True)
                 if res.returncode != 0:
-                    raise subprocess.CalledProcessError(res.returncode, cmd, output=res.stdout, stderr=res.stderr)
+                    raise subprocess.CalledProcessError(
+                        res.returncode, cmd, output=res.stdout, stderr=res.stderr
+                    )
             else:
-                print(f"Executing compilation command...")
-                subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"\n[SUCCESS] Successfully compiled COSY Backend Shared Library!")
+                print("Executing compilation command...")
+                subprocess.run(
+                    cmd,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            print("\n[SUCCESS] Successfully compiled COSY Backend Shared Library!")
             print(f"Library saved at: {self.output_path}\n")
             return True
 
         except subprocess.CalledProcessError as e:
-            print(f"\n[ERROR] Compilation command failed with exit status {e.returncode}: {e}")
+            print(
+                f"\n[ERROR] Compilation command failed with exit status {e.returncode}: {e}"
+            )
             if e.stdout:
                 print(f"Compiler stdout:\n{e.stdout}")
             if e.stderr:
@@ -449,12 +522,14 @@ class CosyInstaller:
         except Exception as e:
             print(f"\n[ERROR] Compilation failed: {e}")
             import traceback
+
             traceback.print_exc()
             return False
         finally:
             # Clean up build directory
             if os.path.exists(self.build_temp):
                 shutil.rmtree(self.build_temp)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -463,23 +538,22 @@ def main():
     parser.add_argument(
         "--src",
         help="Path to directory containing COSY Infinity source files (dafox.f, etc.). "
-             "Defaults to environment variable SANDALWOOD_COSY_SRC.",
-        default=None
+        "Defaults to environment variable SANDALWOOD_COSY_SRC.",
+        default=None,
     )
     parser.add_argument(
         "--compiler",
         help="Path or name of compiler executable (e.g. ifx, gfortran).",
-        default=None
+        default=None,
     )
     parser.add_argument(
-        "--config",
-        help="Path to custom cosy_config.env file.",
-        default=None
+        "--config", help="Path to custom cosy_config.env file.", default=None
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         help="Enable full verbose compiler stdout reporting.",
-        action="store_true"
+        action="store_true",
     )
 
     args = parser.parse_args()
@@ -488,11 +562,12 @@ def main():
         cosy_src=args.src,
         compiler=args.compiler,
         config_path=args.config,
-        verbose=args.verbose
+        verbose=args.verbose,
     )
 
     success = installer.build()
     sys.exit(0 if success else 1)
+
 
 if __name__ == "__main__":
     main()

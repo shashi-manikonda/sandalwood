@@ -8,7 +8,7 @@ Purpose:
 Logic:
     1. Resets the initialization state of the MultivariateTaylorFunction class.
     2. Calls 'initialize_mtf' without an explicit implementation argument.
-    3. Asserts that the chosen implementation matches the expected default 
+    3. Asserts that the chosen implementation matches the expected default
        (COSY if available, Python otherwise).
     4. Verifies that explicit requests for the Python backend are honored.
 
@@ -18,6 +18,7 @@ Input/Arguments:
 Output:
     - Consolse output indicating success of initialization and fallback tests.
 """
+
 from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
 from sandalwood.taylor_function import MultivariateTaylorFunction as MTF
 
@@ -35,9 +36,9 @@ def test_default_backend():
     if _COSY_BACKEND_AVAILABLE:
         assert MTF._IMPLEMENTATION == "cosy", "Should default to COSY when available"
     else:
-        assert MTF._IMPLEMENTATION == "python", (
-            "Should fallback to Python when COSY unavailable"
-        )
+        assert (
+            MTF._IMPLEMENTATION == "python"
+        ), "Should fallback to Python when COSY unavailable"
 
     print("Default backend test passed.")
 

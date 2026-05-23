@@ -91,11 +91,19 @@ def _test_notebook(src_path, dst_path, backend):
 
     result = subprocess.run(cmd, env=env, capture_output=True, text=True)
     if result.returncode != 0:
-        if ("NotImplementedError" in result.stderr and (
-            "implemented for Python backend" in result.stderr
-            or "only available for the COSY backend" in result.stderr
-        )) or ("RuntimeError" in result.stderr and "COSY backend not initialized" in result.stderr):
-            print(f"Skipping notebook {os.path.basename(src_path)} due to unimplemented features.")
+        if (
+            "NotImplementedError" in result.stderr
+            and (
+                "implemented for Python backend" in result.stderr
+                or "only available for the COSY backend" in result.stderr
+            )
+        ) or (
+            "RuntimeError" in result.stderr
+            and "COSY backend not initialized" in result.stderr
+        ):
+            print(
+                f"Skipping notebook {os.path.basename(src_path)} due to unimplemented features."
+            )
             return
 
         pytest.fail(
@@ -120,11 +128,19 @@ def _test_script(src_path, dst_path, backend):
     cmd = [sys.executable, dst_path]
     result = subprocess.run(cmd, env=env, capture_output=True, text=True)
     if result.returncode != 0:
-        if ("NotImplementedError" in result.stderr and (
-            "implemented for Python backend" in result.stderr
-            or "only available for the COSY backend" in result.stderr
-        )) or ("RuntimeError" in result.stderr and "COSY backend not initialized" in result.stderr):
-            print(f"Skipping script {os.path.basename(src_path)} due to unimplemented features.")
+        if (
+            "NotImplementedError" in result.stderr
+            and (
+                "implemented for Python backend" in result.stderr
+                or "only available for the COSY backend" in result.stderr
+            )
+        ) or (
+            "RuntimeError" in result.stderr
+            and "COSY backend not initialized" in result.stderr
+        ):
+            print(
+                f"Skipping script {os.path.basename(src_path)} due to unimplemented features."
+            )
             return
 
         pytest.fail(

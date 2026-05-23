@@ -9,7 +9,7 @@ Logic:
     - BenchmarkEngine (Class):
         - setup_mtf: Initializes Sandalwood with specific backends and variables.
         - run_sandalwood: Compiles expressions into lambdas and measures execution time.
-        - run_raw_cosy: Dynamically generates, compiles, and runs standalone Fortran 
+        - run_raw_cosy: Dynamically generates, compiles, and runs standalone Fortran
           binaries to measure base COSY performance.
         - run_ops_benchmark: Orchestrates a comparison between Python and COSY backends.
         - generate_report: Produces rich HTML dashboards with system info and comparison plots.
@@ -22,6 +22,7 @@ Output:
     - Standardized timing data (avg, std dev) for various operations.
     - Visualizations (Matplotlib) and formatted reports (Markdown/HTML).
 """
+
 import base64
 import os
 import subprocess
@@ -32,7 +33,6 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from sandalwood import mtf
 
 # Local COSY configuration
@@ -141,7 +141,7 @@ class BenchmarkEngine:
         # COSY needs COSY.fox to be present to run properly
         src_fox = os.path.join(BASE_DIR, "COSY.fox")
         dst_fox = os.path.join(ARTIFACTS_DIR, "COSY.fox")
-        
+
         # If local COSY.fox is missing, try to find it from external source
         if not os.path.exists(src_fox):
             cosy_src_env = os.environ.get("SANDALWOOD_COSY_SRC")
@@ -155,9 +155,10 @@ class BenchmarkEngine:
                     if os.path.exists(path):
                         src_fox = path
                         break
-        
+
         if os.path.exists(src_fox) and not os.path.exists(dst_fox):
             import shutil
+
             shutil.copy(src_fox, dst_fox)
         elif not os.path.exists(src_fox) and not os.path.exists(dst_fox):
             raise FileNotFoundError(
@@ -172,6 +173,7 @@ class BenchmarkEngine:
             dst = os.path.join(ARTIFACTS_DIR, fname)
             if os.path.exists(src) and not os.path.exists(dst):
                 import shutil
+
                 shutil.copy(src, dst)
 
         timings = []
@@ -257,6 +259,7 @@ END;
             return self.parse_cosy_output(last_process.stdout), avg_time, std_time
         except Exception as e:
             import sys
+
             print(f"Raw COSY failed: {e}", file=sys.stderr)
             return {}, np.nan, np.nan
 
@@ -410,8 +413,7 @@ END;
         # Get GCC/GFortran version
         try:
             gcc_v = (
-                subprocess
-                .check_output(["gfortran", "--version"])
+                subprocess.check_output(["gfortran", "--version"])
                 .decode()
                 .split("\n")[0]
             )

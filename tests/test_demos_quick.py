@@ -7,7 +7,6 @@ import tempfile
 
 import pytest
 
-
 pytestmark = pytest.mark.demo
 
 
@@ -62,13 +61,13 @@ def test_demo_quick(demo_path, backend):
         # Only apply if SANDALWOOD_TEST_FULL_DEMOS is NOT set
         if os.environ.get("SANDALWOOD_TEST_FULL_DEMOS") != "1":
             # Force linear order (1)
-            line = re.sub(r'max_order=\d+', 'max_order=1', line)
+            line = re.sub(r"max_order=\d+", "max_order=1", line)
 
             # Reduce loops to 1 iteration
-            line = re.sub(r'range\(\s*\d+\s*\)', 'range(1)', line)
+            line = re.sub(r"range\(\s*\d+\s*\)", "range(1)", line)
             line = re.sub(
-                r'\b(n_turns|steps|iterations|N|n_particles)\s*=\s*\d+',
-                r'\1=1',
+                r"\b(n_turns|steps|iterations|N|n_particles)\s*=\s*\d+",
+                r"\1=1",
                 line,
                 flags=re.IGNORECASE,
             )
@@ -195,4 +194,3 @@ def test_demo_quick(demo_path, backend):
             pytest.fail(
                 f"Demo {fname} failed execution:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
             )
-

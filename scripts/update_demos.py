@@ -18,6 +18,7 @@ Output:
     - Modified .ipynb files with implementation strings changed to 'cosy'.
     - Refreshed execution outputs in the notebooks.
 """
+
 import glob
 import json
 import os

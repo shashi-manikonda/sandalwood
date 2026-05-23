@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 import sandalwood
 from sandalwood import TaylorMap, mtf
 
@@ -181,9 +180,9 @@ def test_variable_creation_bug():
     # A variable should not have a constant term.
     # The constant term corresponds to an exponent tuple of all zeros.
     constant_term = y.extract_coefficient(tuple([0, 0])).item()
-    assert constant_term == 0.0, (
-        "A variable created with var should not have a constant term."
-    )
+    assert (
+        constant_term == 0.0
+    ), "A variable created with var should not have a constant term."
 
     x = mtf.var(1, 2)
     prod = x * y
