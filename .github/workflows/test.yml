@@ -2,6 +2,9 @@ name: Run Tests
 
 on: [push, pull_request]
 
+permissions:
+  contents: write
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -25,7 +28,15 @@ jobs:
         ruff format --check .
     - name: Type check with mypy
       run: |
-        mypy src
+        mypy src > mypy_report.txt 2>&1 || (cat mypy_report.txt && exit 1)
+    - name: Commit check reports on failure
+      if: failure()
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add mypy_report.txt || true
+        git commit -m "ci: add mypy error report [skip ci]" || true
+        git push origin dev-ci-setup || true
 
   test:
     runs-on: ${{ matrix.os }}
