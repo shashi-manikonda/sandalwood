@@ -2679,6 +2679,12 @@ class MultivariateTaylorFunction:
 
         return _erf_taylor(self)
 
+    def gaussian(self) -> "MultivariateTaylorFunction":
+        """Computes the Taylor expansion of a Gaussian function, exp(-self^2)."""
+        from .elementary_functions import _gaussian_taylor
+
+        return _gaussian_taylor(self)
+
     def coth(self) -> "MultivariateTaylorFunction":
         if self._IMPLEMENTATION == "cosy" and self.mtf_data is not None:
             return self._create_result(self.mtf_data.coth())
