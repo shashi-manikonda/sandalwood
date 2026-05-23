@@ -203,8 +203,10 @@ def run_raw_comparison(engine, args):
     for name, mtf_expr, cosy_expr in cases:
         print(f"Comparing {name} with Raw COSY...", file=sys.stderr)
 
-        c_py, t_py, s_py = {}, np.nan, np.nan
-        c_sc, t_sc, s_sc = {}, np.nan, np.nan
+        c_py: dict = {}
+        t_py, s_py = np.nan, np.nan
+        c_sc: dict = {}
+        t_sc, s_sc = np.nan, np.nan
         mem_py, mem_sc = 0, 0
 
         if args.mode == "cosy_raw":

@@ -14,6 +14,7 @@ engineering where complex numbers are fundamental.
 """
 
 from collections import defaultdict
+from typing import Any, Dict, Tuple
 
 import numpy as np
 
@@ -310,17 +311,16 @@ def _add_coefficient_dicts(dict1, dict2, subtract=False):
         defaultdict: A new coefficient dictionary with the sum (or difference)
                      of coefficients.
     """
-    sum_coeffs = defaultdict(
-        lambda: (
-            np.array([0.0j]).reshape(1)
-            if any(isinstance(coeff[0], complex) for coeff in dict1.values())
-            or any(isinstance(coeff[0], complex) for coeff in dict2.values())
-            else np.array([0.0]).reshape(1)
-        )
+    default_val = (
+        np.array([0.0j]).reshape(1)
+        if any(isinstance(coeff[0], complex) for coeff in dict1.values())
+        or any(isinstance(coeff[0], complex) for coeff in dict2.values())
+        else np.array([0.0]).reshape(1)
     )
+    sum_coeffs: Dict[Tuple[int, ...], Any] = defaultdict(lambda: default_val)
     for exponents in set(dict1.keys()) | set(dict2.keys()):
-        coeff1 = dict1.get(exponents, sum_coeffs.default_factory())
-        coeff2 = dict2.get(exponents, sum_coeffs.default_factory())
+        coeff1 = dict1.get(exponents, default_val)
+        coeff2 = dict2.get(exponents, default_val)
         if subtract:
             sum_coeffs[exponents] = (
                 np.array(coeff1).flatten() - np.array(coeff2).flatten()

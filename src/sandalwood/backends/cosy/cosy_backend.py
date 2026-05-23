@@ -1,6 +1,7 @@
 import os
 import sys
 from ctypes import CDLL, POINTER, byref, c_double, c_int
+from typing import List
 
 import numpy as np
 
@@ -392,8 +393,8 @@ class CosyScope:
 
 
 class CosyIndexPool:
-    _free_indices_da = []
-    _free_indices_cda = []
+    _free_indices_da: List[int] = []
+    _free_indices_cda: List[int] = []
     _chunk_size = int(os.environ.get("SANDALWOOD_COSY_POOL_SIZE", "1024"))
 
     @classmethod
@@ -1095,10 +1096,16 @@ class CosyDA:
         for i, arg in enumerate(args_da_list):
             args_indices[i] = arg.idx
 
-        res_idx = c_int(CosyIndexPool.acquire())
+        is_complex = getattr(self, "is_complex", False) or any(
+            getattr(arg, "is_complex", False) for arg in args_da_list
+        )
+
+        res_idx = c_int(CosyIndexPool.acquire(is_complex=is_complex))
         libcosy.compute_da_polval(
             byref(res_idx), byref(c_int(self.idx)), args_indices, byref(c_int(n_args))
         )
+        if is_complex:
+            return CosyCDA(idx=res_idx.value, owned=True)
         return CosyDA(idx=res_idx.value, owned=True)
 
     def inverse(self):
@@ -1124,6 +1131,16 @@ class CosyDA:
 
 class CosyCDA(CosyDA):
     is_complex = True
+
+    @classmethod
+    def from_const(cls, val):
+        if isinstance(val, (CosyDA, CosyCDA)):
+            if not val.is_complex:
+                return val.to_complex()
+            return val
+        re_val = float(val.real) if hasattr(val, "real") else float(val)
+        im_val = float(val.imag) if hasattr(val, "imag") else 0.0
+        return cls(from_const=(re_val, im_val))
 
     def __init__(
         self,
@@ -1343,12 +1360,12 @@ class CosyCDA(CosyDA):
         return CosyCDA(idx=res_idx.value, owned=True)
 
     def __rsub__(self, other):
+        a = self._ensure_cd(other)
+        if a is NotImplemented:
+            return NotImplemented
         res_idx = c_int(0)
-        re_v = float(other.real) if hasattr(other, "real") else float(other)
-        im_v = float(other.imag) if hasattr(other, "imag") else 0.0
-        con = CosyCDA(from_const=(re_v, im_v))
         libcosy.compute_cd_sub(
-            byref(c_int(con.idx)), byref(c_int(self.idx)), byref(res_idx)
+            byref(c_int(a.idx)), byref(c_int(self.idx)), byref(res_idx)
         )
         return CosyCDA(idx=res_idx.value, owned=True)
 
@@ -1604,6 +1621,53 @@ class CosyMtfData:
                 point_flat = padded.flatten()
             else:
                 point_flat = point.flatten()  # Assumes dim == NVMAX
+
+            if isinstance(self.da, CosyCDA):
+                # Create temporary real DAs
+                re_da = CosyDA(create_new=True)
+                im_da = CosyDA(create_new=True)
+                libcosy.get_cda_re(byref(c_int(self.da.idx)), byref(c_int(re_da.idx)))
+                libcosy.get_cda_im(byref(c_int(self.da.idx)), byref(c_int(im_da.idx)))
+
+                re_vals = np.zeros(n_points, dtype=np.float64)
+                im_vals = np.zeros(n_points, dtype=np.float64)
+                max_terms = 100000
+                c_max_terms = c_int(max_terms)
+                nvmax = 40
+                temp_exps = np.zeros(max_terms * nvmax, dtype=np.int32)
+                temp_coeffs = np.zeros(max_terms, dtype=np.float64)
+
+                c_temp_exps = (c_int * len(temp_exps)).from_buffer(temp_exps)
+                c_temp_coeffs = (c_double * len(temp_coeffs)).from_buffer(temp_coeffs)
+                c_points = (c_double * len(point_flat)).from_buffer(point_flat)
+                c_n_points = c_int(n_points)
+
+                c_re_vals = (c_double * len(re_vals)).from_buffer(re_vals)
+                libcosy.eval_da_batch(
+                    byref(c_int(re_da.idx)),
+                    c_points,
+                    byref(c_n_points),
+                    c_re_vals,
+                    c_temp_exps,
+                    c_temp_coeffs,
+                    byref(c_max_terms),
+                )
+
+                # Reset temp arrays before evaluating imaginary part
+                temp_exps.fill(0)
+                temp_coeffs.fill(0.0)
+                c_im_vals = (c_double * len(im_vals)).from_buffer(im_vals)
+                libcosy.eval_da_batch(
+                    byref(c_int(im_da.idx)),
+                    c_points,
+                    byref(c_n_points),
+                    c_im_vals,
+                    c_temp_exps,
+                    c_temp_coeffs,
+                    byref(c_max_terms),
+                )
+
+                return re_vals + 1j * im_vals
 
             vals = np.zeros(n_points, dtype=np.float64)
             max_terms = 100000

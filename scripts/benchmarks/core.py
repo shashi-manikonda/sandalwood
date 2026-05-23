@@ -68,23 +68,7 @@ class BenchmarkEngine:
         self.dimension = dimension
         self.variable_names = ["x", "y", "z", "u", "v", "w"][:dimension]
 
-    def get_system_info(self):
-        """Returns a dictionary containing system information."""
-        import platform
-
-        import psutil
-
-        info = {
-            "OS": platform.system(),
-            "OS Release": platform.release(),
-            "Architecture": platform.machine(),
-            "Processor": platform.processor(),
-            "Python Version": platform.python_version(),
-            "CPU Count (Physical)": psutil.cpu_count(logical=False),
-            "CPU Count (Logical)": psutil.cpu_count(logical=True),
-            "Total RAM": f"{psutil.virtual_memory().total / (1024**3):.2f} GB",
-        }
-        return info
+    # System info helper (detailed version defined below)
 
     def setup_mtf(self, implementation):
         """Initializes Sandalwood MTF with the specified backend."""
@@ -252,8 +236,8 @@ END;
                     # Normalize by iterations to get time per operation
                     timings.append(run_time / iterations)
 
-            if not timings:
-                return None, None, None
+            if not timings or last_process is None:
+                return {}, np.nan, np.nan
 
             avg_time = np.mean(timings)
             std_time = np.std(timings)

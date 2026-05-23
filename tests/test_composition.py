@@ -102,3 +102,60 @@ def test_compose_polval_product(implementation):
 
     val_10 = res_mtf.eval([1, 0])[0]  # At 1,0: (2)(-1) = -2
     assert np.isclose(val_10, -2.0), f"Expected -2.0, got {val_10}"
+
+
+@pytest.mark.parametrize("implementation", ["cosy"])
+def test_high_level_compose_cosy(implementation):
+    """Test high-level compose method with COSY backend."""
+    safe_initialize(implementation)
+
+    x = MultivariateTaylorFunction.var(1)
+    y = MultivariateTaylorFunction.var(2)
+
+    if x._IMPLEMENTATION != "cosy":
+        pytest.skip("Test requires COSY backend")
+
+    f = x * y
+
+    # Compose: substitute x -> x + 1.0, y -> y - 1.0
+    res = f.compose({1: x + 1.0, 2: y - 1.0})
+
+    assert res.dimension == 2
+    assert res._IMPLEMENTATION == "cosy"
+
+    val_00 = res.eval([0, 0])[0]
+    assert np.isclose(val_00, -1.0)
+
+    val_10 = res.eval([1, 0])[0]
+    assert np.isclose(val_10, -2.0)
+
+
+@pytest.mark.parametrize("implementation", ["cosy"])
+def test_complex_compose_cosy(implementation):
+    """Test composition with complex coefficients in the COSY backend."""
+    safe_initialize(implementation)
+
+    x = MultivariateTaylorFunction.var(1)
+    y = MultivariateTaylorFunction.var(2)
+
+    if x._IMPLEMENTATION != "cosy":
+        pytest.skip("Test requires COSY backend")
+
+    # Complex outer function: f(x, y) = i * x * y
+    f = x * y * 1j
+
+    # Complex composition: substitute x -> x + 1.0, y -> y - 1j
+    # res = i * (x + 1.0) * (y - i)
+    res = f.compose({1: x + 1.0, 2: y - 1j})
+
+    assert res.dimension == 2
+    assert res._IMPLEMENTATION == "cosy"
+    
+    # Check if internal DA is complex wrapper
+    from sandalwood.backends.cosy.cosy_backend import CosyCDA
+    assert isinstance(res.mtf_data.da, CosyCDA)
+
+    # res(0, 0) = i * (0+1) * (0-i) = -i^2 = 1.0
+    val_00 = res.eval([0, 0])[0]
+    assert np.isclose(val_00, 1.0 + 0j)
+

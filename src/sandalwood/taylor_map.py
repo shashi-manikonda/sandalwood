@@ -10,6 +10,7 @@ vector arithmetic, composition, and inversion of such maps.
 
 import json
 import warnings
+from typing import Dict, List
 
 import numpy as np
 from numpy.exceptions import ComplexWarning
@@ -234,7 +235,7 @@ class TaylorMap:
                 # Ensure dense coeffs are materialized or compute them
                 if comp._dense_coeffs is None:
                     # Create dense representation
-                    dense_c = np.zeros(n_dense_terms, dtype=dtype)
+                    dense_c: np.ndarray = np.zeros(n_dense_terms, dtype=dtype)
                     indices = comp._get_indices()
                     if indices is not None:
                         dense_c[indices] = comp.coeffs
@@ -284,7 +285,9 @@ class TaylorMap:
 
         # Fallback: Original Sparse Implementation
         # Cache for powers of the input map components to avoid re-computation.
-        component_powers_cache = [{} for _ in range(self_input_dim)]
+        component_powers_cache: List[Dict[int, MultivariateTaylorFunction]] = [
+            {} for _ in range(self_input_dim)
+        ]
 
         for c_idx, component_mtf in enumerate(self.components):
             # Accumulate terms for batch summation
@@ -370,8 +373,7 @@ class TaylorMap:
             The value of the coefficient.
         """
         return (
-            self
-            .components[component_index]
+            self.components[component_index]
             .extract_coefficient(tuple(exponent_array))
             .item()
         )

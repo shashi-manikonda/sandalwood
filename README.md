@@ -15,11 +15,12 @@ A Python library for creating, manipulating, and composing Multivariate Taylor F
 
 ## 🚀 Key Features
 
-*   **Hybrid Backend**: Seamlessly switch between a pure Python/Numba backend for portability and a compiled Fortran (COSY Infinity) backend for maximum performance.
+*   **Hybrid Backend**: Seamlessly switch between a pure Python/Numba backend for portability and a compiled Fortran (COSY Infinity) backend for maximum performance, utilizing a direct Fortran `POLVAL` memory bridge for high-performance real-valued map compositions.
 *   **Arbitrary Order & Dimension**: Calculate derivatives and compositions up to very high orders (e.g., order 20+).
-*   **Memory Efficiency**: Robust object pooling (`CosyIndexPool`) for ultra-low latency variable allocation.
+*   **Memory Efficiency**: Robust object pooling (`CosyIndexPool`) and stack-based scoping (`CosyScope`) for ultra-low latency variable allocation.
 *   **Parallel Acceleration**: OpenMP-parallelized evaluation and Numba-JIT optimized algebraic kernels.
 *   **Seamless Integration**: Full support for NumPy, JSON serialization, and symbolic LaTeX rendering.
+*   **Production-Ready Quality**: Tightened type checking (strict `mypy` compliance) and standardized `logging` integration for clean, verbose-controlled embedded usage.
 
 ## Installation
 

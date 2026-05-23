@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 import sys
+from typing import ClassVar
 
 from setuptools import Command, setup
 from setuptools.command.build_py import build_py
@@ -13,7 +14,7 @@ class BuildCosy(Command):
     """Custom command to build the COSY backend with source patching."""
 
     description = "build COSY shared library with dynamic patching"
-    user_options = []
+    user_options: ClassVar[list] = []
 
     def initialize_options(self):
         pass
@@ -116,9 +117,9 @@ class BuildCosy(Command):
         # Verify source exists
         required_files = ["dafox.f", "foxfit.f", "foxgraf.f", "version.f"]
         missing = [
-            f
-            for f in required_files
-            if not os.path.exists(os.path.join(cosy_src_orig, f))
+            fn
+            for fn in required_files
+            if not os.path.exists(os.path.join(cosy_src_orig, fn))
         ]
 
         if missing:
@@ -146,8 +147,8 @@ class BuildCosy(Command):
         compiler_type = None
 
         if os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                for line in f:
+            with open(config_path, "r") as detect_file:
+                for line in detect_file:
                     if line.startswith("export COSY_COMPILER="):
                         val = line.split("=")[1].strip().lower().strip("'").strip('"')
                         if shutil.which(val):
@@ -217,13 +218,13 @@ class BuildCosy(Command):
 
         # A. Core COSY files (from external source)
         cosy_core_files = ["dafox.f", "foxfit.f", "foxgraf.f"]
-        for f in cosy_core_files:
-            shutil.copy2(os.path.join(cosy_src_orig, f), build_temp)
+        for fn in cosy_core_files:
+            shutil.copy2(os.path.join(cosy_src_orig, fn), build_temp)
 
         # B. Sandalwood bridge files (from local directory)
         sandalwood_bridge_files = ["wrapper.f", "helper.f"]
-        for f in sandalwood_bridge_files:
-            src_path = os.path.join(backend_dir, f)
+        for fn in sandalwood_bridge_files:
+            src_path = os.path.join(backend_dir, fn)
             if os.path.exists(src_path):
                 shutil.copy2(src_path, build_temp)
             else:
@@ -234,8 +235,8 @@ class BuildCosy(Command):
         if os.path.exists(config_path):
             print(f"Loading COSY memory configuration from {config_path}...")
             raw_config = {}
-            with open(config_path, "r") as f:
-                for line in f:
+            with open(config_path, "r") as config_file:
+                for line in config_file:
                     line = line.strip()
                     if not line or line.startswith("#"):
                         continue
@@ -280,13 +281,13 @@ class BuildCosy(Command):
         if config_map:
             print(f"Applying memory patches: {config_map}")
             target_patch_files = [
-                os.path.join(build_temp, f)
-                for f in os.listdir(build_temp)
-                if f.endswith(".f")
+                os.path.join(build_temp, fn)
+                for fn in os.listdir(build_temp)
+                if fn.endswith(".f")
             ]
             for file_path in target_patch_files:
-                with open(file_path, "r") as f:
-                    content = f.read()
+                with open(file_path, "r") as read_patch_file:
+                    content = read_patch_file.read()
 
                 modified = False
                 for param, value in config_map.items():
@@ -297,8 +298,8 @@ class BuildCosy(Command):
                         modified = True
 
                 if modified:
-                    with open(file_path, "w") as f:
-                        f.write(content)
+                    with open(file_path, "w") as write_patch_file:
+                        write_patch_file.write(content)
 
         # 4. Version Switching using version.f
         print(f"Switching code versions using {compiler_type}...")
