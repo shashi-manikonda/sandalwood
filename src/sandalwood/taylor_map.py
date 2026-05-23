@@ -404,7 +404,7 @@ class TaylorMap:
         new_component : MultivariateTaylorFunction
             The new component to add to the end of the map.
         """
-        self.components = np.append(self.components, new_component)
+        self.components = np.append(self.components, [new_component])
         self.map_dim = len(self.components)
 
     def remove_component(self, index: int):
