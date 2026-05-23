@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 import sandalwood.taylor_function as taylor
 
 # Need to access protected members for testing low-level API before high-level integration

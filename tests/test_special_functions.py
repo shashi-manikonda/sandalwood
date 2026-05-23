@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 import pytest
+
 import sandalwood.taylor_function as taylor
 
 

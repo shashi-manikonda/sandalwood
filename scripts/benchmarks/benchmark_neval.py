@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+
 from sandalwood.taylor_function import MultivariateTaylorFunction as MTF
 
 
