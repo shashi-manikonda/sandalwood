@@ -2281,27 +2281,41 @@ class MultivariateTaylorFunction:
             it returns a DataFrame with a single row representing the
             zero term.
         """
-        if self.coeffs.size == 0:
-            return pd.DataFrame([
-                {
-                    "Coefficient": 0.0,
-                    "Order": 0,
-                    "Exponents": (0,) * self.dimension,
-                }
-            ])
+        with pd.option_context(
+            "display.float_format",
+            "{:.12e}".format,
+            "display.max_columns",
+            None,
+            "display.max_rows",
+            None,
+            "display.width",
+            1000,
+        ):
+            if self.coeffs.size == 0:
+                return pd.DataFrame([
+                    {
+                        "Coefficient": 0.0,
+                        "Order": 0,
+                        "Exponents": (0,) * self.dimension,
+                    }
+                ])
 
-        data = []
-        for i in range(self.coeffs.size):
-            exponents = tuple(self.exponents[i])
-            coeff = self.coeffs[i]
-            order = sum(exponents)
-            data.append({"Coefficient": coeff, "Order": order, "Exponents": exponents})
+            data = []
+            for i in range(self.coeffs.size):
+                exponents = tuple(self.exponents[i])
+                coeff = self.coeffs[i]
+                order = sum(exponents)
+                data.append({
+                    "Coefficient": coeff,
+                    "Order": order,
+                    "Exponents": exponents,
+                })
 
-        df = pd.DataFrame(data)
-        df = df.sort_values(
-            by=["Order", "Exponents"], ascending=[True, False]
-        ).reset_index(drop=True)
-        return df
+            df = pd.DataFrame(data)
+            df = df.sort_values(
+                by=["Order", "Exponents"], ascending=[True, False]
+            ).reset_index(drop=True)
+            return df
 
     def get_all_terms(self):
         """
@@ -2419,12 +2433,32 @@ class MultivariateTaylorFunction:
     def __str__(self):
         """Returns a string representation of the MTF (tabular format)."""
         df = self.get_tabular_dataframe()
-        return f"{df}\n"
+        with pd.option_context(
+            "display.float_format",
+            "{:.12e}".format,
+            "display.max_columns",
+            None,
+            "display.max_rows",
+            None,
+            "display.width",
+            1000,
+        ):
+            return f"{df}\n"
 
     def __repr__(self):
         """Returns a detailed string representation of the MTF (for debugging)."""
         df = self.get_tabular_dataframe()
-        return f"{df}\n"
+        with pd.option_context(
+            "display.float_format",
+            "{:.12e}".format,
+            "display.max_columns",
+            None,
+            "display.max_rows",
+            None,
+            "display.width",
+            1000,
+        ):
+            return f"{df}\n"
 
     def symprint(self, symbols=None, precision=6, coeff_formatter=None):
         """
@@ -2919,8 +2953,8 @@ class MultivariateTaylorFunction:
                         # It seems _inv_mtf_internal is an instance method that uses `self` as a factory?
                         # Let's check definition.
                         return mtf_inputs[0]._inv_mtf_internal(mtf_inputs[0])
-                    op = getattr(mtf_inputs[0], method_name)
-                    return op()
+                    unary_op = getattr(mtf_inputs[0], method_name)
+                    return unary_op()
                 else:
                     return NotImplemented
 
@@ -2934,8 +2968,8 @@ class MultivariateTaylorFunction:
                     # We need to call the method on the first object.
                     # e.g., mtf_inputs[0].__add__(mtf_inputs[1])
                     method_name = BINARY_UFUNC_MAP[ufunc]
-                    op = getattr(mtf_inputs[0], method_name)
-                    return op(mtf_inputs[1])
+                    binary_op = getattr(mtf_inputs[0], method_name)
+                    return binary_op(mtf_inputs[1])
                 else:
                     return NotImplemented
 

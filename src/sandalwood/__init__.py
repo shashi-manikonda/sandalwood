@@ -45,7 +45,7 @@ Example:
 
 """
 
-import pandas as pd
+from importlib.metadata import PackageNotFoundError, version
 
 from .complex_taylor_function import (
     ComplexMultivariateTaylorFunction,
@@ -57,14 +57,10 @@ from .taylor_function import (
 )
 from .taylor_map import TaylorMap
 
-__version__ = "0.1.0"
-
-# Set the display format for floats
-
-pd.options.display.float_format = "{:.12e}".format
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", None)
-pd.set_option("display.width", 1000)
+try:
+    __version__ = version("sandalwood")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 
 # Defines the public API for the library.

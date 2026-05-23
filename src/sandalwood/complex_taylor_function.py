@@ -212,14 +212,38 @@ class ComplexMultivariateTaylorFunction(MultivariateTaylorFunction):
         """
         Returns a detailed string representation of the MTF (for debugging).
         """
+        import pandas as pd
+
         df = self.get_tabular_dataframe()
-        return f"{df}\n"
+        with pd.option_context(
+            "display.float_format",
+            "{:.12e}".format,
+            "display.max_columns",
+            None,
+            "display.max_rows",
+            None,
+            "display.width",
+            1000,
+        ):
+            return f"{df}\n"
 
     def __str__(self):
         if self.var_name:
             return f"ComplexMultivariateTaylorFunction({self.var_name})"
+        import pandas as pd
+
         df = self.get_tabular_dataframe()
-        return f"\n{df}"
+        with pd.option_context(
+            "display.float_format",
+            "{:.12e}".format,
+            "display.max_columns",
+            None,
+            "display.max_rows",
+            None,
+            "display.width",
+            1000,
+        ):
+            return f"\n{df}"
 
     def magnitude(self):
         """

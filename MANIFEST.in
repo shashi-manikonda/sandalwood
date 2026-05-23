@@ -1,5 +1,10 @@
 recursive-include src/sandalwood/backends/cosy/cosy_src *.f
 include src/sandalwood/backends/cosy/wrapper.f
+include src/sandalwood/backends/cosy/helper.f
+include src/sandalwood/backends/cosy/cosy_config.env
+include src/sandalwood/backends/cosy/cosy.def
+include src/sandalwood/backends/cosy/install.py
+include src/sandalwood/backends/cosy/compile_cosy.sh
 include README.md
 include LICENSE
 include CHANGELOG.md

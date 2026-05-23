@@ -1,6 +1,6 @@
 # sandalwood: Multivariate Taylor Function Library
 
-[![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/sandalwood/badge/?version=latest)](https://sandalwood.readthedocs.io/en/latest/?badge=latest)
 [![Run Tests](https://github.com/shashi-manikonda/sandalwood/actions/workflows/test.yml/badge.svg)](https://github.com/shashi-manikonda/sandalwood/actions/workflows/test.yml)
 [![PyPI version](https://img.shields.io/pypi/v/sandalwood.svg)](https://pypi.org/project/sandalwood/)
 [![Python versions](https://img.shields.io/pypi/pyversions/sandalwood.svg)](https://pypi.org/project/sandalwood/)
@@ -162,7 +162,7 @@ Sandalwood allows for fine-grained performance tuning through environment variab
 *   **`SANDALWOOD_NUMBA_PARALLEL`**: (Default: `1`) Set to `1` to enable Numba's multi-threaded execution for algebraic kernels.
 *   **`SANDALWOOD_COSY_LMEM`**: Override the default COSY stack size for extremely large calculations.
 
-For advanced architectural details on memory management and high-performance kernels, see the [Documentation](https://sandalwoodrary.readthedocs.io/en/latest/).
+For advanced architectural details on memory management and high-performance kernels, see the [Documentation](https://sandalwood.readthedocs.io/en/latest/).
 
 ## Running Tests
 
