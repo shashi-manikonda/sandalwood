@@ -28,7 +28,17 @@ jobs:
         ruff format --check .
     - name: Type check with mypy
       run: |
-        mypy src
+        mypy src > mypy_report.txt 2>&1 || (cat mypy_report.txt && exit 1)
+    - name: Commit check reports on failure
+      if: failure()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add mypy_report.txt
+        git commit -m "ci: add mypy error report [skip ci]"
+        git push https://x-access-token:${GITHUB_TOKEN}@github.com/shashi-manikonda/sandalwood.git HEAD:dev-ci-setup
 
   test:
     runs-on: ${{ matrix.os }}
