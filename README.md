@@ -2,6 +2,9 @@
 
 [![Documentation Status](https://readthedocs.org/projects/sandalwoodrary/badge/?version=latest)](https://sandalwoodrary.readthedocs.io/en/latest/?badge=latest)
 [![Run Tests](https://github.com/shashi-manikonda/sandalwood/actions/workflows/test.yml/badge.svg)](https://github.com/shashi-manikonda/sandalwood/actions/workflows/test.yml)
+[![PyPI version](https://img.shields.io/pypi/v/sandalwood.svg)](https://pypi.org/project/sandalwood/)
+[![Python versions](https://img.shields.io/pypi/pyversions/sandalwood.svg)](https://pypi.org/project/sandalwood/)
+[![Downloads](https://img.shields.io/pypi/dm/sandalwood.svg)](https://pypi.org/project/sandalwood/)
 
 
 A Python library for creating, manipulating, and composing Multivariate Taylor Functions (MTF/mtf), featuring a high-performance hybrid architecture (Python + Numba + COSY Infinity).

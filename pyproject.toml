@@ -88,6 +88,7 @@ dev = [
 
 [project.urls]
 "Homepage" = "https://github.com/shashi-manikonda/sandalwood"
+"Documentation" = "https://sandalwoodrary.readthedocs.io/en/latest/"
 "Bug Tracker" = "https://github.com/shashi-manikonda/sandalwood/issues"
 
 [project.scripts]
