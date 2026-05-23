@@ -29,16 +29,21 @@ jobs:
     - name: Type check with mypy
       run: |
         mypy src > mypy_report.txt 2>&1 || (cat mypy_report.txt && exit 1)
-    - name: Commit check reports on failure
+    - name: Post mypy report as commit comment
       if: failure()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        git add mypy_report.txt
-        git commit -m "ci: add mypy error report [skip ci]"
-        git push https://x-access-token:${GITHUB_TOKEN}@github.com/shashi-manikonda/sandalwood.git HEAD:dev-ci-setup
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('mypy_report.txt')) {
+            const report = fs.readFileSync('mypy_report.txt', 'utf8');
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '### Mypy Type Check Report\n```\n' + report + '\n```'
+            });
+          }
 
   test:
     runs-on: ${{ matrix.os }}
