@@ -470,7 +470,7 @@ class MultivariateTaylorFunction:
     def _auto_initialize(cls):
         """Auto-initializes the library with defaults if not already initialized."""
         if not cls._INITIALIZED:
-            logger.warning(
+            logger.info(
                 "sandalwood not initialized. Auto-initializing with defaults "
                 "(Order=4, Dimension=3)."
             )

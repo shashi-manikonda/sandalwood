@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import tempfile
@@ -7,24 +8,33 @@ from typing import List
 
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 # Path to the shared library (platform-aware)
 if sys.platform == "win32":
     LIB_NAME = "libcosy.dll"
     # Python 3.8+ on Windows ignores PATH for DLL loading.
-    # We must explicitly add Intel/oneAPI compiler paths if they exist in PATH or standard locations.
-    if hasattr(os, "add_dll_directory"):
+    # We must explicitly add Intel/oneAPI compiler paths and GCC/gfortran runtime paths if they exist in PATH or standard locations.
+    if os.name == "nt" and hasattr(os, "add_dll_directory"):
         # 1. Search PATH
         for p in os.environ.get("PATH", "").split(os.pathsep):
-            if p and ("oneAPI" in p or "Intel" in p) and os.path.exists(p):
-                try:
-                    os.add_dll_directory(p)
-                except OSError:
-                    pass
+            if p and os.path.exists(p):
+                p_lower = p.lower()
+                if any(
+                    k in p_lower
+                    for k in ("oneapi", "intel", "mingw", "msys", "gfortran", "gcc")
+                ):
+                    try:
+                        os.add_dll_directory(p)
+                    except OSError:
+                        pass
 
         # 2. Search Standard Locations (if typical path didn't work)
         std_paths = [
             r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\windows\redist\intel64_win\compiler",
             r"C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin",
+            r"C:\msys64\mingw64\bin",
+            r"C:\msys64\ucrt64\bin",
         ]
         for p in std_paths:
             if os.path.exists(p):
@@ -84,15 +94,14 @@ else:
 
 LIB_PATH = os.path.join(os.path.dirname(__file__), LIB_NAME)
 
+_cosy_lib_lock = threading.RLock()
+
 # Load Library
 try:
     # Use RTLD_GLOBAL to ensure symbols are available for resolution if supported
     mode = getattr(os, "RTLD_GLOBAL", 0)
-    libcosy = CDLL(LIB_PATH, mode=mode)
+    raw_libcosy = CDLL(LIB_PATH, mode=mode)
 except OSError as e:
-    import logging
-
-    logger = logging.getLogger(__name__)
     # Hide the raw OS error in debug mode instead of printing to stderr
     logger.debug(f"COSY library not loaded ({LIB_NAME}): {e}")
 
@@ -107,6 +116,41 @@ except OSError as e:
     COSY_AVAILABLE = False
 else:
     COSY_AVAILABLE = True
+
+    class LockedFunc:
+        def __init__(self, func, lock):
+            self._func = func
+            self._lock = lock
+
+        def __call__(self, *args, **kwargs):
+            with self._lock:
+                return self._func(*args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(self._func, name)
+
+        def __setattr__(self, name, value):
+            if name in ("_func", "_lock"):
+                super().__setattr__(name, value)
+            else:
+                setattr(self._func, name, value)
+
+    class LockedLib:
+        def __init__(self, lib, lock):
+            self._lib = lib
+            self._lock = lock
+            self._funcs = {}
+
+        def __getattr__(self, name):
+            attr = getattr(self._lib, name)
+            if callable(attr):
+                if name not in self._funcs:
+                    self._funcs[name] = LockedFunc(attr, self._lock)
+                return self._funcs[name]
+            return attr
+
+    libcosy = LockedLib(raw_libcosy, _cosy_lib_lock)
+
 
 # --- Wrapper Signatures ---
 
@@ -132,7 +176,7 @@ def bind_cosy_func(name, argtypes):
                 f.restype = None
                 return f
             except AttributeError:
-                print(f"Warning: COSY function {name} not found.")
+                logger.warning(f"Warning: COSY function {name} not found.")
                 return None
 
 
@@ -404,7 +448,7 @@ class CosyIndexPool:
     # Reentrant lock so that acquire/release are safe from multiple threads.
     # The COSY Fortran allocator is single-threaded; this lock prevents
     # concurrent pool mutations that could produce duplicate or orphaned indices.
-    _lock: threading.RLock = threading.RLock()
+    _lock = _cosy_lib_lock
 
     @classmethod
     def acquire(cls, is_complex=False):
@@ -451,8 +495,7 @@ class CosyIndexPool:
                 pool.append(idx)
 
 
-# Module-level lock to prevent directory-swap race conditions
-_backend_init_lock = threading.Lock()
+# Module-level lock removed because os.chdir swapping is no longer needed since DAINI.DAT is bypassed.
 
 
 class CosyBackend:
@@ -479,22 +522,7 @@ class CosyBackend:
         if not hasattr(libcosy, "setup_cosy"):
             raise RuntimeError(f"COSY library not found at {LIB_PATH}")
 
-        # Protect the directory swap with a thread lock
-        with _backend_init_lock:
-            original_cwd = os.getcwd()
-
-            # Create a grouped temp structure: %TEMP%/sandalwood_cosy/pid_XXXX
-            # This isolates DAINI.DAT per process without flooding the temp root
-            base_temp = os.path.join(tempfile.gettempdir(), "sandalwood_cosy")
-            pid_temp = os.path.join(base_temp, f"pid_{os.getpid()}")
-            os.makedirs(pid_temp, exist_ok=True)
-
-            try:
-                os.chdir(pid_temp)
-                libcosy.setup_cosy(byref(c_order), byref(c_dim), byref(c_nmmax))
-            finally:
-                # Guarantee the working directory is safely restored
-                os.chdir(original_cwd)
+        libcosy.setup_cosy(byref(c_order), byref(c_dim), byref(c_nmmax))
 
         CosyBackend._initialized = True
 

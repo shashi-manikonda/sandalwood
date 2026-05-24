@@ -196,11 +196,53 @@ class TaylorMap:
 
         # Check for COSY Backend Fast-Path
         if self.map_dim > 0 and self.components[0]._IMPLEMENTATION == "cosy":
-            other_dict = {i + 1: other.components[i] for i in range(other.map_dim)}
-            new_components = [c.compose(other_dict) for c in self.components]
-            return TaylorMap(new_components).truncate(
-                MultivariateTaylorFunction.get_max_order()
+            new_dimension = other.components[0].dimension if other.map_dim > 0 else 0
+
+            # Check if any component in self or other is complex
+            is_complex_composition = any(
+                getattr(c.mtf_data, "is_complex", False)
+                for c in self.components
+                if c.mtf_data is not None
+            ) or any(
+                getattr(c.mtf_data, "is_complex", False)
+                for c in other.components
+                if c.mtf_data is not None
             )
+
+            if not is_complex_composition:
+                args_da_list = []
+                for c in other.components:
+                    if c.mtf_data is None:
+                        raise RuntimeError("Argument has no COSY data")
+                    args_da_list.append(c.mtf_data.da)
+
+                new_components = []
+                for c in self.components:
+                    if c.mtf_data is None:
+                        other_dict = {
+                            i + 1: other.components[i] for i in range(other.map_dim)
+                        }
+                        new_components.append(c.compose(other_dict))
+                        continue
+                    res_da = c.mtf_data.da.compose_polval(args_da_list)
+                    res_data = c.mtf_data.__class__(
+                        new_dimension, is_complex=False, idx=res_da.idx, owned=True
+                    )
+                    res_da.owned = False
+                    new_components.append(
+                        MultivariateTaylorFunction(
+                            mtf_data=res_data, dimension=new_dimension
+                        )
+                    )
+                return TaylorMap(new_components).truncate(
+                    MultivariateTaylorFunction.get_max_order()
+                )
+            else:
+                other_dict = {i + 1: other.components[i] for i in range(other.map_dim)}
+                new_components = [c.compose(other_dict) for c in self.components]
+                return TaylorMap(new_components).truncate(
+                    MultivariateTaylorFunction.get_max_order()
+                )
 
         new_components = []
         # The new dimension will be the input dimension of the 'other' map.
@@ -704,13 +746,27 @@ class TaylorMap:
         inv_jacobian = np.linalg.inv(jacobian)
         inv_linear_components = []
         for i in range(dim):
-            comp_mtf = MultivariateTaylorFunction.from_constant(0.0, dimension=dim)
+            active_vars = []
+            active_coeffs = []
             for j in range(dim):
-                if abs(inv_jacobian[i, j]) > 1e-14:
-                    var_mtf = MultivariateTaylorFunction.var(j + 1, dim)
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", ComplexWarning)
-                        comp_mtf += float(inv_jacobian[i, j]) * var_mtf
+                val = inv_jacobian[i, j]
+                if abs(val) > 1e-14:
+                    val = float(val.real) if abs(val.imag) < 1e-15 else complex(val)
+                    active_vars.append(j)
+                    active_coeffs.append(val)
+
+            if not active_vars:
+                comp_mtf = MultivariateTaylorFunction.from_constant(0.0, dimension=dim)
+            else:
+                n_terms = len(active_vars)
+                exps: np.ndarray = np.zeros((n_terms, dim), dtype=np.int32)
+                for term_idx, j in enumerate(active_vars):
+                    exps[term_idx, j] = 1
+
+                is_complex = any(isinstance(c, complex) for c in active_coeffs)
+                dtype = np.complex128 if is_complex else np.float64
+                cs: np.ndarray = np.array(active_coeffs, dtype=dtype)
+                comp_mtf = MultivariateTaylorFunction((exps, cs), dimension=dim)
             inv_linear_components.append(comp_mtf)
         beta_inv = TaylorMap(inv_linear_components)
 
@@ -741,8 +797,9 @@ class TaylorMap:
         F_inv = beta_inv  # Initial guess
 
         max_order = MultivariateTaylorFunction.get_max_order()
-        for _ in range(max_order - 1):
-            composition_G_F_inv = G.compose(F_inv).truncate(max_order)
+        for k in range(max_order - 1):
+            current_order = min(k + 2, max_order)
+            composition_G_F_inv = G.compose(F_inv).truncate(current_order)
             inner_map = identity_map - composition_G_F_inv
             # Optimized Matrix-Vector multiplication for linear part
             new_F_inv_components = []
@@ -757,6 +814,6 @@ class TaylorMap:
                     MultivariateTaylorFunction._batch_add(terms)
                 )
 
-            F_inv = TaylorMap(new_F_inv_components).truncate(max_order)
+            F_inv = TaylorMap(new_F_inv_components).truncate(current_order)
 
         return F_inv

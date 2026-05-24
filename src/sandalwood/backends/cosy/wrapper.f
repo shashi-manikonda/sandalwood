@@ -52,7 +52,7 @@
 *
       CALL FOXALL(IC, N1, N_ONE)
       IIU = IC(1)
-      CC(NBEG(IIU)) = 6.0D0
+      CC(NBEG(IIU)) = 0.0D0
 *
       CALL FOXALL(IC, N1, N_ONE)
       INM = IC(1)
