@@ -175,6 +175,6 @@ def test_cosy_transfer_ownership_no_double_free():
     assert final.extract_coefficient((2, 0)) is not None, (
         "Pool corrupted after 100 multiplications; transfer_ownership may be broken"
     )
-    assert np.isclose(float(final.extract_coefficient((2, 0))), 1.0), (
+    assert np.allclose(final.extract_coefficient((2, 0)), 1.0), (
         "Coefficient of x^2 wrong after stress test; pool state may be corrupted"
     )
