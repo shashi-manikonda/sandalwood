@@ -246,6 +246,10 @@ def test_cosy_divide_sub_threshold_constant_raises(implementation):
     """
     if implementation != "cosy":
         pytest.skip("Tolerant zero-check only applies to COSY backend")
+        
+    import sandalwood.taylor_function as tf
+    if not tf._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not actually available in this environment")
 
     one = mtf.from_constant(1.0)
     # Constant part 1e-15 is below the 1e-14 guard → should raise
@@ -263,6 +267,10 @@ def test_cosy_divide_super_threshold_constant_succeeds(implementation):
     """
     if implementation != "cosy":
         pytest.skip("Tolerant zero-check only applies to COSY backend")
+
+    import sandalwood.taylor_function as tf
+    if not tf._COSY_BACKEND_AVAILABLE:
+        pytest.skip("COSY backend not actually available in this environment")
 
     one = mtf.from_constant(1.0)
     # Constant part 2e-14 is above the guard → division must succeed
