@@ -74,7 +74,8 @@ class CosyInstaller:
                     break
 
             if not vs_dev_cmd:
-                print("Warning: Could not locate VsDevCmd.bat. Linking may fail.")
+                if self.compiler_type == "ifx":
+                    print("Warning: Could not locate VsDevCmd.bat. Linking may fail.")
             else:
                 print(f"Loading environment from {vs_dev_cmd}")
                 cmd = f'"{vs_dev_cmd}" -arch=x64 -no_logo && set'
@@ -253,9 +254,12 @@ class CosyInstaller:
                     break
 
         if not self.compiler:
-            print("Error: No working Fortran compiler found (ifx or gfortran).")
+            print("\n[INFO] No Fortran compiler detected on this system.")
             print(
-                "Please install a Fortran compiler and make sure it is added to your PATH."
+                "Sandalwood will run natively using its accelerated Python/Numba backend."
+            )
+            print(
+                "If you wish to enable the optional COSY Infinity HPC layer, please install gfortran or ifx."
             )
             return False
 

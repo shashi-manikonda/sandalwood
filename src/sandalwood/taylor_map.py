@@ -9,8 +9,11 @@ vector arithmetic, composition, and inversion of such maps.
 """
 
 import json
+import logging
 import warnings
 from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 from numpy.exceptions import ComplexWarning
@@ -292,6 +295,9 @@ class TaylorMap:
             return TaylorMap(new_components)
 
         # Fallback: Original Sparse Implementation
+        logger.debug(
+            "Numba dense JIT kernels unavailable or dimension mismatched. Using sparse evaluation path."
+        )
         # Cache for powers of the input map components to avoid re-computation.
         component_powers_cache: List[Dict[int, MultivariateTaylorFunction]] = [
             {} for _ in range(self_input_dim)
@@ -381,8 +387,7 @@ class TaylorMap:
             The value of the coefficient.
         """
         return (
-            self
-            .components[component_index]
+            self.components[component_index]
             .extract_coefficient(tuple(exponent_array))
             .item()
         )

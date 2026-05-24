@@ -230,8 +230,8 @@ class MultivariateTaylorFunction:
                         cls._IMPLEMENTATION = "cosy"
                     else:
                         if implementation == "cosy":
-                            logger.warning(
-                                "COSY backend requested but not available. Falling back to Python."
+                            logger.info(
+                                "COSY backend not found. Using native Python backend."
                             )
                         cls._IMPLEMENTATION = "python"
 

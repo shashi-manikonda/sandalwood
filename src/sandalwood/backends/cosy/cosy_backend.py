@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 import threading
 from ctypes import CDLL, POINTER, byref, c_double, c_int
 from typing import List
@@ -89,8 +90,11 @@ try:
     mode = getattr(os, "RTLD_GLOBAL", 0)
     libcosy = CDLL(LIB_PATH, mode=mode)
 except OSError as e:
-    # Build a dummy check if library is missing during development
-    sys.stderr.write(f"Warning: Could not load {LIB_NAME}: {e}\n")
+    import logging
+
+    logger = logging.getLogger(__name__)
+    # Hide the raw OS error in debug mode instead of printing to stderr
+    logger.debug(f"COSY library not loaded ({LIB_NAME}): {e}")
 
     class DummyLib:
         def __getattr__(self, name):
@@ -447,6 +451,10 @@ class CosyIndexPool:
                 pool.append(idx)
 
 
+# Module-level lock to prevent directory-swap race conditions
+_backend_init_lock = threading.Lock()
+
+
 class CosyBackend:
     _initialized = False
     _order = 1
@@ -467,9 +475,27 @@ class CosyBackend:
         c_order = c_int(order)
         c_dim = c_int(dim)
         c_nmmax = c_int(0)
+
         if not hasattr(libcosy, "setup_cosy"):
             raise RuntimeError(f"COSY library not found at {LIB_PATH}")
-        libcosy.setup_cosy(byref(c_order), byref(c_dim), byref(c_nmmax))
+
+        # Protect the directory swap with a thread lock
+        with _backend_init_lock:
+            original_cwd = os.getcwd()
+
+            # Create a grouped temp structure: %TEMP%/sandalwood_cosy/pid_XXXX
+            # This isolates DAINI.DAT per process without flooding the temp root
+            base_temp = os.path.join(tempfile.gettempdir(), "sandalwood_cosy")
+            pid_temp = os.path.join(base_temp, f"pid_{os.getpid()}")
+            os.makedirs(pid_temp, exist_ok=True)
+
+            try:
+                os.chdir(pid_temp)
+                libcosy.setup_cosy(byref(c_order), byref(c_dim), byref(c_nmmax))
+            finally:
+                # Guarantee the working directory is safely restored
+                os.chdir(original_cwd)
+
         CosyBackend._initialized = True
 
     @staticmethod
