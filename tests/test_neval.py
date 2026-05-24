@@ -102,7 +102,11 @@ def test_eval_wrapper(sample_mtf):
 
 @pytest.mark.skipif(not _TORCH_AVAILABLE, reason="torch not installed")
 def test_neval_torch_tensor(sample_mtf):
-    """Tests neval with a torch tensor."""
+    """Tests neval with a torch tensor (basic CPU, no grad path).
+
+    The grad-tracking and device-safety paths are tested separately in
+    test_neval_torch_requires_grad_safe and test_neval_torch_atleast_2d_correctness.
+    """
     points = torch.tensor([[1.0, 2.0], [3.0, 4.0], [0.0, 0.0]], dtype=torch.float64)
 
     expected = np.array([
@@ -132,3 +136,52 @@ def test_neval_large_batch(sample_mtf):
 
     assert result.shape == (N,)
     assert np.allclose(result, 5.0)
+
+
+@pytest.mark.skipif(not _TORCH_AVAILABLE, reason="torch not installed")
+def test_neval_torch_requires_grad_safe(sample_mtf):
+    """neval must not raise when given a requires_grad=True tensor.
+
+    Guards TorchBackend.to_numpy detach-and-warn fix from feat/backend-hardening.
+    Before the fix, passing a grad-tracked tensor raised RuntimeError deep
+    inside PyTorch's numpy() call.
+    """
+    import warnings
+
+    points = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, requires_grad=True)
+
+    # Should not raise; a UserWarning about gradient detachment is acceptable.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        result = sample_mtf.neval(points)
+
+    # Result must still be numerically correct
+    expected = np.array([
+        old_eval(sample_mtf, [1.0, 2.0]),
+        old_eval(sample_mtf, [3.0, 4.0]),
+    ])
+    if isinstance(result, torch.Tensor):
+        result = result.detach().numpy()
+    assert np.allclose(result, expected)
+
+
+@pytest.mark.skipif(not _TORCH_AVAILABLE, reason="torch not installed")
+def test_neval_torch_atleast_2d_correctness(sample_mtf):
+    """neval with a single-row 2-D torch tensor must return shape (1,).
+
+    Guards the exponents.reshape(1, -1) portability fix in taylor_function.neval
+    introduced in feat/backend-hardening (replaces np.newaxis compound index
+    which behaved differently for torch tensors).
+    """
+    single_point = torch.tensor([[1.0, 2.0]], dtype=torch.float64)  # shape (1, 2)
+    result = sample_mtf.neval(single_point)
+
+    expected = old_eval(sample_mtf, [1.0, 2.0])
+
+    if isinstance(result, torch.Tensor):
+        result_val = result.detach().numpy()
+    else:
+        result_val = result
+
+    assert result_val.shape == (1,)
+    assert np.allclose(result_val[0], expected)

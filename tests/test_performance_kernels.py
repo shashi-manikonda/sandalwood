@@ -39,19 +39,63 @@ def test_dense_multiplication_correctness(monkeypatch, use_numba):
 
 
 def test_lazy_materialization():
-    """Ensure accessing properties triggers conversion from dense to sparse."""
+    """Ensure accessing .exponents triggers conversion from dense to sparse.
+
+    The original test guarded its assertions behind
+    ``if hasattr(f, '_dense_coeffs') and f._dense_coeffs is not None``
+    which was never True, making it a no-op. This version always asserts.
+    """
     mtf._INITIALIZED = False
     mtf.initialize_mtf(max_order=2, max_dimension=2, implementation="python")
     x = mtf.var(1)
 
-    # Create a dense object via multiplication
-    # x*x should use dense path if initialized
+    # x*x must produce a valid MTF with one term: x^2
     f = x * x
 
-    # It might be in dense mode internally
-    if hasattr(f, "_dense_coeffs") and f._dense_coeffs is not None:
-        # Before access, exponents might be None/Empty depending on implementation
-        # Just ensure accessing them works and gives correct data
-        assert f.exponents is not None
-        assert len(f.exponents) == 1
-        assert tuple(f.exponents[0]) == (2, 0)
+    # Accessing .exponents triggers materialisation from any internal dense form
+    assert f.exponents is not None, "f.exponents should not be None after x*x"
+    assert len(f.exponents) >= 1, "Expected at least one term in x*x"
+
+    # The x^2 term must exist and have the correct shape
+    found_x2 = any(tuple(e) == (2, 0) for e in f.exponents)
+    assert found_x2, "Coefficient for x^2 not found in x*x"
+
+
+def test_kernel_etol_constant_exists():
+    """_KERNEL_ETOL must be present in numba_kernels as a module constant.
+
+    Guards the named tolerance constant introduced in feat/backend-hardening
+    to document and centralise the early-exit threshold in dense_mul.
+    """
+    import sandalwood.numba_kernels as nk
+
+    assert hasattr(nk, "_KERNEL_ETOL"), (
+        "_KERNEL_ETOL constant is missing from sandalwood.numba_kernels"
+    )
+    assert nk._KERNEL_ETOL == 1e-16, (
+        f"Expected _KERNEL_ETOL == 1e-16, got {nk._KERNEL_ETOL}"
+    )
+
+
+def test_compose_kernel_correctness():
+    """compose_dense_kernel must produce correct coefficients for a 2-variable map.
+
+    This is an integration-level guard for the compose_dense_kernel fix in
+    feat/backend-hardening (dead prange loop removed, chunk_size restored).
+    Verifies that composition of identity maps gives identity.
+    """
+    mtf._INITIALIZED = False
+    mtf.initialize_mtf(max_order=4, max_dimension=2, implementation="python")
+
+    x = mtf.var(1)
+    y = mtf.var(2)
+
+    # f(x,y) = x^2 + y composed with identity map {1: x, 2: y} = x^2 + y
+    f = x**2 + y
+    result = f.compose({1: x, 2: y})
+
+    # Must equal the original
+    diff = result - f
+    assert diff.get_max_coefficient() < 1e-12, (
+        "compose(identity) did not reproduce f; compose_dense_kernel may be broken"
+    )

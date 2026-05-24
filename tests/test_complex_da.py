@@ -138,3 +138,43 @@ def test_complex_trig():
     coeffs = res.to_dict()["coeffs"]
     assert np.allclose(coeffs[0], 1.0 + 0j)
     assert np.all(np.abs(coeffs[1:]) < 1e-12)
+
+
+def test_cosy_transfer_ownership_no_double_free():
+    """Stress-test CosyDA.transfer_ownership by performing 100 multiplications.
+
+    Guards the CosyDA.transfer_ownership() method introduced in
+    feat/backend-hardening to replace the error-prone manual ``owned = False``
+    pattern. If ownership is transferred incorrectly (double-free or
+    double-own), the CosyIndexPool will corrupt its internal freelist and
+    subsequent operations will produce garbage results or crash.
+
+    This test exercises the fix indirectly: it relies on the arithmetic
+    producing consistent numerical results even after the GC has collected
+    many intermediate CosyDA objects. A wrong ownership model would
+    typically manifest as incorrect coefficients or an index-pool error.
+    """
+    if mtf._IMPLEMENTATION != "cosy":
+        pytest.skip("transfer_ownership only relevant for COSY backend")
+
+    import gc
+
+    x = mtf.var(1, dimension=2)
+
+    # Perform 100 multiplications in a tight loop, creating many intermediates.
+    acc = mtf.from_constant(1.0, dimension=2)
+    for _ in range(100):
+        acc = acc * x  # creates and discards CosyDA intermediates on every step
+
+    # Force garbage collection to flush any deferred __del__ calls
+    gc.collect()
+
+    # The result must be x^100, but we're truncated at order 4 so all high
+    # coefficients are 0. What matters is that the pool is still alive.
+    final = mtf.from_constant(1.0, dimension=2) * x * x
+    assert final.extract_coefficient((2, 0)) is not None, (
+        "Pool corrupted after 100 multiplications; transfer_ownership may be broken"
+    )
+    assert np.isclose(float(final.extract_coefficient((2, 0))), 1.0), (
+        "Coefficient of x^2 wrong after stress test; pool state may be corrupted"
+    )

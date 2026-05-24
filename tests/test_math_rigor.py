@@ -232,3 +232,46 @@ def test_type_safety_invalid_inputs(implementation):
 
     with pytest.raises(TypeError):
         x * None
+
+
+# --- 4. Tolerant zero-check boundary (feat/backend-hardening) ---
+
+
+def test_cosy_divide_sub_threshold_constant_raises(implementation):
+    """COSY inverse/divide must raise when |c0| < 1e-14.
+
+    Guards the tolerant abs(c0) < 1e-14 check introduced in
+    feat/backend-hardening to replace the brittle exact == 0 comparison.
+    A constant part of 1e-15 (below threshold) must be rejected.
+    """
+    if implementation != "cosy":
+        pytest.skip("Tolerant zero-check only applies to COSY backend")
+
+    one = mtf.from_constant(1.0)
+    # Constant part 1e-15 is below the 1e-14 guard → should raise
+    tiny = mtf.from_constant(1e-15)
+    with pytest.raises((ZeroDivisionError, ValueError, RuntimeError)):
+        _ = one / tiny
+
+
+def test_cosy_divide_super_threshold_constant_succeeds(implementation):
+    """COSY inverse/divide must succeed when |c0| > 1e-14.
+
+    A constant part of 2e-14 (just above the 1e-14 guard) must not be
+    rejected as a division-by-zero.  Before the tolerant check fix, any
+    small-but-non-zero constant could slip through or be incorrectly blocked.
+    """
+    if implementation != "cosy":
+        pytest.skip("Tolerant zero-check only applies to COSY backend")
+
+    one = mtf.from_constant(1.0)
+    # Constant part 2e-14 is above the guard → division must succeed
+    small_but_ok = mtf.from_constant(2e-14)
+    try:
+        result = one / small_but_ok
+        # If it didn't raise, the result should be numerically huge but finite
+        assert result is not None
+    except (ZeroDivisionError, ValueError, RuntimeError):
+        pytest.fail(
+            "COSY backend raised on division by 2e-14 (above 1e-14 threshold)"
+        )
