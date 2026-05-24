@@ -78,7 +78,7 @@ class TaylorMap:
             A list of `MultivariateTaylorFunction` objects that define the
             components of the map.
         """
-        self.components = np.array(components)
+        self.components = list(components)
         self.map_dim = len(components)
 
     def __add__(self, other):
@@ -100,8 +100,8 @@ class TaylorMap:
         if self.map_dim != other.map_dim:
             raise ValueError("TaylorMap dimensions must match for addition.")
 
-        new_components = self.components + other.components
-        return TaylorMap(list(new_components))
+        new_components = [a + b for a, b in zip(self.components, other.components)]
+        return TaylorMap(new_components)
 
     def __sub__(self, other):
         """
@@ -122,8 +122,8 @@ class TaylorMap:
         if self.map_dim != other.map_dim:
             raise ValueError("TaylorMap dimensions must match for subtraction.")
 
-        new_components = self.components - other.components
-        return TaylorMap(list(new_components))
+        new_components = [a - b for a, b in zip(self.components, other.components)]
+        return TaylorMap(new_components)
 
     def __mul__(self, other):
         """
@@ -146,8 +146,8 @@ class TaylorMap:
         if self.map_dim != other.map_dim:
             raise ValueError("TaylorMap dimensions must match for multiplication.")
 
-        new_components = self.components * other.components
-        return TaylorMap(list(new_components))
+        new_components = [a * b for a, b in zip(self.components, other.components)]
+        return TaylorMap(new_components)
 
     def compose(self, other):
         r"""
@@ -189,6 +189,14 @@ class TaylorMap:
             raise ValueError(
                 f"Cannot compose maps: self input dimension ({self_input_dim}) "
                 f"must equal other output dimension ({other.map_dim})."
+            )
+
+        # Check for COSY Backend Fast-Path
+        if self.map_dim > 0 and self.components[0]._IMPLEMENTATION == "cosy":
+            other_dict = {i + 1: other.components[i] for i in range(other.map_dim)}
+            new_components = [c.compose(other_dict) for c in self.components]
+            return TaylorMap(new_components).truncate(
+                MultivariateTaylorFunction.get_max_order()
             )
 
         new_components = []
@@ -406,7 +414,7 @@ class TaylorMap:
         new_component : MultivariateTaylorFunction
             The new component to add to the end of the map.
         """
-        self.components = np.append(self.components, [new_component])
+        self.components.append(new_component)
         self.map_dim = len(self.components)
 
     def remove_component(self, index: int):
@@ -418,7 +426,7 @@ class TaylorMap:
         index : int
             The 0-based index of the component to remove.
         """
-        self.components = np.delete(self.components, index)
+        self.components.pop(index)
         self.map_dim = len(self.components)
 
     def truncate(self, order: int):
@@ -730,6 +738,17 @@ class TaylorMap:
         for _ in range(max_order - 1):
             composition_G_F_inv = G.compose(F_inv).truncate(max_order)
             inner_map = identity_map - composition_G_F_inv
-            F_inv = beta_inv.compose(inner_map).truncate(max_order)
+            # Optimized Matrix-Vector multiplication for linear part
+            new_F_inv_components = []
+            for i in range(dim):
+                terms = []
+                for j in range(dim):
+                    if abs(inv_jacobian[i, j]) > 1e-14:
+                        val = inv_jacobian[i, j]
+                        val = float(val.real) if abs(val.imag) < 1e-15 else complex(val)
+                        terms.append(val * inner_map.components[j])
+                new_F_inv_components.append(MultivariateTaylorFunction._batch_add(terms))
+            
+            F_inv = TaylorMap(new_F_inv_components).truncate(max_order)
 
         return F_inv
