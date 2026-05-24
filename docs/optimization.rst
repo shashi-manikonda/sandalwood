@@ -113,9 +113,9 @@ Internal benchmarks show the impact of these optimizations:
 +-------------------------+-----------------------+-----------------------+
 | Operation               | Naive Python          | Optimized Sandalwood  |
 +=========================+=======================+=======================+
-| Multiplication (Ord 12) | ~500 ms               | **~45 ms** |
+| Multiplication (Ord 12) | ~500 ms               | **~45 ms**            |
 +-------------------------+-----------------------+-----------------------+
-| Evaluation (1M pts)     | Crash (Out of Memory) | **Stable & Fast** |
+| Evaluation (1M pts)     | Crash (Out of Memory) | **Stable & Fast**     |
 +-------------------------+-----------------------+-----------------------+
 
 6. Hybrid Dispatch & Fortran Fast Path
@@ -226,3 +226,12 @@ Map composition (substituting one map into another: $F(G(x))$) is computationall
 
 **Performance Impact**:
 Benchmarks show a **3x - 5x speedup** compared to the pure Python implementation for typical 2D and 3D maps at orders 4-8. This optimization is automatically engaged when the multiplication table is available (dense mode).
+
+11. Phase 5 Optimizations (Python Structural)
+---------------------------------------------
+
+Recent structural changes to the ``TaylorMap`` class significantly accelerated execution purely within Python:
+
+*   **List vs NumPy Object Arrays**: ``TaylorMap.components`` previously used ``numpy.ndarray`` to hold objects. NumPy incurs severe overhead when doing operations on object arrays. These were replaced with standard Python lists and comprehensions, speeding up vector arithmetic by nearly 3x.
+*   **Linear Math in Inversion**: ``TaylorMap.invert`` previously relied on generic map composition (which computes all cross terms) to invert the linear part of a map. This was optimized to use a specialized linear matrix-vector multiplication routine (``MultivariateTaylorFunction._batch_add``), avoiding polynomial composition overhead entirely.
+*   **Restored COSY Fast-Path**: Re-enabled the COSY native backend to process ``TaylorMap.compose`` entirely within Fortran, avoiding the slow extraction and sparse evaluation cycle when components are tracked in COSY.

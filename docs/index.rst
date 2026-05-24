@@ -1,5 +1,5 @@
 Welcome to sandalwood's documentation!
-==================================
+======================================
 
 `sandalwood` is a Python library for creating, manipulating, and composing
 Multivariate Taylor Functions, with high-performance backends for 
