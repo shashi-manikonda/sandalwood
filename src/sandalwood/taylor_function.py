@@ -1300,8 +1300,8 @@ class MultivariateTaylorFunction:
             # NumPy and PyTorch (both support .reshape but the compound
             # `a[np.newaxis, :, d]` form has subtler dtype/device interactions
             # in some Torch versions).
-            exps_d_flat = exponents[:, d]          # (M,)
-            exps_d = exps_d_flat.reshape(1, -1)    # (1, M)
+            exps_d_flat = exponents[:, d]  # (M,)
+            exps_d = exps_d_flat.reshape(1, -1)  # (1, M)
 
             col_vals = backend.power(pts_d, exps_d)
             term_values *= col_vals

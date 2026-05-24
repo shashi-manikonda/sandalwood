@@ -1585,9 +1585,7 @@ class CosyMtfData:
         res_da = self.da.inverse()
         idx = res_da.transfer_ownership()
         is_complex = isinstance(res_da, CosyCDA)
-        return CosyMtfData(
-            self.dimension, is_complex=is_complex, idx=idx, owned=True
-        )
+        return CosyMtfData(self.dimension, is_complex=is_complex, idx=idx, owned=True)
 
     def __pow__(self, other):
         if isinstance(other, (int, float)):

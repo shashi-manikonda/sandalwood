@@ -381,7 +381,8 @@ class TaylorMap:
             The value of the coefficient.
         """
         return (
-            self.components[component_index]
+            self
+            .components[component_index]
             .extract_coefficient(tuple(exponent_array))
             .item()
         )
@@ -747,8 +748,10 @@ class TaylorMap:
                         val = inv_jacobian[i, j]
                         val = float(val.real) if abs(val.imag) < 1e-15 else complex(val)
                         terms.append(val * inner_map.components[j])
-                new_F_inv_components.append(MultivariateTaylorFunction._batch_add(terms))
-            
+                new_F_inv_components.append(
+                    MultivariateTaylorFunction._batch_add(terms)
+                )
+
             F_inv = TaylorMap(new_F_inv_components).truncate(max_order)
 
         return F_inv
