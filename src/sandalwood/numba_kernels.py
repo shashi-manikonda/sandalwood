@@ -227,6 +227,7 @@ def compose_dense_kernel(outer_exps, outer_coeffs, inner_powers, table, n_terms)
 
     # Split work into per-thread chunks to ensure thread isolation
     # (prange does not expose a thread ID, so manual chunking is required).
+    chunk_size = (n_outer_terms + num_threads - 1) // num_threads
 
     for t in prange(num_threads):
         # Determine range for this thread

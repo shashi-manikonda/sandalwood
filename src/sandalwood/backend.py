@@ -22,7 +22,7 @@ Design invariants
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Union, overload
+from typing import TYPE_CHECKING, Optional, Union, overload
 
 import numpy as np
 
@@ -226,7 +226,7 @@ if _TORCH_AVAILABLE:
             if a.dim() == 0:
                 return a.unsqueeze(0).unsqueeze(0)  # (1, 1)
             if a.dim() == 1:
-                return a.unsqueeze(0)               # (1, N)
+                return a.unsqueeze(0)  # (1, N)
             return a
 
         @staticmethod
@@ -336,13 +336,13 @@ if _TORCH_AVAILABLE:
 
 
 @overload
-def get_backend(array: np.ndarray) -> type[NumpyBackend]: ...
+def get_backend(array: np.ndarray) -> type[NumpyBackend]: ...  # type: ignore[overload-overlap]
 
 
-if _TORCH_AVAILABLE:
+if TYPE_CHECKING:
 
     @overload
-    def get_backend(array: "torch.Tensor") -> type[TorchBackend]: ...
+    def get_backend(array: "torch.Tensor") -> "type[TorchBackend]": ...
 
 
 def get_backend(array: Array) -> "type[NumpyBackend] | type[TorchBackend]":
