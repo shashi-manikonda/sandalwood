@@ -157,9 +157,9 @@ class MultivariateTaylorFunction:
     _EXP_TO_IDX = None
     _IDX_TO_EXP = None
     _MULT_TABLE = None
-    _EXP_TO_IDX_MAP = {}
-    _IDX_TO_EXP_MAP = {}
-    _MULT_TABLES = {}
+    _EXP_TO_IDX_MAP: Dict[int, Dict[Tuple[int, ...], int]] = {}
+    _IDX_TO_EXP_MAP: Dict[int, np.ndarray] = {}
+    _MULT_TABLES: Dict[int, np.ndarray] = {}
 
     @classmethod
     def initialize_mtf(cls, max_order=None, max_dimension=None, implementation="cosy"):
@@ -440,7 +440,7 @@ class MultivariateTaylorFunction:
                 )
 
         for d in range(1, cls._MAX_DIMENSION + 1):
-            exponents = []
+            exponents: List[Tuple[int, ...]] = []
             generate_exponents(d, 0, [], exponents)
 
             # Sort exponents (total order, then lex)
