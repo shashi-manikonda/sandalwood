@@ -435,7 +435,9 @@ class MultivariateTaylorFunction:
                 return
 
             for i in range(cls._MAX_ORDER - current_order + 1):
-                generate_exponents(dim - 1, current_order + i, current_exp + [i], exponents_list)
+                generate_exponents(
+                    dim - 1, current_order + i, current_exp + [i], exponents_list
+                )
 
         for d in range(1, cls._MAX_DIMENSION + 1):
             exponents = []
@@ -478,7 +480,9 @@ class MultivariateTaylorFunction:
         cls._IDX_TO_EXP = cls._IDX_TO_EXP_MAP.get(cls._MAX_DIMENSION)
         cls._MULT_TABLE = cls._MULT_TABLES.get(cls._MAX_DIMENSION)
 
-        logger.info(f"Dense Mode tables ready for dimensions 1 to {cls._MAX_DIMENSION}.")
+        logger.info(
+            f"Dense Mode tables ready for dimensions 1 to {cls._MAX_DIMENSION}."
+        )
 
     @classmethod
     def _auto_initialize(cls):

@@ -481,17 +481,23 @@ class CosyIndexPool:
 
         if not local_pool:
             with cls._lock:
-                global_pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+                global_pool = (
+                    cls._free_indices_cda if is_complex else cls._free_indices_da
+                )
                 if len(global_pool) < cls._chunk_size:
                     # Allocate a new chunk
                     for _ in range(cls._chunk_size):
                         res_idx = c_int(0)
                         if is_complex:
                             libcosy.create_cda_const(
-                                byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
+                                byref(res_idx),
+                                byref(c_double(0.0)),
+                                byref(c_double(0.0)),
                             )
                         else:
-                            libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+                            libcosy.create_da_const(
+                                byref(res_idx), byref(c_double(0.0))
+                            )
                         global_pool.append(res_idx.value)
 
                 # Fetch a chunk from global_pool to local_pool
@@ -520,7 +526,9 @@ class CosyIndexPool:
             if len(local_pool) >= 2 * cls._chunk_size:
                 chunk_to_return = [local_pool.pop() for _ in range(cls._chunk_size)]
                 with cls._lock:
-                    global_pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+                    global_pool = (
+                        cls._free_indices_cda if is_complex else cls._free_indices_da
+                    )
                     global_pool.extend(chunk_to_return)
 
 
