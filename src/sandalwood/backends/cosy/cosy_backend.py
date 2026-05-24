@@ -444,55 +444,84 @@ class CosyScope:
 class CosyIndexPool:
     _free_indices_da: List[int] = []
     _free_indices_cda: List[int] = []
+    _epoch = 0
     _chunk_size = int(os.environ.get("SANDALWOOD_COSY_POOL_SIZE", "1024"))
     # Reentrant lock so that acquire/release are safe from multiple threads.
     # The COSY Fortran allocator is single-threaded; this lock prevents
     # concurrent pool mutations that could produce duplicate or orphaned indices.
     _lock = _cosy_lib_lock
+    _thread_local = threading.local()
+
+    @classmethod
+    def _get_thread_local_pool(cls, is_complex=False):
+        if not hasattr(cls._thread_local, "epoch"):
+            cls._thread_local.epoch = cls._epoch
+            cls._thread_local.free_da = []
+            cls._thread_local.free_cda = []
+        elif cls._thread_local.epoch != cls._epoch:
+            cls._thread_local.epoch = cls._epoch
+            cls._thread_local.free_da.clear()
+            cls._thread_local.free_cda.clear()
+        return cls._thread_local.free_cda if is_complex else cls._thread_local.free_da
 
     @classmethod
     def acquire(cls, is_complex=False):
-        with cls._lock:
-            # Bypass pool if inside a CosyScope stack context
-            if CosyScope._depth > 0:
-                res_idx = c_int(0)
-                if is_complex:
-                    libcosy.create_cda_const(
-                        byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
-                    )
-                else:
-                    libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
-                return res_idx.value
-
-            pool = cls._free_indices_cda if is_complex else cls._free_indices_da
-
-            if not pool:
-                # Allocate a new chunk
-                for _ in range(cls._chunk_size):
-                    res_idx = c_int(0)
-                    if is_complex:
-                        libcosy.create_cda_const(
-                            byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
-                        )
-                    else:
-                        libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
-                    pool.append(res_idx.value)
-
-            idx = pool.pop()
-            # Mathematically clean reset
+        # Bypass pool if inside a CosyScope stack context
+        if CosyScope._depth > 0:
+            res_idx = c_int(0)
             if is_complex:
-                libcosy.da_reset_cd(byref(c_int(idx)))
+                libcosy.create_cda_const(
+                    byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
+                )
             else:
-                libcosy.da_reset(byref(c_int(idx)))
-            return idx
+                libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+            return res_idx.value
+
+        local_pool = cls._get_thread_local_pool(is_complex)
+
+        if not local_pool:
+            with cls._lock:
+                global_pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+                if len(global_pool) < cls._chunk_size:
+                    # Allocate a new chunk
+                    for _ in range(cls._chunk_size):
+                        res_idx = c_int(0)
+                        if is_complex:
+                            libcosy.create_cda_const(
+                                byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
+                            )
+                        else:
+                            libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+                        global_pool.append(res_idx.value)
+
+                # Fetch a chunk from global_pool to local_pool
+                num_to_fetch = min(cls._chunk_size, len(global_pool))
+                for _ in range(num_to_fetch):
+                    local_pool.append(global_pool.pop())
+
+        idx = local_pool.pop()
+        # Mathematically clean reset
+        if is_complex:
+            libcosy.da_reset_cd(byref(c_int(idx)))
+        else:
+            libcosy.da_reset(byref(c_int(idx)))
+        return idx
 
     @classmethod
     def release(cls, idx, is_complex=False):
+        if idx is None:
+            return
         # Only pool if outside scope; inside scope, indices are invalid after rewind
-        with cls._lock:
-            if CosyScope._depth == 0 and idx is not None:
-                pool = cls._free_indices_cda if is_complex else cls._free_indices_da
-                pool.append(idx)
+        if CosyScope._depth == 0:
+            local_pool = cls._get_thread_local_pool(is_complex)
+            local_pool.append(idx)
+
+            # If local pool size exceeds threshold, return a chunk to global pool
+            if len(local_pool) >= 2 * cls._chunk_size:
+                chunk_to_return = [local_pool.pop() for _ in range(cls._chunk_size)]
+                with cls._lock:
+                    global_pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+                    global_pool.extend(chunk_to_return)
 
 
 # Module-level lock removed because os.chdir swapping is no longer needed since DAINI.DAT is bypassed.
@@ -512,6 +541,7 @@ class CosyBackend:
         # Clear stale indices from the pool to prevent reuse across re-initializations
         CosyIndexPool._free_indices_da.clear()
         CosyIndexPool._free_indices_cda.clear()
+        CosyIndexPool._epoch += 1
 
         CosyBackend._order = order
         CosyBackend._dim = dim

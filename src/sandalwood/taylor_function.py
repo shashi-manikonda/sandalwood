@@ -157,6 +157,9 @@ class MultivariateTaylorFunction:
     _EXP_TO_IDX = None
     _IDX_TO_EXP = None
     _MULT_TABLE = None
+    _EXP_TO_IDX_MAP = {}
+    _IDX_TO_EXP_MAP = {}
+    _MULT_TABLES = {}
 
     @classmethod
     def initialize_mtf(cls, max_order=None, max_dimension=None, implementation="cosy"):
@@ -415,56 +418,67 @@ class MultivariateTaylorFunction:
 
         logger.info("Precomputing multiplication tables for Dense Mode...")
 
-        # 1. Generate all valid exponents
-        exponents = []
+        cls._EXP_TO_IDX_MAP = {}
+        cls._IDX_TO_EXP_MAP = {}
+        cls._MULT_TABLES = {}
 
         # Helper to generate terms with sum <= max_order
-        def generate_exponents(dim, current_order, current_exp):
+        def generate_exponents(dim, current_order, current_exp, exponents_list):
             if dim == 0:
-                exponents.append(tuple(current_exp))
+                exponents_list.append(tuple(current_exp))
                 return
 
             if dim == 1:
                 # Can range from 0 to (MAX_ORDER - current_order)
                 for i in range(cls._MAX_ORDER - current_order + 1):
-                    exponents.append(tuple(current_exp + [i]))
+                    exponents_list.append(tuple(current_exp + [i]))
                 return
 
             for i in range(cls._MAX_ORDER - current_order + 1):
-                generate_exponents(dim - 1, current_order + i, current_exp + [i])
+                generate_exponents(dim - 1, current_order + i, current_exp + [i], exponents_list)
 
-        generate_exponents(cls._MAX_DIMENSION, 0, [])
+        for d in range(1, cls._MAX_DIMENSION + 1):
+            exponents = []
+            generate_exponents(d, 0, [], exponents)
 
-        # Sort exponents (total order, then lex)
-        exponents.sort(key=lambda x: (sum(x), x))
+            # Sort exponents (total order, then lex)
+            exponents.sort(key=lambda x: (sum(x), x))
 
-        cls._IDX_TO_EXP = np.array(exponents, dtype=np.int32)
-        cls._EXP_TO_IDX = {exp: i for i, exp in enumerate(exponents)}
+            idx_to_exp = np.array(exponents, dtype=np.int32)
+            exp_to_idx = {exp: i for i, exp in enumerate(exponents)}
+            n_terms = len(exponents)
 
-        n_terms = len(exponents)
+            # Build Multiplication Table
+            # shape: (n_terms, n_terms)
+            # value: index of result, or -1 if truncated
+            mult_table = np.full((n_terms, n_terms), -1, dtype=np.int32)
 
-        # 2. Build Multiplication Table
-        # shape: (n_terms, n_terms)
-        # value: index of result, or -1 if truncated
-        cls._MULT_TABLE = np.full((n_terms, n_terms), -1, dtype=np.int32)
+            exps_arr = idx_to_exp  # (N, D)
 
-        exps_arr = cls._IDX_TO_EXP  # (N, D)
+            # Sum of exponents: (N, 1, D) + (1, N, D) -> (N, N, D)
+            sum_exps = exps_arr[:, np.newaxis, :] + exps_arr[np.newaxis, :, :]
 
-        # Sum of exponents: (N, 1, D) + (1, N, D) -> (N, N, D)
-        sum_exps = exps_arr[:, np.newaxis, :] + exps_arr[np.newaxis, :, :]
+            # Check orders: (N, N)
+            orders = np.sum(sum_exps, axis=2)
+            valid_mask = orders <= cls._MAX_ORDER
 
-        # Check orders: (N, N)
-        orders = np.sum(sum_exps, axis=2)
-        valid_mask = orders <= cls._MAX_ORDER
+            # Fill table
+            for i in range(n_terms):
+                for j in range(n_terms):
+                    if valid_mask[i, j]:
+                        tup = tuple(sum_exps[i, j])
+                        mult_table[i, j] = exp_to_idx[tup]
 
-        # Fill table
-        for i in range(n_terms):
-            for j in range(n_terms):
-                if valid_mask[i, j]:
-                    tup = tuple(sum_exps[i, j])
-                    cls._MULT_TABLE[i, j] = cls._EXP_TO_IDX[tup]
+            cls._EXP_TO_IDX_MAP[d] = exp_to_idx
+            cls._IDX_TO_EXP_MAP[d] = idx_to_exp
+            cls._MULT_TABLES[d] = mult_table
 
-        logger.info(f"Dense Mode tables ready. {n_terms} terms.")
+        # Maintain single attributes for backward compatibility
+        cls._EXP_TO_IDX = cls._EXP_TO_IDX_MAP.get(cls._MAX_DIMENSION)
+        cls._IDX_TO_EXP = cls._IDX_TO_EXP_MAP.get(cls._MAX_DIMENSION)
+        cls._MULT_TABLE = cls._MULT_TABLES.get(cls._MAX_DIMENSION)
+
+        logger.info(f"Dense Mode tables ready for dimensions 1 to {cls._MAX_DIMENSION}.")
 
     @classmethod
     def _auto_initialize(cls):
@@ -753,7 +767,9 @@ class MultivariateTaylorFunction:
         indices = np.nonzero(mask)[0]
 
         self._coeffs = self._dense_coeffs[indices]
-        self._exponents = self._IDX_TO_EXP[indices]
+        idx_to_exp = self._IDX_TO_EXP_MAP.get(self.dimension)
+        if idx_to_exp is not None:
+            self._exponents = idx_to_exp[indices]
         # Also cache the indices since we have them!
         self._indices = indices.astype(np.int32)
 
@@ -792,11 +808,12 @@ class MultivariateTaylorFunction:
     def _get_indices(self):
         """Cached accessor for dense indices."""
         if not hasattr(self, "_indices") or self._indices is None:
-            if self._EXP_TO_IDX is None:
+            exp_to_idx = self._EXP_TO_IDX_MAP.get(self.dimension)
+            if exp_to_idx is None:
                 return None  # Dense mode not active
 
             # Compute and cache
-            idx_list = [self._EXP_TO_IDX.get(tuple(e), -1) for e in self.exponents]
+            idx_list = [exp_to_idx.get(tuple(e), -1) for e in self.exponents]
             self._indices = np.array(idx_list, dtype=np.int32)
 
         return self._indices
@@ -1518,11 +1535,12 @@ class MultivariateTaylorFunction:
             )
 
         # Dense Mode Optimization
-        if self._MULT_TABLE is not None:
+        mult_table = self._MULT_TABLES.get(self.dimension)
+        if mult_table is not None:
             # Check if we can use cached dense coefficients directly
             # or if we need to get indices from sparse exponents
 
-            n_total_terms = self._MULT_TABLE.shape[0]
+            n_total_terms = mult_table.shape[0]
 
             # Get indices for A
             if self._dense_coeffs is not None:
@@ -1557,13 +1575,13 @@ class MultivariateTaylorFunction:
                         coeffs_a,
                         idx_b,
                         coeffs_b,
-                        self._MULT_TABLE,
+                        mult_table,
                         n_total_terms,
                     )
                 else:
                     # Fallback to NumPy (broadcast)
                     # BroadCast to get all pairs pairs (N, M)
-                    res_indices_mat = self._MULT_TABLE[
+                    res_indices_mat = mult_table[
                         idx_a[:, np.newaxis], idx_b[np.newaxis, :]
                     ]
 

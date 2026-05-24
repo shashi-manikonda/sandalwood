@@ -251,21 +251,23 @@ class TaylorMap:
         # Optimization: Dense Mode Numba Kernel
         # Check if we can use the optimized path
         use_dense = False
-        if MultivariateTaylorFunction._MULT_TABLE is not None:
-            # Check if dense tables match the target dimension
-            # Dense tables are built for _MAX_DIMENSION (global)
-            # If new_dimension mismatch, keys (exponents) won't align in _EXP_TO_IDX.
-            if new_dimension == MultivariateTaylorFunction.get_max_dimension():
-                from . import numba_kernels
+        if (
+            new_dimension in MultivariateTaylorFunction._MULT_TABLES
+            and new_dimension > 0
+        ):
+            from . import numba_kernels
 
-                if numba_kernels._NUMBA_AVAILABLE:
-                    use_dense = True
+            if numba_kernels._NUMBA_AVAILABLE:
+                use_dense = True
 
         if use_dense:
             # 1. Pre-compute powers of inner map components as dense arrays
             # Shape: (self_input_dim, max_order+1, n_dense_terms)
             max_order = MultivariateTaylorFunction.get_max_order()
-            n_dense_terms = len(MultivariateTaylorFunction._IDX_TO_EXP)
+            idx_to_exp = MultivariateTaylorFunction._IDX_TO_EXP_MAP[new_dimension]
+            exp_to_idx = MultivariateTaylorFunction._EXP_TO_IDX_MAP[new_dimension]
+            mult_table = MultivariateTaylorFunction._MULT_TABLES[new_dimension]
+            n_dense_terms = len(idx_to_exp)
 
             # We assume complex if any component is complex
             is_complex = any(np.iscomplexobj(c.coeffs) for c in other.components)
@@ -301,7 +303,7 @@ class TaylorMap:
                     numba_kernels.dense_mul(
                         inner_powers[d, p - 1, :],
                         inner_powers[d, 1, :],
-                        MultivariateTaylorFunction._MULT_TABLE,
+                        mult_table,
                         inner_powers[d, p, :],
                     )
 
@@ -319,7 +321,7 @@ class TaylorMap:
                     outer_exps,
                     outer_coeffs,
                     inner_powers,
-                    MultivariateTaylorFunction._MULT_TABLE,
+                    mult_table,
                     n_dense_terms,
                 )
 
