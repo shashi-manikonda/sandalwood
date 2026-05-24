@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 from ctypes import CDLL, POINTER, byref, c_double, c_int
 from typing import List
 
@@ -396,25 +397,16 @@ class CosyIndexPool:
     _free_indices_da: List[int] = []
     _free_indices_cda: List[int] = []
     _chunk_size = int(os.environ.get("SANDALWOOD_COSY_POOL_SIZE", "1024"))
+    # Reentrant lock so that acquire/release are safe from multiple threads.
+    # The COSY Fortran allocator is single-threaded; this lock prevents
+    # concurrent pool mutations that could produce duplicate or orphaned indices.
+    _lock: threading.RLock = threading.RLock()
 
     @classmethod
     def acquire(cls, is_complex=False):
-        # Bypass pool if inside a CosyScope stack context
-        if CosyScope._depth > 0:
-            res_idx = c_int(0)
-            if is_complex:
-                libcosy.create_cda_const(
-                    byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
-                )
-            else:
-                libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
-            return res_idx.value
-
-        pool = cls._free_indices_cda if is_complex else cls._free_indices_da
-
-        if not pool:
-            # Allocate a new chunk
-            for _ in range(cls._chunk_size):
+        with cls._lock:
+            # Bypass pool if inside a CosyScope stack context
+            if CosyScope._depth > 0:
                 res_idx = c_int(0)
                 if is_complex:
                     libcosy.create_cda_const(
@@ -422,24 +414,37 @@ class CosyIndexPool:
                     )
                 else:
                     libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
-                pool.append(res_idx.value)
+                return res_idx.value
 
-        idx = pool.pop()
-        # Mathematically clean reset
-        if is_complex:
-            libcosy.da_reset_cd(byref(c_int(idx)))
-        else:
-            libcosy.da_reset(byref(c_int(idx)))
-        # print(f"ACQUIRE {idx} complex={is_complex}")
-        return idx
+            pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+
+            if not pool:
+                # Allocate a new chunk
+                for _ in range(cls._chunk_size):
+                    res_idx = c_int(0)
+                    if is_complex:
+                        libcosy.create_cda_const(
+                            byref(res_idx), byref(c_double(0.0)), byref(c_double(0.0))
+                        )
+                    else:
+                        libcosy.create_da_const(byref(res_idx), byref(c_double(0.0)))
+                    pool.append(res_idx.value)
+
+            idx = pool.pop()
+            # Mathematically clean reset
+            if is_complex:
+                libcosy.da_reset_cd(byref(c_int(idx)))
+            else:
+                libcosy.da_reset(byref(c_int(idx)))
+            return idx
 
     @classmethod
     def release(cls, idx, is_complex=False):
         # Only pool if outside scope; inside scope, indices are invalid after rewind
-        if CosyScope._depth == 0 and idx is not None:
-            # print(f"RELEASE {idx} complex={is_complex}")
-            pool = cls._free_indices_cda if is_complex else cls._free_indices_da
-            pool.append(idx)
+        with cls._lock:
+            if CosyScope._depth == 0 and idx is not None:
+                pool = cls._free_indices_cda if is_complex else cls._free_indices_da
+                pool.append(idx)
 
 
 class CosyBackend:
@@ -768,9 +773,29 @@ class CosyDA:
     def __del__(self):
         if hasattr(self, "idx") and self.owned:
             CosyIndexPool.release(self.idx)
-        # CAUTION: This means without Scope, we leak until reset.
-        # But with COSY stack allocator, individual free only works for TOP element anyway.
-        # So individual free was already broken for non-top elements.
+
+    def transfer_ownership(self) -> int:
+        """
+        Transfers ownership of the underlying Fortran DA index to the caller.
+
+        After calling this method, this CosyDA object is marked as non-owning
+        (``self.owned = False``) and will NOT free the index when it is garbage
+        collected. The caller receives the raw integer index and is responsible
+        for wrapping it in a new CosyDA (or CosyMtfData) with ``owned=True``.
+
+        Returns
+        -------
+        int
+            The raw Fortran DA index previously owned by this object.
+
+        Example
+        -------
+        res_da = some_operation()        # owned=True
+        idx = res_da.transfer_ownership()  # res_da.owned is now False
+        new_wrapper = CosyDA(idx=idx, owned=True)
+        """
+        self.owned = False
+        return self.idx
 
     def get_all_terms(self):
         max_order = CosyBackend._order
@@ -1553,14 +1578,15 @@ class CosyMtfData:
 
     def inverse(self):
         c0 = self.get_constant()
-        if abs(c0) == 0:
-            raise ValueError("Inversion of zero constant (Division by zero).")
+        if abs(c0) < 1e-14:
+            raise ValueError(
+                "Inversion of near-zero constant term (constant part is effectively zero)."
+            )
         res_da = self.da.inverse()
-        if hasattr(res_da, "owned"):
-            res_da.owned = False
+        idx = res_da.transfer_ownership()
         is_complex = isinstance(res_da, CosyCDA)
         return CosyMtfData(
-            self.dimension, is_complex=is_complex, idx=res_da.idx, owned=True
+            self.dimension, is_complex=is_complex, idx=idx, owned=True
         )
 
     def __pow__(self, other):
@@ -1735,8 +1761,10 @@ class CosyMtfData:
             return self._create_res(self.da / other)
 
         c0 = other.get_constant()
-        if abs(c0) == 0:
-            raise ValueError("Division by zero (constant part is zero).")
+        if abs(c0) < 1e-14:
+            raise ValueError(
+                "Division by near-zero constant term (constant part is effectively zero)."
+            )
         return self._create_res(self.da / other.da)
 
     def negate(self):
@@ -1790,21 +1818,23 @@ class CosyMtfData:
         return res
 
     def _create_res(self, res_da):
-        is_complex = isinstance(
-            res_da, (CosyCDA, complex)
-        )  # complex for scalar cases if any
+        is_complex = isinstance(res_da, (CosyCDA, complex))
         if not is_complex and hasattr(res_da, "is_complex"):
             is_complex = res_da.is_complex
-        # In case it's already a CosyCDA
         if isinstance(res_da, CosyCDA):
             is_complex = True
 
-        # Determine idx
-        idx = res_da.idx if hasattr(res_da, "idx") else None
-
-        # Transfer ownership: stop res_da from freeing the index when it dies
-        if hasattr(res_da, "owned"):
-            res_da.owned = False
+        # Use transfer_ownership() to safely move the Fortran index from the
+        # temporary res_da to the new CosyMtfData, preventing double-free.
+        if hasattr(res_da, "transfer_ownership"):
+            idx = res_da.transfer_ownership()
+        elif hasattr(res_da, "idx"):
+            # Fallback for objects without the method (should not normally occur)
+            idx = res_da.idx
+            if hasattr(res_da, "owned"):
+                res_da.owned = False
+        else:
+            idx = None
 
         return CosyMtfData(self.dimension, is_complex=is_complex, idx=idx, owned=True)
 

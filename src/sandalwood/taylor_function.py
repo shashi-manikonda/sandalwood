@@ -18,13 +18,15 @@ import json
 import logging
 import math
 import numbers
+import threading
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
+from .backend import Array as ArrayLike
 from .backend import get_backend
 
 # COSY Backend availability
@@ -51,6 +53,11 @@ except ImportError:
     _NUMBA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+# Module-level reentrant lock guarding initialize_mtf's class-state mutations.
+# An RLock is used so that the same thread can call initialize_mtf from within
+# auto-initialize without deadlocking.
+_INIT_LOCK: threading.RLock = threading.RLock()
 
 
 def _generate_exponent(order, var_index, dimension):
@@ -196,86 +203,67 @@ class MultivariateTaylorFunction:
         RuntimeError: MTF Globals are already initialized with different settings.
         Re-initialization with different max_order or max_dimension is not allowed.
         """
-        if (not cls._INITIALIZED) or (
-            cls._INITIALIZED
-            and cls._MAX_ORDER == max_order
-            and cls._MAX_DIMENSION == max_dimension
-        ):
-            if max_order is not None:
-                if not isinstance(max_order, int) or max_order <= 0:
-                    raise ValueError("max_order must be a positive integer.")
-                cls._MAX_ORDER = max_order
-            if max_dimension is not None:
-                if not isinstance(max_dimension, int) or max_dimension <= 0:
-                    raise ValueError("max_dimension must be a positive integer.")
-                cls._MAX_DIMENSION = max_dimension
+        with _INIT_LOCK:
+            if (not cls._INITIALIZED) or (
+                cls._INITIALIZED
+                and cls._MAX_ORDER == max_order
+                and cls._MAX_DIMENSION == max_dimension
+            ):
+                if max_order is not None:
+                    if not isinstance(max_order, int) or max_order <= 0:
+                        raise ValueError("max_order must be a positive integer.")
+                    cls._MAX_ORDER = max_order
+                if max_dimension is not None:
+                    if not isinstance(max_dimension, int) or max_dimension <= 0:
+                        raise ValueError("max_dimension must be a positive integer.")
+                    cls._MAX_DIMENSION = max_dimension
 
-            # Default to proposed implementation, but handle "auto" behavior if needed
-            # User passed 'cosy' explicitly or implicit default?
-            # The signature says default="cpp" (wait, actually default was "python" in previous).
-            # We want default="cosy".
-
-            # Logic:
-            # 1. If implementation is explicitly "python", use python.
-            # 2. If implementation is "cosy" (default), try cosy.
-            #    If not available, warn and fallback to python.
-
-            if implementation == "python":
-                cls._IMPLEMENTATION = "python"
-            else:
-                # Default is now COSY or user asked for COSY
-                if _COSY_BACKEND_AVAILABLE:
-                    cls._IMPLEMENTATION = "cosy"
-                else:
-                    if implementation == "cosy":
-                        logger.warning(
-                            "COSY backend requested but not available. Falling back to Python."
-                        )
+                # Logic:
+                # 1. If implementation is explicitly "python", use python.
+                # 2. If implementation is "cosy" (default), try cosy.
+                #    If not available, warn and fallback to python.
+                if implementation == "python":
                     cls._IMPLEMENTATION = "python"
+                else:
+                    # Default is now COSY or user asked for COSY
+                    if _COSY_BACKEND_AVAILABLE:
+                        cls._IMPLEMENTATION = "cosy"
+                    else:
+                        if implementation == "cosy":
+                            logger.warning(
+                                "COSY backend requested but not available. Falling back to Python."
+                            )
+                        cls._IMPLEMENTATION = "python"
 
-            logger.info(
-                f"Initializing MTF globals with: _MAX_ORDER={cls._MAX_ORDER}, "
-                f"_MAX_DIMENSION={cls._MAX_DIMENSION} using {cls._IMPLEMENTATION} backend"
-            )
-
-            if cls._IMPLEMENTATION == "cosy":
-                logger.info("Initializing COSY backend...")
-                cosy_backend.CosyBackendManager.initialize(
-                    cls._MAX_ORDER, cls._MAX_DIMENSION
+                logger.info(
+                    f"Initializing MTF globals with: _MAX_ORDER={cls._MAX_ORDER}, "
+                    f"_MAX_DIMENSION={cls._MAX_DIMENSION} using {cls._IMPLEMENTATION} backend"
                 )
 
-            cls._INITIALIZED = True
-            logger.info(
-                f"MTF globals initialized: _MAX_ORDER={cls._MAX_ORDER}, "
-                f"_MAX_DIMENSION={cls._MAX_DIMENSION}, _INITIALIZED={cls._INITIALIZED}"
-            )
-            logger.info(
-                f"Max coefficient count (order={cls._MAX_ORDER}, "
-                f"nvars={cls._MAX_DIMENSION}): {cls.get_max_coefficient_count()}"
-            )
-        else:
-            raise RuntimeError(
-                "Re-initialization with different max_order or max_dimension is "
-            )
+                if cls._IMPLEMENTATION == "cosy":
+                    logger.info("Initializing COSY backend...")
+                    cosy_backend.CosyBackendManager.initialize(
+                        cls._MAX_ORDER, cls._MAX_DIMENSION
+                    )
 
-        if cls._IMPLEMENTATION == "python":
-            cls._precompute_tables()
+                cls._INITIALIZED = True
+                logger.info(
+                    f"MTF globals initialized: _MAX_ORDER={cls._MAX_ORDER}, "
+                    f"_MAX_DIMENSION={cls._MAX_DIMENSION}, _INITIALIZED={cls._INITIALIZED}"
+                )
+                logger.info(
+                    f"Max coefficient count (order={cls._MAX_ORDER}, "
+                    f"nvars={cls._MAX_DIMENSION}): {cls.get_max_coefficient_count()}"
+                )
 
-        # --- Fast-Path Method Binding ---
-        # Bind the correct implementation of arithmetic operators to the dunder methods
-        # to avoid if/else checks in the hot path.
-        if cls._IMPLEMENTATION == "cosy":
-            cls.__add__ = cls._add_cosy
-            cls.__sub__ = cls._sub_cosy
-            cls.__mul__ = cls._mul_cosy
-            cls.__truediv__ = cls._truediv_cosy
-            # Also bind reverse operators if needed, or rely on them calling forward
-            # __radd__ usually calls self + other, so it inherits the bound __add__
-        else:
-            cls.__add__ = cls._add_python
-            cls.__sub__ = cls._sub_python
-            cls.__mul__ = cls._mul_python
-            cls.__truediv__ = cls._truediv_python
+                if cls._IMPLEMENTATION == "python":
+                    cls._precompute_tables()
+
+            else:
+                raise RuntimeError(
+                    "Re-initialization with different max_order or max_dimension is not allowed. "
+                    "MTF globals are already initialized with different settings."
+                )
 
     @classmethod
     def _batch_add(cls, mtfs):
@@ -1263,14 +1251,10 @@ class MultivariateTaylorFunction:
         if self.coeffs.size == 0:
             return backend.zeros(evaluation_points.shape[0])
 
-        # Convert coefficients and exponents to the correct tensor type
-        coeffs = backend.from_numpy(self.coeffs)
-        exponents = backend.from_numpy(self.exponents)
-
         if _NUMBA_AVAILABLE and isinstance(evaluation_points, np.ndarray):
-            # Numba Parallel Evaluation
-            # Prepare output array
-            results = backend.zeros(evaluation_points.shape[0], dtype=self.coeffs.dtype)
+            # Numba Parallel Evaluation — reads self.coeffs/self.exponents directly;
+            # avoid wasted from_numpy allocations by skipping the tensor conversion.
+            results = np.zeros(evaluation_points.shape[0], dtype=self.coeffs.dtype)
 
             # Ensure types match for Numba (float64 or complex128)
             # Numba is picky about type matching and contiguity
@@ -1280,6 +1264,11 @@ class MultivariateTaylorFunction:
 
             numba_kernels.evaluate_dense_kernel(pts_c, exps_c, coeffs_c, results)
             return results
+
+        # Convert coefficients and exponents to the correct tensor type for the
+        # non-Numba (NumPy fallback or PyTorch) path.
+        coeffs = backend.from_numpy(self.coeffs)
+        exponents = backend.from_numpy(self.exponents)
 
         # Fallback to Iterative Reduction (NumPy)
         # BATCHING: Process points in chunks to avoid OOM
@@ -1303,10 +1292,16 @@ class MultivariateTaylorFunction:
         term_values = backend.ones((n_points, n_terms), dtype=dtype)
 
         for d in range(self.dimension):
-            # Extract d-th component: (N, 1)
+            # Extract d-th component for each evaluation point: shape (N, 1)
             pts_d = evaluation_points[:, d : d + 1]
-            # Extract d-th exponents: (1, M)
-            exps_d = exponents[np.newaxis, :, d]
+
+            # Extract d-th exponent for each term: shape (M,) → (1, M)
+            # We use reshape instead of np.newaxis to be portable across
+            # NumPy and PyTorch (both support .reshape but the compound
+            # `a[np.newaxis, :, d]` form has subtler dtype/device interactions
+            # in some Torch versions).
+            exps_d_flat = exponents[:, d]          # (M,)
+            exps_d = exps_d_flat.reshape(1, -1)    # (1, M)
 
             col_vals = backend.power(pts_d, exps_d)
             term_values *= col_vals
@@ -1380,7 +1375,7 @@ class MultivariateTaylorFunction:
         return result_mtf
 
     def __add__(self, other):
-        # Default implementation (will be swapped out)
+        """Dispatches to the COSY or Python addition implementation."""
         if self._IMPLEMENTATION == "cosy":
             return self._add_cosy(other)
         else:
@@ -1471,25 +1466,8 @@ class MultivariateTaylorFunction:
         return -(self - other)
 
     def _mul_cosy(self, other):
+        # Optimized scalar multiplication path
         if isinstance(other, (int, float, complex, np.number)):
-            # Scalar mult cosy
-            # Note: mtf_data usually handles scalar mult via promote or custom op?
-            # For now using to_complex promote or standard conversion
-            # But if it is scalar, we can skip create?
-            # Let's ensure consistency:
-            pass
-
-        # Standardize 'other'
-        if isinstance(other, (int, float, complex, np.number)):
-            # We can handle scalar directly if mtf_data supports it, or wrap
-            # Current implementation wraps via __mul__ path?
-            # Let's just wrap it to keep it simple or implement scalar op
-            # Existing __mul__ logic:
-            pass
-
-        # Let's reuse the logic structure
-        if isinstance(other, (int, float, complex, np.number)):
-            # Optimized scalar
             if self.mtf_data is not None:
                 res_data = self.mtf_data * other
                 result_mtf = type(self)(mtf_data=res_data, dimension=self.dimension)
@@ -1754,8 +1732,6 @@ class MultivariateTaylorFunction:
 
     def _truediv_cosy(self, other):
         if isinstance(other, (int, float, complex, np.number)):
-            # Let's use to_mtf or special handling
-            # Reuse existing structure
             try:
                 other = self.to_mtf(other, self.dimension)
             except (TypeError, ValueError):
@@ -1767,10 +1743,6 @@ class MultivariateTaylorFunction:
         if self.dimension != other.dimension:
             raise ValueError("MTF dimensions must match for division.")
 
-        angle_data = (
-            self.mtf_data
-        )  # Ensure ensure_backend called before access if needed?
-        # Check ensure
         self._ensure_backend()
         other._ensure_backend()
 
@@ -1790,7 +1762,7 @@ class MultivariateTaylorFunction:
         if not isinstance(other, MultivariateTaylorFunction):
             try:
                 other = self.to_mtf(other, self.dimension)
-            except:
+            except (TypeError, ValueError):
                 return NotImplemented
 
         inverse_other_mtf = self._inv_mtf_internal(other)

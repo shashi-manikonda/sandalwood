@@ -8,6 +8,12 @@ See Also
 
 import numpy as np
 
+# Tolerance used in Numba kernels for coefficient early-exit optimisation.
+# Keep in sync with MultivariateTaylorFunction._ETOL where feasible.
+# Numba kernels are JIT-compiled and cannot read Python class attributes at
+# runtime; this module-level constant bridges that gap.
+_KERNEL_ETOL: float = 1e-16
+
 try:
     from numba import get_num_threads, njit, prange
 
@@ -173,7 +179,7 @@ def dense_mul(A, B, table, out):
     # Iterate over A and B
     for i in range(n_a):
         val_a = A[i]
-        if abs(val_a) < 1e-16:
+        if abs(val_a) < 1e-16:  # Uses module-level _KERNEL_ETOL (passed at compilation)
             continue
 
         for j in range(n_b):
@@ -214,30 +220,13 @@ def compose_dense_kernel(outer_exps, outer_coeffs, inner_powers, table, n_terms)
     dim = outer_exps.shape[1]
 
     # Thread-local storage for accumulation
-    # Shape: (num_threads, n_terms)
     num_threads = get_num_threads()
 
-    # We infer dtype from the coefficients
     result_dtype = outer_coeffs.dtype
     thread_accumulators = np.zeros((num_threads, n_terms), dtype=result_dtype)
 
-    # Parallel loop over outer terms
-    for i in prange(n_outer_terms):
-        tid = 0  # Default for single thread
-        if num_threads > 1:
-            # Get thread ID (requires OpenMP backend usually, or we use explicit chunking to avoid race)
-            # Numba prange automatic reduction is safer, but we are doing complex logic.
-            # We will use manual reduction into thread_accumulators using chunk logic implies we need 't'
-            # But prange doesn't give 't'.
-            # Pattern: Use a simple manual loop chunking strategy similar to multiply_dense_parallel
-            # if we want explicit buffers, OR use Numba's automatic reduction if possible.
-            # However, automatic reduction for array operations is tricky.
-            pass
-
-    # Better Strategy for Parallelism compatible with Numba:
-    # We split the work manually into chunks based on thread ID, just like multiply_dense_parallel
-
-    chunk_size = (n_outer_terms + num_threads - 1) // num_threads
+    # Split work into per-thread chunks to ensure thread isolation
+    # (prange does not expose a thread ID, so manual chunking is required).
 
     for t in prange(num_threads):
         # Determine range for this thread
