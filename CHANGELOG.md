@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — `feat/backend-hardening`
+
+### Added
+- **`CosyDA.transfer_ownership()`**: A new method on the Fortran DA wrapper that atomically marks the object as non-owning and returns its raw index, replacing the error-prone manual `owned = False` pattern throughout `cosy_backend.py`.
+- **`_INIT_LOCK` (module-level `threading.RLock`)** in `taylor_function.py`: Guards all class-state mutations in `initialize_mtf` against concurrent calls from multiple threads.
+- **`_KERNEL_ETOL`** constant in `numba_kernels.py`: A named, module-level tolerance (`1e-16`) that documents and centralises the early-exit threshold used in the `dense_mul` Numba kernel.
+- **`Array`, `Shape`, `DType` type aliases** in `backend.py`: Formal `Union`-based type aliases used across all backend method signatures.
+- **`@overload` signatures for `get_backend`**: Enables `mypy` to narrow the return type (`type[NumpyBackend]` or `type[TorchBackend]`) at each call site.
+
+### Changed
+- **`TorchBackend.to_numpy`**: Now safely handles CUDA/MPS tensors and autograd-tracked tensors (both previously caused `RuntimeError`). The method now detaches from the computation graph and moves the tensor to CPU before conversion, emitting `UserWarning` at each step.
+- **`TorchBackend.prod(axis=None)`**: Fixed `TypeError` crash when `axis=None`. Now dispatches to `torch.prod(a)` (no `dim` argument) for a global reduction, matching `np.prod` semantics.
+- **`TorchBackend.atleast_2d`**: Fixed incorrect shape for 0-D scalar tensors. A 0-D tensor now produces shape `(1, 1)` (matching `np.atleast_2d`) instead of the previous `(1,)`.
+- **`from_numpy` semantics**: Both `NumpyBackend` and `TorchBackend` now accept an explicit `copy: bool = True` parameter. The default (`copy=True`) prevents silent buffer sharing — `TorchBackend.from_numpy` previously returned a zero-copy view via `torch.from_numpy`, which could silently corrupt the source NumPy array on in-place mutations.
+- **`get_backend` return type**: Now returns the backend **class** (a singleton type) rather than a freshly constructed instance, eliminating per-call object allocation overhead. All backend methods are `@staticmethod`, so the class is the correct callable.
+- **`CosyIndexPool`**: `acquire` and `release` are now wrapped in a `threading.RLock`, preventing duplicate-index allocation race conditions when multiple threads access the pool concurrently.
+- **`CosyMtfData._create_res`**: Uses `transfer_ownership()` instead of `res_da.owned = False`.
+- **`CosyMtfData.inverse()` and `divide()`**: Zero-constant checks changed from exact `== 0` to tolerant `abs(c0) < 1e-14` comparisons.
+- **`initialize_mtf` operator dispatch**: Removed the previous class-level operator monkey-patching (`cls.__add__ = cls._add_cosy`, etc.) that mutated the global class at initialization time. Dispatch is now done via an explicit `if self._IMPLEMENTATION == "cosy"` inside each dunder method — semantically equivalent but safe from concurrent class mutation.
+- **`neval` Numba fast-path**: Eliminated two unnecessary `backend.from_numpy()` calls that allocated tensor copies of `self.coeffs` and `self.exponents` before the Numba path, even though Numba reads those arrays directly.
+- **`neval` exponent indexing**: Replaced the `exponents[np.newaxis, :, d]` compound index with a portable `exponents[:, d].reshape(1, -1)` that works identically for both NumPy and PyTorch tensors.
+- **`backend.py`**: Fully rewritten with PEP 484 type annotations on every method.
+
+### Fixed
+- **Bare `except:` in `_truediv_python`**: Changed to `except (TypeError, ValueError)` so `KeyboardInterrupt`, `SystemExit`, and `MemoryError` are no longer silently swallowed.
+- **Dead `pass` blocks in `_mul_cosy`**: Removed three consecutive empty branches that were left over from an incomplete refactor.
+- **Dead `prange` loop in `compose_dense_kernel`**: Removed the empty `for i in prange(n_outer_terms): pass` loop that preceded the actual chunked parallel loop, eliminating spurious parallel scheduling overhead.
+- **Missing `chunk_size` in `compose_dense_kernel`**: Restored the `chunk_size` calculation that was accidentally omitted.
+
 ## [0.1.2] - 2026-05-23
+
 
 ### Added
 - **Local Pre-commit hooks**: Quality checks using `pre-commit` (Ruff and MyPy).

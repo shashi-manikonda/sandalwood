@@ -14,22 +14,42 @@ The backend consists of three layers:
 
 1.  **Fortran Core (`libcosy.so`)**: The compiled COSY Infinity library, patched with `wrapper.f` to expose a C-compatible ABI.
 2.  **C-Types Bridge (`cosy_backend.py`)**: A thin Python layer that marshals pointers and integers directly to the shared library.
-3.  **High-Level Wrapper (`CosyDA`)**: A Python class that manages the lifecycle of COSY variables using integer **Indices**, shielding the user from manual memory management.
+3.  **High-Level Wrapper (`CosyDA`)**: A Python class that manages the lifecycle of COSY variables using integer **Indices**, shielding the user from manual memory management. Ownership of an index can be safely transferred via :meth:`CosyDA.transfer_ownership`.
 
 Memory Management Architecture
 ------------------------------
 
 .. warning::
-   **The COSY Backend is not thread-safe.** 
-   COSY Infinity uses global STATIC memory (Fortran COMMON blocks) for all calculations. While Sandalwood's Numba kernels are thread-safe (utilizing thread-local buffers), the COSY backend and its `CosyIndexPool` are strictly single-threaded. 
-   
-   **Do not use CosyDA or CosyCDA objects inside `threading.Thread` or `multiprocessing` worker pools without explicit, global locks.** Overlapping calls to the COSY library will result in memory corruption and unpredictable crashes.
+   **The COSY Fortran core is not thread-safe.**
+   COSY Infinity uses global STATIC memory (Fortran COMMON blocks) for all calculations. The underlying Fortran routines are strictly single-threaded.
+
+   **Sandalwood's Python layer** has been hardened for concurrent access:
+
+   * ``CosyIndexPool.acquire`` and ``release`` are protected by a ``threading.RLock``, preventing duplicate-index allocation races when multiple threads hit the pool concurrently.
+   * ``MultivariateTaylorFunction.initialize_mtf`` is protected by a module-level ``threading.RLock`` (``_INIT_LOCK``), ensuring class-state mutations are atomic.
+
+   However, **concurrent calls into the Fortran library itself** (e.g., two threads each computing ``da * da`` through COSY at the same time) will still cause memory corruption. Only one thread should invoke COSY arithmetic at any given moment. Use a process-level lock or ``multiprocessing`` worker isolation if you need parallelism over COSY computations.
 
 Effective memory management is critical when bridging Python's dynamic environment with COSY's static Fortran roots.
 
 **CosyIndexPool: Object Recycling**
 To prevent the overhead of frequent ``malloc/free`` cycles in the underlying stack, Sandalwood implements a **Robust Memory Pooling** (Object Pool Pattern).
 The `CosyIndexPool` maintains a list of available COSY variable indices. When a calculation needs a temporary variable, it "acquires" an index from the pool in **O(1)** time. Once the calculation is complete, the index is "released" back to the pool for future reuse. This prevents "stack thrashing" and significantly improves performance in iterative batch operations.
+
+Since v0.1.3 (``feat/backend-hardening``), both ``acquire`` and ``release`` are protected by an internal ``threading.RLock`` so that the pool itself is safe to access from multiple Python threads simultaneously. The Fortran core remains single-threaded (see warning above).
+
+**CosyDA Ownership Transfer**
+When a COSY operation produces a new ``CosyDA`` object, ownership of the underlying Fortran index must be transferred to the result wrapper exactly once — transferring twice would cause a double-free; failing to transfer would leak the index.
+
+The ``transfer_ownership()`` method on ``CosyDA`` provides a single, explicit handoff:
+
+.. code-block:: python
+
+    res_da = some_operation()          # owned=True (will free on __del__)
+    idx = res_da.transfer_ownership() # res_da.owned now False — will NOT free
+    result = CosyMtfData(dimension, idx=idx, owned=True)  # new owner
+
+This replaces the previous pattern of manually setting ``res_da.owned = False``, which was easy to forget or apply twice.
 
 **Numerical Hygiene: DA_RESET**
 Reusing memory indices requires strict hygiene. Before an index is acquired from the pool, it is subjected to a **Hard Reset** via the `DA_RESET` mechanism.
@@ -200,9 +220,11 @@ For operations on large arrays of DA objects (e.g., adding two vectors of 10,000
 6. Novel: Stable Complex Arithmetic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-COSY's internal complex division and inversion can occasionally encounter stability issues with extremely small coefficients. Sandalwood includes **Patched Implementation** (`SANDALWOOD_CDMUI` and `SANDALWOOD_CDDCD`) that use a more robust normalization strategy.
+COSY's internal complex division and inversion can occasionally encounter stability issues with extremely small coefficients. Sandalwood includes **Patched Implementation** (``SANDALWOOD_CDMUI`` and ``SANDALWOOD_CDDCD``) that use a more robust normalization strategy.
 
 * **Improvement:** Ensures high-precision results even in numerically sensitive regions of the complex plane.
+
+Since v0.1.3, the Python-level ``CosyMtfData.inverse()`` and ``divide()`` guards have been tightened from exact ``== 0`` comparisons to tolerant ``abs(c0) < 1e-14`` checks, preventing false positives from floating-point rounding near zero.
 
 Extending the Backend
 ---------------------

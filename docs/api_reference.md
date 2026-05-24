@@ -40,7 +40,7 @@ The fundamental class for representing a function as a DA vector of its Taylor c
 
 | Method | Description | Arguments | Returns |
 |---|---|---|---|
-| `initialize_mtf` | Initializes global settings for the sandalwood library. | `max_order` (`int`, optional): The default maximum order for Taylor series expansions.<br>`max_dimension` (`int`, optional): The default maximum number of variables for functions.<br>`implementation` (`{'cosy', 'python'}`, optional): The backend implementation to use. Defaults to 'cosy'. | `None` |
+| `initialize_mtf` | Initializes global settings for the sandalwood library. **Thread-safe**: protected by an internal `threading.RLock`; concurrent calls from different threads are serialised. | `max_order` (`int`, optional): The default maximum order for Taylor series expansions.<br>`max_dimension` (`int`, optional): The default maximum number of variables for functions.<br>`implementation` (`{'cosy', 'python'}`, optional): The backend implementation to use. Defaults to 'cosy'. | `None` |
 | `get_max_coefficient_count` | Calculates max coefficient count for given order/dimension. | `max_order` (`int`, optional): The maximum order.<br>`max_dimension` (`int`, optional): The maximum dimension. | `int`: The maximum number of coefficients. |
 | `get_precomputed_coefficients` | Returns the precomputed Taylor coefficients for elementary functions. | `None` | `dict`: The precomputed coefficients. |
 | `get_mtf_initialized_status` | Returns initialization status of MTF globals. | `None` | `bool`: `True` if initialized, `False` otherwise. |
@@ -57,7 +57,7 @@ The fundamental class for representing a function as a DA vector of its Taylor c
 | `to_json` | Serializes the MTF object to a JSON string. | `None` | `str`: A JSON string representation. |
 | `from_json` | Creates an MTF object from a JSON string. | `json_str` (`str`): The JSON string. | `mtf` or `ComplexMultivariateTaylorFunction`: The deserialized object. |
 | `eval` | Evaluates the Taylor function at a single point. | `evaluation_point` (`array_like`): A 1D array or list representing the point at which to evaluate. | `numpy.ndarray`: A 1-element array containing the result. |
-| `neval` | Evaluates the Taylor function at multiple points in a vectorized manner. | `evaluation_points` (`array_like`): A 2D numpy array of shape `(n_points, dimension)`. | `numpy.ndarray` or `torch.Tensor`: An array containing the evaluation result for each input point. |
+| `neval` | Evaluates the Taylor function at multiple points in a vectorized manner. When a NumPy array is supplied and Numba is available, a JIT-compiled fast path is used. When a `torch.Tensor` is supplied, operations run through the PyTorch backend; CUDA/MPS tensors and gradient-tracked tensors are handled safely (see `TorchBackend.to_numpy`). | `evaluation_points` (`numpy.ndarray` or `torch.Tensor`): A 2D array of shape `(n_points, dimension)`. | `numpy.ndarray` or `torch.Tensor`: An array containing the evaluation result for each input point. |
 | `substitute_variable` | Substitutes a variable with a numerical value. | `var_index` (`int`): The 1-based index of the variable to substitute.<br>`value` (`numeric`): The numerical value to substitute. | `mtf`: A new MTF with the variable substituted. |
 | `truncate` | Truncates the Taylor series to a specified maximum order. | `order` (`int`, optional): The maximum order to keep. | `mtf`: A new, truncated MTF. |
 | `truncate_inplace` | Truncates the MTF **in place** to a specified order. | `order` (`int`, optional): The maximum order to keep. | `mtf`: The same MTF instance, truncated. |
@@ -127,6 +127,76 @@ Represents a function from R^n to R^m using Taylor series components.
 | `map_sensitivity` | Returns a new TaylorMap with coefficients scaled for sensitivity analysis. | `scaling_factors` (`list[float]`): The scaling factors to apply. | `TaylorMap`: A new, scaled TaylorMap. |
 | `substitute` | Performs partial or full substitution. | `variable_map` (`dict`): A dict of `{var_index: value}`. | `TaylorMap` or `numpy.ndarray`: A new TaylorMap or a NumPy array of floats. |
 | `invert` | Computes the inverse of the TaylorMap using fixed-point iteration. | `None` | `TaylorMap`: A new TaylorMap representing the inverse map. |
+
+## `sandalwood.backend` Module
+
+This module provides the array-backend abstraction layer used by `neval` and other
+numerical routines. It selects the appropriate backend class at runtime based on the
+type of the input array.
+
+### Type Aliases
+
+| Alias | Definition | Description |
+|---|---|---|
+| `Array` | `Union[np.ndarray, torch.Tensor]` | Union of the two supported concrete array types. |
+| `Shape` | `Union[int, tuple[int, ...]]` | Shape argument accepted by `zeros` / `ones`. |
+| `DType` | `Optional[Union[np.dtype, torch.dtype]]` | Optional dtype accepted by `zeros` / `ones`. |
+
+### `get_backend(array)` function
+
+```python
+from sandalwood.backend import get_backend
+```
+
+Returns the backend **class** (not an instance) appropriate for the given array type.
+Because all backend methods are `@staticmethod`, the class itself is the callable;
+no object construction occurs on each dispatch call.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `array` | `np.ndarray` or `torch.Tensor` | The array for which to find a backend. Subclasses of either type are handled via `isinstance` fallback. |
+
+**Returns:** `type[NumpyBackend]` or `type[TorchBackend]`
+
+**Raises:** `TypeError` — if the array type is not supported.
+
+### `NumpyBackend` Class
+
+The default backend used when `neval` receives a `numpy.ndarray`.
+
+| Method | Signature | Description |
+|---|---|---|
+| `power` | `(base: np.ndarray, exp: np.ndarray) -> np.ndarray` | Wraps `np.power`. |
+| `prod` | `(a: np.ndarray, axis: Optional[int] = None) -> np.ndarray` | Wraps `np.prod`. `axis=None` reduces over all elements. |
+| `dot` | `(a: np.ndarray, b: np.ndarray) -> np.ndarray` | Wraps `np.dot`. |
+| `zeros` | `(shape: Shape, dtype: DType = None) -> np.ndarray` | Wraps `np.zeros`. |
+| `ones` | `(shape: Shape, dtype: DType = None) -> np.ndarray` | Wraps `np.ones`. |
+| `atleast_2d` | `(a: np.ndarray) -> np.ndarray` | Wraps `np.atleast_2d`. Handles 0-D, 1-D, and higher-dimensional arrays. |
+| `from_numpy` | `(a: np.ndarray, copy: bool = True) -> np.ndarray` | Converts array to NumPy. `copy=True` (default) always returns a new allocation. `copy=False` returns a view when the layout is already compatible. |
+| `to_numpy` | `(a: np.ndarray) -> np.ndarray` | Identity conversion via `np.asarray`. Returns a view. |
+
+### `TorchBackend` Class
+
+Used when `neval` receives a `torch.Tensor`. Only available when PyTorch is installed.
+
+| Method | Signature | Description |
+|---|---|---|
+| `power` | `(base: Tensor, exp: Tensor) -> Tensor` | Wraps `torch.pow`. |
+| `prod` | `(a: Tensor, axis: Optional[int] = None) -> Tensor` | Wraps `torch.prod`. **`axis=None`** dispatches to `torch.prod(a)` (global reduction), not `torch.prod(a, dim=None)` which would crash. |
+| `dot` | `(a: Tensor, b: Tensor) -> Tensor` | Wraps `torch.matmul` with automatic dtype promotion for complex/real mixed inputs. |
+| `zeros` | `(shape: Shape, dtype: DType = None) -> Tensor` | Wraps `torch.zeros`. |
+| `ones` | `(shape: Shape, dtype: DType = None) -> Tensor` | Wraps `torch.ones`. |
+| `atleast_2d` | `(a: Tensor) -> Tensor` | Ensures ≥ 2-D. A **0-D scalar** → `(1, 1)`; a **1-D** tensor of shape `(N,)` → `(1, N)`. Matches `np.atleast_2d` semantics. |
+| `from_numpy` | `(a: np.ndarray, copy: bool = True) -> Tensor` | Wraps `torch.from_numpy`. `copy=True` (default) calls `.clone()` to produce an independent tensor — the source NumPy array is **not** shared. `copy=False` returns a zero-copy view (use with caution). |
+| `to_numpy` | `(a: Tensor) -> np.ndarray` | Safe conversion handling all common failure modes. See table below. |
+
+#### `TorchBackend.to_numpy` — Safety Guarantees
+
+| Input condition | Behaviour |
+|---|---|
+| `a.requires_grad is True` | Detaches from the autograd graph. Emits `UserWarning`. |
+| `a.device.type != 'cpu'` (CUDA, MPS, …) | Copies tensor to CPU host. Emits `UserWarning`. |
+| Contiguous CPU tensor, no grad | Zero-copy `.numpy()` view (no warning). |
 
 ## Elementary Functions
 

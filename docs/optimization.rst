@@ -155,9 +155,12 @@ Batch Composition
 
 Fast-Path Dispatch
 ~~~~~~~~~~~~~~~~~~
-To avoid repeated `if self._IMPLEMENTATION == "cosy"` checks in hot arithmetic loops:
-*   **Method Binding**: `initialize_mtf` now dynamically binds `__add__`, `__mul__`, etc., to their generic backend implementations (`_add_python`, `_add_cosy`) at class level.
-*   **Result**: Zero-overhead dispatch for arithmetic operations.
+Arithmetic operator dispatch (``__add__``, ``__mul__``, etc.) uses a simple
+``if self._IMPLEMENTATION == "cosy"`` branch inside each dunder method.
+This avoids any global class mutation at initialization time and is safe
+from concurrent threads. The branch is predictable (same condition throughout
+the lifetime of a session), so modern CPUs can speculate it with near-zero
+overhead.
 
 COSY Scalar Operators
 ~~~~~~~~~~~~~~~~~~~~~
