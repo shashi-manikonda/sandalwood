@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-05-24
+
+### Added
+- **Thread-Local Index Pools**: Implemented thread-local index pools to enhance concurrent performance and stability.
+- **Dense Multiplication Tables**: Added multi-dimensional dense multiplication tables for performance optimizations.
+
+### Changed
+- **COSY Backend Thread-Safety**: Refactored the COSY backend to be strictly thread-safe.
+- **Directory Swapping Removal**: Eliminated `os.chdir` directory swapping logic to prevent global state side effects.
+- **Map Operations Optimization**: Optimized map inversion and composition operations.
+- **Logging Strategy**: Implemented a seamless fallback logging strategy.
+- **Code Quality**: Applied standard `ruff` formatting fixes and added comprehensive `mypy` type annotations for enhanced maintainability.
+
+### Fixed
+- **DAINI.DAT PID Lock**: Fixed the PID locking issue associated with `DAINI.DAT` which previously caused resource conflicts.
+
 ## [0.1.3] - 2026-05-24
 
 ### Added
