@@ -84,20 +84,20 @@ To overcome the overhead commonly associated with Python, \texttt{sandalwood} em
 \texttt{sandalwood} is designed to be highly accessible. The following code snippet demonstrates the initialization of variables, definition of a Taylor series, and evaluation of a non-linear map.
 
 \begin{lstlisting}[language=Python, caption=Defining and evaluating a Taylor Map in \texttt{sandalwood}]
-from sandalwood import MultivariateTaylorFunction, TaylorMap, Var
+from sandalwood import MultivariateTaylorFunction, TaylorMap, mtf
 
 # Initialize the global MTF environment
 # 2 variables (x, y), up to order 3
 MultivariateTaylorFunction.initialize_mtf(max_order=3, max_dimension=2)
 
 # Define symbolic variables
-x, y = Var(1), Var(2)
+x, y = mtf.var(1), mtf.var(2)
 
 # Define a non-linear map F(x, y) = [x + y**2, y - x**2]
 F = TaylorMap([x + y**2, y - x**2])
 
 # Create another map G(a, b) = [a*b, a]
-a, b = Var(1), Var(2)
+a, b = mtf.var(1), mtf.var(2)
 G = TaylorMap([a * b, a])
 
 # Compose the maps: H(x, y) = G(F(x, y))
