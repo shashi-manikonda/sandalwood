@@ -146,6 +146,57 @@ This utility automatically detects your Fortran compiler (`ifx` or `gfortran`), 
 
 For detailed system requirements, compiler options, and step-by-step instructions, see the comprehensive [COSY Installation Guide](docs/INSTALL_COSY.md).
 
+## 🤖 AI Agent Tools (MCP & LangChain)
+
+Sandalwood includes a built-in `agent_tools` module that provides a comprehensive integration layer for autonomous AI agents to natively use Differential Algebra (DA) capabilities.
+
+The tools are built with a **Stateful Session Registry** to prevent LLM context window bloat. Instead of returning massive JSONs with thousands of coefficients, the tools return lightweight reference strings (e.g., `{"ref": "mtf_0"}`) which the LLM passes in subsequent tool calls.
+
+### Using via Model Context Protocol (MCP)
+
+You can run Sandalwood as an MCP server to provide mathematical and physics-based tools to compatible clients (like Claude Desktop or Cursor).
+
+Run the MCP server directly using `uv`:
+
+```bash
+uv run python -m sandalwood.agent_tools.mcp_server
+```
+
+Or configure it in your Claude Desktop configuration (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "sandalwood": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "sandalwood.agent_tools.mcp_server"
+      ]
+    }
+  }
+}
+```
+
+The MCP server provides:
+* **Tools**: Over 20 tools for initializing DA variables, building functions via string expressions (`parse_expression_to_mtf`), computing derivatives, poisson brackets, compose maps, and tracking particles.
+* **Prompts**: Access the `@mcp.prompt("sandalwood-da-expert")` prompt for optimized system instructions when reasoning about DA.
+* **Resources**: Read the current state of variables in the agent session registry via the `registry://variables` resource.
+
+### Using via LangChain
+
+The tools are also exposed natively as LangChain tools (wrapped with `@tool`):
+
+```python
+from sandalwood.agent_tools.langchain_tools import evaluate_taylor_map, invert_taylor_map
+
+# Add tools to your LangGraph or standard agents
+tools = [evaluate_taylor_map, invert_taylor_map]
+# agent = create_tool_calling_agent(llm, tools, prompt)
+```
+
 ## 🏗️ Architecture
 
 `sandalwood` employs a **Layered Hybrid Strategy** to overcome the "Python tax":
