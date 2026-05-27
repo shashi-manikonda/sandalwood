@@ -51,14 +51,19 @@ def test_batch_add(setup_cosy):
     for i in range(10):
         # res[i] should be (x + i) + (y + 0.1*i) = x + y + 1.1*i
         r = res_vec[i]
-        l = res_loop[i]
+        v = res_loop[i]
 
         # Compare raw coefficients
+        r_coeffs = r.to_dict()["coeffs"]
+        v_coeffs = v.to_dict()["coeffs"]
+        for k in range(len(r_coeffs)):
+            assert abs(r_coeffs[k] - v_coeffs[k]) < 1e-13
+        
         # Or compare eval
         pt = [0.1, 0.2]
         val_r = r.eval(pt)
-        val_l = l.eval(pt)
-        assert np.isclose(val_r, val_l, atol=1e-12)
+        val_v = v.eval(pt)
+        assert np.isclose(val_r, val_v, atol=1e-12)
 
         # Use extract
         c_x = r.extract_coefficient((1, 0))

@@ -6,7 +6,7 @@ This module provides a comprehensive integration layer for autonomous AI agents 
 
 The `agent_tools` module is designed with a decoupled architecture that conforms to standard agentic best practices:
 
-1. **Stateful Session Registry (`registry.py`)**: Differential algebra objects (like `MultivariateTaylorFunction` and `TaylorMap`) can contain thousands of coefficients. To prevent LLM context window bloat, all tools return lightweight JSON references (e.g., `{"ref": "mtf_0", ...}`). Agents pass these reference strings in subsequent tool calls instead of large serialized JSONs.
+1. **Stateful Session Registry (`registry.py`)**: Differential algebra objects (like `MultivariateTaylorFunction` and `TaylorMap`) can contain thousands of coefficients. To prevent LLM context window bloat, all tools return lightweight JSON references (e.g., `{"ref": "mtf_0", ...}`) inside a standardized response envelope. Agents pass these reference strings in subsequent tool calls instead of large serialized coefficient datasets.
 2. **Core Logic (`functions.py`)**: Contains the raw Python functions, type hints, robust error handling, and docstrings. Errors are caught internally and returned as descriptive strings to allow the LLM to observe and auto-correct.
 3. **LangChain Tools (`langchain_tools.py`)**: Exposes the core functions wrapped with LangChain's `@tool` decorator.
 4. **MCP Server (`mcp_server.py`)**: Exposes the core functions as Model Context Protocol (MCP) tools and exposes the registry state via read-only resources (`registry://variables`). Also provides the `@mcp.prompt("sandalwood-da-expert")` instruction prompt.

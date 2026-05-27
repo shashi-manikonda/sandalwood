@@ -16,13 +16,14 @@ import warnings
 import numpy as np
 import pytest
 
-from sandalwood.backend import NumpyBackend, _TORCH_AVAILABLE, get_backend
+from sandalwood.backend import _TORCH_AVAILABLE, NumpyBackend, get_backend
 
 # ---------------------------------------------------------------------------
 # Optional imports
 # ---------------------------------------------------------------------------
 if _TORCH_AVAILABLE:
     import torch
+
     from sandalwood.backend import TorchBackend
 
 _skip_no_torch = pytest.mark.skipif(

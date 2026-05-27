@@ -1,4 +1,5 @@
 import sympy
+from sympy import E, oo, pi
 from sympy.parsing.sympy_parser import parse_expr
 
 from sandalwood import MultivariateTaylorFunction, mtf
@@ -58,6 +59,10 @@ def expression_to_mtf(
 
     # 5. Map SymPy string functions to MTF instance methods
     math_dict = {
+        "pi": pi,
+        "E": E,
+        "e": E,
+        "oo": oo,
         "sin": lambda x: x.sin(),
         "cos": lambda x: x.cos(),
         "tan": lambda x: x.tan(),
