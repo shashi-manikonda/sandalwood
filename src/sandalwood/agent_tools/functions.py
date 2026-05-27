@@ -14,8 +14,11 @@ from sandalwood.agent_tools.schemas import (
 
 
 def initialize_sandalwood(
-    max_order: int, max_dimension: int, implementation: str = "cosy"
-, session_id: str = "default") -> dict:
+    max_order: int,
+    max_dimension: int,
+    implementation: str = "cosy",
+    session_id: str = "default",
+) -> dict:
     """
     Explicitly initializes or resets the global Sandalwood settings (maximum truncation order and maximum dimension).
     This must be called before using Taylor operations if you want to override the default limits.
@@ -36,16 +39,29 @@ def initialize_sandalwood(
             max_dimension=max_dimension,
             implementation=implementation,
         )
-        return ToolSuccessResponse(data=f"Sandalwood successfully initialized with max_order={max_order}, max_dimension={max_dimension}, and implementation='{implementation}'.").model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": f"Sandalwood successfully initialized with max_order={max_order}, max_dimension={max_dimension}, and implementation='{implementation}'.",
+                "metadata": {"operation": "initialize_sandalwood"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def parse_expression_to_mtf(
-    expression: str, dimension: int, max_order: int, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    expression: str,
+    dimension: int,
+    max_order: int,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Parses a string mathematical expression into a MultivariateTaylorFunction (MTF) and registers it in memory.
     Supported functions: sin, cos, tan, exp, log, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, sqrt, erf, cot, coth.
@@ -64,21 +80,34 @@ def parse_expression_to_mtf(
         func = expression_to_mtf(expression, dimension, max_order)
         ref = register_object(func, name, session_id=session_id)
         df = func.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully parsed and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": func.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully parsed and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": func.to_json(),
+                },
+                "metadata": {"operation": "parse_expression_to_mtf"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def create_taylor_map(
-    expressions: list[str], dimension: int, max_order: int, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    expressions: list[str],
+    dimension: int,
+    max_order: int,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Creates a vector-valued TaylorMap (mapping R^dimension to R^len(expressions)) from a list of mathematical expressions.
     Each expression defines one component of the output map.
@@ -98,19 +127,30 @@ def create_taylor_map(
         ]
         tmap = TaylorMap(components)
         ref = register_object(tmap, name, session_id=session_id)
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully created TaylorMap and registered as '{ref}'",
-                "info": str(tmap),
-                "json": tmap.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully created TaylorMap and registered as '{ref}'",
+                    "info": str(tmap),
+                    "json": tmap.to_json(),
+                },
+                "metadata": {"operation": "create_taylor_map"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
-def evaluate_taylor_map(map_ref: str, point: list[float], session_id: str = "default") -> dict:
+def evaluate_taylor_map(
+    map_ref: str, point: list[float], session_id: str = "default"
+) -> dict:
     """
     Evaluates a TaylorMap at a specific point in phase space.
 
@@ -123,11 +163,20 @@ def evaluate_taylor_map(map_ref: str, point: list[float], session_id: str = "def
     """
     try:
         tmap = get_object(map_ref, TaylorMap, session_id=session_id)
-        return ToolSuccessResponse(data=[comp(point) for comp in tmap.components]).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": [comp(point) for comp in tmap.components],
+                "metadata": {"operation": "evaluate_taylor_map"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def evaluate_mtf(mtf_ref: str, point: list[float], session_id: str = "default") -> dict:
@@ -146,14 +195,22 @@ def evaluate_mtf(mtf_ref: str, point: list[float], session_id: str = "default") 
         val = func(point)
         if hasattr(val, "item"):
             val = val.item()
-        return ToolSuccessResponse(data=val).model_dump()
+        return ToolSuccessResponse(
+            data={"result": val, "metadata": {"operation": "evaluate_mtf"}}
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
-def invert_taylor_map(map_ref: str, name: Optional[str] = None, session_id: str = "default") -> dict:
+def invert_taylor_map(
+    map_ref: str, name: Optional[str] = None, session_id: str = "default"
+) -> dict:
     """
     Inverts a square TaylorMap (which must have no constant terms and an invertible linear Jacobian part).
     Calculates the inverse mapping using fixed-point iteration.
@@ -169,21 +226,33 @@ def invert_taylor_map(map_ref: str, name: Optional[str] = None, session_id: str 
         tmap = get_object(map_ref, TaylorMap, session_id=session_id)
         inverted = tmap.invert()
         ref = register_object(inverted, name, session_id=session_id)
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully inverted map and registered as '{ref}'",
-                "info": str(inverted),
-                "json": inverted.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully inverted map and registered as '{ref}'",
+                    "info": str(inverted),
+                    "json": inverted.to_json(),
+                },
+                "metadata": {"operation": "invert_taylor_map"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def compute_partial_derivative(
-    mtf_ref: str, var_index: int, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    mtf_ref: str,
+    var_index: int,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Computes the partial derivative of a MultivariateTaylorFunction with respect to a specific variable.
 
@@ -200,16 +269,25 @@ def compute_partial_derivative(
         derivative = func.derivative(var_index)
         ref = register_object(derivative, name, session_id=session_id)
         df = derivative.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully computed derivative and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": derivative.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully computed derivative and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": derivative.to_json(),
+                },
+                "metadata": {"operation": "compute_partial_derivative"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def integrate_mtf(
@@ -217,7 +295,9 @@ def integrate_mtf(
     var_index: int,
     lower_limit: Optional[float] = None,
     upper_limit: Optional[float] = None,
-    name: Optional[str] = None, session_id: str = "default") -> dict:
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Integrates a MultivariateTaylorFunction with respect to a specific variable (1-based index).
     Supports indefinite integration, or definite integration if limits are provided.
@@ -239,21 +319,33 @@ def integrate_mtf(
         )
         ref = register_object(integrated, name, session_id=session_id)
         df = integrated.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully computed integral and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": integrated.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully computed integral and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": integrated.to_json(),
+                },
+                "metadata": {"operation": "integrate_mtf"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def compose_taylor_maps(
-    map_ref_1: str, map_ref_2: str, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    map_ref_1: str,
+    map_ref_2: str,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Composes two TaylorMaps, calculating map1(map2(x)).
     The output dimension of map2 must match the input dimension of map1.
@@ -271,21 +363,33 @@ def compose_taylor_maps(
         map2 = get_object(map_ref_2, TaylorMap, session_id=session_id)
         composed = map1.compose(map2)
         ref = register_object(composed, name, session_id=session_id)
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully composed maps and registered as '{ref}'",
-                "info": str(composed),
-                "json": composed.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully composed maps and registered as '{ref}'",
+                    "info": str(composed),
+                    "json": composed.to_json(),
+                },
+                "metadata": {"operation": "compose_taylor_maps"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def compose_mtfs(
-    mtf_ref: str, inner_mtf_refs: dict[str, str], name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    mtf_ref: str,
+    inner_mtf_refs: dict[str, str],
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Composes a MultivariateTaylorFunction with other MultivariateTaylorFunctions.
     Substitutes specified variables of the outer MTF with inner MTF objects.
@@ -308,23 +412,32 @@ def compose_mtfs(
                 raise ValueError(
                     f"Variable index keys in inner_mtf_refs must be integers represented as strings (e.g. '1'), got '{var_str}'"
                 )
-            inner_obj = get_object(ref, MultivariateTaylorFunction, session_id=session_id)
+            inner_obj = get_object(
+                ref, MultivariateTaylorFunction, session_id=session_id
+            )
             subs_dict[var_idx] = inner_obj
-
         composed = outer.compose(subs_dict)
         ref = register_object(composed, name, session_id=session_id)
         df = composed.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully composed MTFs and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": composed.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully composed MTFs and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": composed.to_json(),
+                },
+                "metadata": {"operation": "compose_mtfs"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
-
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def _parse_scalar_or_ref(s: str) -> Union[float, complex, str]:
@@ -336,9 +449,14 @@ def _parse_scalar_or_ref(s: str) -> Union[float, complex, str]:
         except ValueError:
             return s
 
+
 def perform_mtf_arithmetic(
-    op: str, mtf_ref_1: str, mtf_ref_2: str, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    op: str,
+    mtf_ref_1: str,
+    mtf_ref_2: str,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Performs basic arithmetic (+, -, *, /, **) between two MultivariateTaylorFunctions or between an MTF and a scalar.
 
@@ -357,17 +475,15 @@ def perform_mtf_arithmetic(
             raise ValueError(
                 f"Unsupported operator '{op}'. Must be one of '+', '-', '*', '/', '**'"
             )
-
         obj1 = get_object(mtf_ref_1, MultivariateTaylorFunction, session_id=session_id)
-
-        # Try to resolve operand 2 as a scalar or MTF
         ref2_stripped = mtf_ref_2.strip()
         parsed_scalar = _parse_scalar_or_ref(ref2_stripped)
         if isinstance(parsed_scalar, (float, complex)):
             obj2 = parsed_scalar
         else:
-            obj2 = get_object(mtf_ref_2, MultivariateTaylorFunction, session_id=session_id)
-
+            obj2 = get_object(
+                mtf_ref_2, MultivariateTaylorFunction, session_id=session_id
+            )
         if op == "+":
             res = obj1 + obj2
         elif op == "-":
@@ -378,22 +494,32 @@ def perform_mtf_arithmetic(
             res = obj1 / obj2
         elif op == "**":
             res = obj1**obj2
-
         ref = register_object(res, name, session_id=session_id)
         df = res.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully performed '{op}' and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": res.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully performed '{op}' and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": res.to_json(),
+                },
+                "metadata": {"operation": "perform_mtf_arithmetic"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
-def perform_complex_operation(op: str, mtf_ref: str, name: Optional[str] = None, session_id: str = "default") -> dict:
+def perform_complex_operation(
+    op: str, mtf_ref: str, name: Optional[str] = None, session_id: str = "default"
+) -> dict:
     """
     Performs complex analysis operations (conjugate, real_part, imag_part) on a ComplexMultivariateTaylorFunction.
 
@@ -409,31 +535,37 @@ def perform_complex_operation(op: str, mtf_ref: str, name: Optional[str] = None,
         op = op.strip().lower()
         if op not in ("conjugate", "real_part", "imag_part"):
             raise ValueError("op must be one of: 'conjugate', 'real_part', 'imag_part'")
-
         func = get_object(mtf_ref, MultivariateTaylorFunction, session_id=session_id)
         from sandalwood.complex_taylor_function import convert_to_cmtf
 
         c_func = convert_to_cmtf(func)
-
         if op == "conjugate":
             res = c_func.conjugate()
         elif op == "real_part":
             res = c_func.real_part()
         elif op == "imag_part":
             res = c_func.imag_part()
-
         ref = register_object(res, name, session_id=session_id)
         df = res.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully computed '{op}' and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": res.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully computed '{op}' and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": res.to_json(),
+                },
+                "metadata": {"operation": "perform_complex_operation"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def mtf_info(mtf_ref: str, session_id: str = "default") -> dict:
@@ -450,11 +582,20 @@ def mtf_info(mtf_ref: str, session_id: str = "default") -> dict:
     try:
         func = get_object(mtf_ref, MultivariateTaylorFunction, session_id=session_id)
         df = func.get_tabular_dataframe()
-        return ToolSuccessResponse(data=df.to_string(index=False)).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": df.to_string(index=False),
+                "metadata": {"operation": "mtf_info"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def taylor_map_info(map_ref: str, session_id: str = "default") -> dict:
@@ -470,16 +611,26 @@ def taylor_map_info(map_ref: str, session_id: str = "default") -> dict:
     """
     try:
         tmap = get_object(map_ref, TaylorMap, session_id=session_id)
-        return ToolSuccessResponse(data=str(tmap)).model_dump()
+        return ToolSuccessResponse(
+            data={"result": str(tmap), "metadata": {"operation": "taylor_map_info"}}
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def substitute_variable_in_mtf(
-    mtf_ref: str, var_index: int, value: float, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    mtf_ref: str,
+    var_index: int,
+    value: float,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Substitutes a single variable (1-based index) in a MultivariateTaylorFunction with a numeric value.
 
@@ -497,21 +648,33 @@ def substitute_variable_in_mtf(
         res = func.substitute_variable(var_index, value)
         ref = register_object(res, name, session_id=session_id)
         df = res.get_tabular_dataframe()
-        return ToolSuccessResponse(data={
-                "ref": ref,
-                "message": f"Successfully substituted x{var_index}={value} and registered as '{ref}'",
-                "info": df.to_string(index=False),
-                "json": res.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref,
+                    "message": f"Successfully substituted x{var_index}={value} and registered as '{ref}'",
+                    "info": df.to_string(index=False),
+                    "json": res.to_json(),
+                },
+                "metadata": {"operation": "substitute_variable_in_mtf"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def substitute_in_taylor_map(
-    map_ref: str, variable_map: dict[str, float], name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    map_ref: str,
+    variable_map: dict[str, float],
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Performs partial or full variable substitution on a TaylorMap.
 
@@ -533,29 +696,43 @@ def substitute_in_taylor_map(
                 raise ValueError(
                     f"Variable keys in variable_map must be integers represented as strings (e.g. '1'), got '{k}'"
                 )
-
         res = tmap.substitute(converted_map)
-
         if isinstance(res, TaylorMap):
             ref = register_object(res, name, session_id=session_id)
-            return ToolSuccessResponse(data={
-                    "ref": ref,
-                    "message": f"Successfully performed partial substitution and registered new TaylorMap as '{ref}'",
-                    "info": str(res),
-                    "json": res.to_json(),
-                }).model_dump()
+            return ToolSuccessResponse(
+                data={
+                    "result": {
+                        "ref": ref,
+                        "message": f"Successfully performed partial substitution and registered new TaylorMap as '{ref}'",
+                        "info": str(res),
+                        "json": res.to_json(),
+                    },
+                    "metadata": {"operation": "substitute_in_taylor_map"},
+                }
+            ).model_dump()
         else:
-            return ToolSuccessResponse(data={
-                    "message": "Successfully performed full substitution (evaluation)",
-                    "result": list(res),
-                }).model_dump()
+            return ToolSuccessResponse(
+                data={
+                    "result": {
+                        "message": "Successfully performed full substitution (evaluation)",
+                        "result": list(res),
+                    },
+                    "metadata": {"operation": "substitute_in_taylor_map"},
+                }
+            ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
-def get_mtf_coefficient(mtf_ref: str, exponents: list[int], session_id: str = "default") -> dict:
+def get_mtf_coefficient(
+    mtf_ref: str, exponents: list[int], session_id: str = "default"
+) -> dict:
     """
     Queries the coefficient of a specific term/exponent tuple in a MultivariateTaylorFunction.
 
@@ -571,21 +748,30 @@ def get_mtf_coefficient(mtf_ref: str, exponents: list[int], session_id: str = "d
         val = func.extract_coefficient(tuple(exponents))
         if hasattr(val, "item"):
             val = val.item()
-
         val_str = str(val)
-
-        return ToolSuccessResponse(data={
-                "exponents": exponents,
-                "coefficient": val_str,
-                "numeric_value": val.real if isinstance(val, complex) else val,
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "exponents": exponents,
+                    "coefficient": val_str,
+                    "numeric_value": val.real if isinstance(val, complex) else val,
+                },
+                "metadata": {"operation": "get_mtf_coefficient"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
-def truncate_object(ref: str, order: int, name: Optional[str] = None, session_id: str = "default") -> dict:
+def truncate_object(
+    ref: str, order: int, name: Optional[str] = None, session_id: str = "default"
+) -> dict:
     """
     Truncates a MultivariateTaylorFunction or a TaylorMap component terms to the specified maximum order.
 
@@ -604,25 +790,31 @@ def truncate_object(ref: str, order: int, name: Optional[str] = None, session_id
         except TypeError:
             obj = get_object(ref, TaylorMap, session_id=session_id)
             is_mtf = False
-
         truncated = obj.truncate(order)
         new_ref = register_object(truncated, name, session_id=session_id)
-
         if is_mtf:
             info = truncated.get_tabular_dataframe().to_string(index=False)
         else:
             info = str(truncated)
-
-        return ToolSuccessResponse(data={
-                "ref": new_ref,
-                "message": f"Successfully truncated object to order={order} and registered as '{new_ref}'",
-                "info": info,
-                "json": truncated.to_json(),
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": new_ref,
+                    "message": f"Successfully truncated object to order={order} and registered as '{new_ref}'",
+                    "info": info,
+                    "json": truncated.to_json(),
+                },
+                "metadata": {"operation": "truncate_object"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
@@ -638,7 +830,6 @@ def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
     """
     try:
         tmap = get_object(map_ref, TaylorMap, session_id=session_id)
-
         try:
             trace_val = tmap.trace()
             if hasattr(trace_val, "item"):
@@ -648,7 +839,6 @@ def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
             trace_str = (
                 f"Trace calculation failed (dimensions might not match): {str(te)}"
             )
-
         invertible = False
         reason = ""
         try:
@@ -684,27 +874,35 @@ def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
                             reason = "Map is invertible"
         except Exception as ie:
             reason = f"Invertibility check failed: {str(ie)}"
-
-        return ToolSuccessResponse(data={
-                "trace": trace_str,
-                "invertible": invertible,
-                "reason": reason,
-                "dimensions": {
-                    "input_dimension": tmap.components[0].dimension
-                    if tmap.map_dim > 0
-                    else 0,
-                    "output_dimension": tmap.map_dim,
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "trace": trace_str,
+                    "invertible": invertible,
+                    "reason": reason,
+                    "dimensions": {
+                        "input_dimension": tmap.components[0].dimension
+                        if tmap.map_dim > 0
+                        else 0,
+                        "output_dimension": tmap.map_dim,
+                    },
                 },
-            }).model_dump()
+                "metadata": {"operation": "analyze_taylor_map"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def evaluate_mtf_batch(
-    mtf_ref: str, points: list[list[float]]
-, session_id: str = "default") -> dict:
+    mtf_ref: str, points: list[list[float]], session_id: str = "default"
+) -> dict:
     """
     Evaluates a single MultivariateTaylorFunction at a batch of points in phase space.
     Uses Sandalwood's high-performance vectorized evaluation (neval).
@@ -720,20 +918,31 @@ def evaluate_mtf_batch(
         if not points:
             raise ValueError("Points list cannot be empty.")
         func = get_object(mtf_ref, MultivariateTaylorFunction, session_id=session_id)
-        if len(points[0]) != getattr(func, 'dimension', len(points[0])):
-            raise ValueError(f"Inner dimension mismatch. Expected {func.dimension}, got {len(points[0])}")
+        if len(points[0]) != getattr(func, "dimension", len(points[0])):
+            raise ValueError(
+                f"Inner dimension mismatch. Expected {func.dimension}, got {len(points[0])}"
+            )
         pts_arr = np.array(points, dtype=np.float64)
         res = func.neval(pts_arr)
-        return ToolSuccessResponse(data=[r.item() for r in res]).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": [r.item() for r in res],
+                "metadata": {"operation": "evaluate_mtf_batch"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def evaluate_taylor_map_batch(
-    map_ref: str, points: list[list[float]]
-, session_id: str = "default") -> dict:
+    map_ref: str, points: list[list[float]], session_id: str = "default"
+) -> dict:
     """
     Evaluates a TaylorMap at a batch of points in phase space.
     Evaluates each component on the list of points, returning a list of output coordinate vectors.
@@ -751,32 +960,43 @@ def evaluate_taylor_map_batch(
         tmap = get_object(map_ref, TaylorMap, session_id=session_id)
         if not tmap.components:
             raise ValueError("TaylorMap is empty.")
-        if len(points[0]) != getattr(tmap.components[0], 'dimension', len(points[0])):
-            raise ValueError(f"Inner dimension mismatch. Expected {tmap.components[0].dimension}, got {len(points[0])}")
+        if len(points[0]) != getattr(tmap.components[0], "dimension", len(points[0])):
+            raise ValueError(
+                f"Inner dimension mismatch. Expected {tmap.components[0].dimension}, got {len(points[0])}"
+            )
         pts_arr = np.array(points, dtype=np.float64)
-
         comp_results = []
         for comp in tmap.components:
             comp_res = comp.neval(pts_arr)
             comp_results.append([r.item() for r in comp_res])
-
         n_points = len(points)
         n_comps = len(tmap.components)
         transposed = [
             [comp_results[c][p] for c in range(n_comps)] for p in range(n_points)
         ]
-        return ToolSuccessResponse(data=transposed).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": transposed,
+                "metadata": {"operation": "evaluate_taylor_map_batch"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def analyze_mtf_diagnostics(
     mtf_ref: str,
     weight: Optional[list[float]] = None,
     stability_var_id: Optional[int] = None,
-    stability_order: Optional[int] = None, session_id: str = "default") -> dict:
+    stability_order: Optional[int] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Computes diagnostics for a MultivariateTaylorFunction, including norm,
     weighted norm, and stability/order decay estimates.
@@ -793,33 +1013,46 @@ def analyze_mtf_diagnostics(
     try:
         func = get_object(mtf_ref, MultivariateTaylorFunction, session_id=session_id)
         norm_val = func.norm()
-
         weighted_norm_val = None
         stability_val = None
-
         if func._IMPLEMENTATION == "cosy":
             if weight is not None:
+                if len(weight) != func.dimension:
+                    raise ValueError(
+                        f"Weight length {len(weight)} != dimension {func.dimension}"
+                    )
                 weighted_norm_val = func.weighted_norm(weight)
             if stability_var_id is not None:
                 stability_val = func.estimate_stability(
                     var_id=stability_var_id, order=stability_order
                 )
-
-        return ToolSuccessResponse(data={
-                "norm": norm_val,
-                "weighted_norm": weighted_norm_val,
-                "stability_estimate": stability_val,
-                "implementation": func._IMPLEMENTATION,
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "norm": norm_val,
+                    "weighted_norm": weighted_norm_val,
+                    "stability_estimate": stability_val,
+                    "implementation": func._IMPLEMENTATION,
+                },
+                "metadata": {"operation": "analyze_mtf_diagnostics"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def compute_poisson_bracket(
-    mtf_ref_1: str, mtf_ref_2: str, name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    mtf_ref_1: str,
+    mtf_ref_2: str,
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Computes the Poisson bracket of two MultivariateTaylorFunctions.
 
@@ -836,19 +1069,31 @@ def compute_poisson_bracket(
         func2 = get_object(mtf_ref_2, MultivariateTaylorFunction, session_id=session_id)
         result = func1.poisson_bracket(func2)
         ref_name = register_object(result, name, session_id=session_id)
-        return ToolSuccessResponse(data={
-                "ref": ref_name,
-                "message": f"Successfully computed Poisson bracket. Saved as '{ref_name}'.",
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref_name,
+                    "message": f"Successfully computed Poisson bracket. Saved as '{ref_name}'.",
+                },
+                "metadata": {"operation": "compute_poisson_bracket"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
 def compute_map_sensitivity(
-    map_ref: str, scaling_factors: list[float], name: Optional[str] = None
-, session_id: str = "default") -> dict:
+    map_ref: str,
+    scaling_factors: list[float],
+    name: Optional[str] = None,
+    session_id: str = "default",
+) -> dict:
     """
     Computes the sensitivity of a TaylorMap given a list of scaling factors.
     Returns a new TaylorMap with scaled coefficients.
@@ -865,17 +1110,28 @@ def compute_map_sensitivity(
         tmap = get_object(map_ref, TaylorMap, session_id=session_id)
         new_map = tmap.map_sensitivity(scaling_factors)
         ref_name = register_object(new_map, name, session_id=session_id)
-        return ToolSuccessResponse(data={
-                "ref": ref_name,
-                "message": f"Successfully computed map sensitivity. Saved as '{ref_name}'.",
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref_name,
+                    "message": f"Successfully computed map sensitivity. Saved as '{ref_name}'.",
+                },
+                "metadata": {"operation": "compute_map_sensitivity"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
 
 
-def extract_map_component(map_ref: str, index: int, name: Optional[str] = None, session_id: str = "default") -> dict:
+def extract_map_component(
+    map_ref: str, index: int, name: Optional[str] = None, session_id: str = "default"
+) -> dict:
     """
     Extracts a specific MultivariateTaylorFunction component from a TaylorMap by index.
 
@@ -895,11 +1151,20 @@ def extract_map_component(map_ref: str, index: int, name: Optional[str] = None, 
             )
         component = tmap.get_component(index)
         ref_name = register_object(component, name, session_id=session_id)
-        return ToolSuccessResponse(data={
-                "ref": ref_name,
-                "message": f"Successfully extracted component {index}. Saved as '{ref_name}'.",
-            }).model_dump()
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "ref": ref_name,
+                    "message": f"Successfully extracted component {index}. Saved as '{ref_name}'.",
+                },
+                "metadata": {"operation": "extract_map_component"},
+            }
+        ).model_dump()
     except (ValueError, TypeError, SyntaxError) as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.INVALID_INPUT, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
+        ).model_dump()
     except Exception as e:
-        return ToolErrorResponse(error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)).model_dump()
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()

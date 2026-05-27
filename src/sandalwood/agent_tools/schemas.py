@@ -27,6 +27,7 @@ class ToolErrorResponse(BaseModel):
 
 # --- Input Schemas ---
 
+
 class InitializeSandalwoodInput(BaseModel):
     max_order: int = Field(..., description="Maximum truncation order.")
     max_dimension: int = Field(..., description="Maximum number of variables.")
@@ -70,14 +71,18 @@ class InvertTaylorMapInput(BaseModel):
 
 class ComputePartialDerivativeInput(BaseModel):
     mtf_ref: str = Field(..., description="Registry reference name of the MTF.")
-    var_index: int = Field(..., description="Variable index to differentiate with respect to (1-indexed).")
+    var_index: int = Field(
+        ..., description="Variable index to differentiate with respect to (1-indexed)."
+    )
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
 
 
 class IntegrateMtfInput(BaseModel):
     mtf_ref: str = Field(..., description="Registry reference name of the MTF.")
-    var_index: int = Field(..., description="Variable index to integrate with respect to (1-indexed).")
+    var_index: int = Field(
+        ..., description="Variable index to integrate with respect to (1-indexed)."
+    )
     lower_limit: Optional[float] = Field(None, description="Lower integration limit.")
     upper_limit: Optional[float] = Field(None, description="Upper integration limit.")
     name: Optional[str] = Field(None, description="Optional custom registry name.")
@@ -85,8 +90,12 @@ class IntegrateMtfInput(BaseModel):
 
 
 class ComposeTaylorMapsInput(BaseModel):
-    map_ref_1: str = Field(..., description="Registry reference of the outer TaylorMap.")
-    map_ref_2: str = Field(..., description="Registry reference of the inner TaylorMap.")
+    map_ref_1: str = Field(
+        ..., description="Registry reference of the outer TaylorMap."
+    )
+    map_ref_2: str = Field(
+        ..., description="Registry reference of the inner TaylorMap."
+    )
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
 
@@ -99,7 +108,9 @@ class ComposeMtfsInput(BaseModel):
 
 
 class PerformMtfArithmeticInput(BaseModel):
-    mtf_ref_1: str = Field(..., description="Registry reference or scalar value (e.g. '1.5').")
+    mtf_ref_1: str = Field(
+        ..., description="Registry reference or scalar value (e.g. '1.5')."
+    )
     mtf_ref_2: str = Field(..., description="Registry reference or scalar value.")
     op: str = Field(..., description="Operation: '+', '-', '*', '/', '**'.")
     name: Optional[str] = Field(None, description="Optional custom registry name.")
@@ -108,7 +119,9 @@ class PerformMtfArithmeticInput(BaseModel):
 
 class PerformComplexOperationInput(BaseModel):
     mtf_ref: str = Field(..., description="Registry reference of the MTF.")
-    op: str = Field(..., description="Complex operation: 'real_part', 'imag_part', 'conjugate'.")
+    op: str = Field(
+        ..., description="Complex operation: 'real_part', 'imag_part', 'conjugate'."
+    )
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
 
@@ -133,7 +146,9 @@ class SubstituteVariableInMtfInput(BaseModel):
 
 class SubstituteInTaylorMapInput(BaseModel):
     map_ref: str = Field(..., description="Registry reference of the TaylorMap.")
-    variable_map: dict = Field(..., description="Dict mapping string indices to numeric values.")
+    variable_map: dict = Field(
+        ..., description="Dict mapping string indices to numeric values."
+    )
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
 
@@ -158,13 +173,17 @@ class AnalyzeTaylorMapInput(BaseModel):
 
 class EvaluateMtfBatchInput(BaseModel):
     mtf_ref: str = Field(..., description="Registry reference of the MTF.")
-    points: List[List[float]] = Field(..., description="List of coordinate points to evaluate.")
+    points: List[List[float]] = Field(
+        ..., description="List of coordinate points to evaluate."
+    )
     session_id: str = Field("default", description="Session isolation namespace.")
 
 
 class EvaluateTaylorMapBatchInput(BaseModel):
     map_ref: str = Field(..., description="Registry reference of the TaylorMap.")
-    points: List[List[float]] = Field(..., description="List of coordinate points to evaluate.")
+    points: List[List[float]] = Field(
+        ..., description="List of coordinate points to evaluate."
+    )
     session_id: str = Field("default", description="Session isolation namespace.")
 
 

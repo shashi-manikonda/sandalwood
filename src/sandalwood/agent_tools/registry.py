@@ -28,7 +28,9 @@ def prune_registry(session_id: str):
             del _counter[session_id]
 
 
-def register_object(obj: Any, name: Optional[str] = None, session_id: str = "default") -> str:
+def register_object(
+    obj: Any, name: Optional[str] = None, session_id: str = "default"
+) -> str:
     """
     Registers a Sandalwood object (MTF or TaylorMap) in the session registry.
 

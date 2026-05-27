@@ -137,7 +137,7 @@ def test_initialize_sandalwood_tool():
         "max_dimension": 2,
         "implementation": "python",
     })
-    assert "Sandalwood successfully initialized" in res["data"]
+    assert "Sandalwood successfully initialized" in res["data"]["result"]
     assert mtf.get_max_order() == 4
     assert mtf.get_max_dimension() == 2
 
@@ -158,7 +158,7 @@ def test_parse_and_create_map_tools():
         "max_order": 2,
         "name": "f1",
     })
-    data = res["data"]
+    data = res["data"]["result"]
     assert data["ref"] == "f1"
     assert "Successfully parsed" in data["message"]
 
@@ -169,7 +169,7 @@ def test_parse_and_create_map_tools():
         "max_order": 2,
         "name": "mapA",
     })
-    map_data = map_res["data"]
+    map_data = map_res["data"]["result"]
     assert map_data["ref"] == "mapA"
     assert "TaylorMap with 2 components" in map_data["info"]
 
@@ -183,7 +183,7 @@ def test_evaluation_tools():
         "name": "mapA",
     })
     eval_res = evaluate_taylor_map.invoke({"map_ref": "mapA", "point": [1.5, 0.5]})
-    assert eval_res["data"] == [2.0, 1.0]
+    assert eval_res["data"]["result"] == [2.0, 1.0]
 
     # Evaluate MTF
     parse_expression_to_mtf.invoke({
@@ -193,7 +193,7 @@ def test_evaluation_tools():
         "name": "f1",
     })
     eval_f1 = evaluate_mtf.invoke({"mtf_ref": "f1", "point": [2.0, 3.0]})
-    assert abs(eval_f1["data"] - 6.0) < 1e-14
+    assert abs(eval_f1["data"]["result"] - 6.0) < 1e-14
 
 
 def test_inversion_and_calculus_tools():
@@ -209,19 +209,19 @@ def test_inversion_and_calculus_tools():
         "var_index": 1,
         "name": "df1",
     })
-    deriv_data = deriv_res["data"]
+    deriv_data = deriv_res["data"]["result"]
     assert deriv_data["ref"] == "df1"
     # df1/dx1 = 3*x1**2. Evaluate at [2.0, 0.0] -> 12
     deriv_val = evaluate_mtf.invoke({"mtf_ref": "df1", "point": [2.0, 0.0]})
-    assert abs(deriv_val["data"] - 12.0) < 1e-7
+    assert abs(deriv_val["data"]["result"] - 12.0) < 1e-7
 
     # Integration
     # Integrate df1 = 3*x1**2 wrt 1 -> x1**3
     int_res = integrate_mtf.invoke({"mtf_ref": "df1", "var_index": 1, "name": "F1"})
-    int_data = int_res["data"]
+    int_data = int_res["data"]["result"]
     assert int_data["ref"] == "F1"
     int_val = evaluate_mtf.invoke({"mtf_ref": "F1", "point": [2.0, 0.0]})
-    assert abs(int_val["data"] - 8.0) < 1e-7
+    assert abs(int_val["data"]["result"] - 8.0) < 1e-7
 
     # Definite integration (integrate 3*x1**2 from 1 to 2 -> 2**3 - 1**3 = 7)
     def_int_res = integrate_mtf.invoke({
@@ -231,10 +231,10 @@ def test_inversion_and_calculus_tools():
         "upper_limit": 2.0,
         "name": "F1_def",
     })
-    def_int_data = def_int_res["data"]
+    def_int_data = def_int_res["data"]["result"]
     # The result of a definite integral is a constant function
     def_int_val = evaluate_mtf.invoke({"mtf_ref": "F1_def", "point": [0.0, 0.0]})
-    assert abs(def_int_val["data"] - 7.0) < 1e-7
+    assert abs(def_int_val["data"]["result"] - 7.0) < 1e-7
 
 
 def test_inversion_tool():
@@ -248,7 +248,7 @@ def test_inversion_tool():
         "name": "mapF",
     })
     inv_res = invert_taylor_map.invoke({"map_ref": "mapF", "name": "mapF_inv"})
-    inv_data = inv_res["data"]
+    inv_data = inv_res["data"]["result"]
     assert inv_data["ref"] == "mapF_inv"
 
     eval_point = evaluate_taylor_map.invoke({
@@ -256,8 +256,8 @@ def test_inversion_tool():
         "point": [2.0, 1.0],
     })
     # F_inv([2, 1]) = [2 - 1, 1] = [1, 1]
-    assert abs(eval_point["data"][0] - 1.0) < 1e-7
-    assert abs(eval_point["data"][1] - 1.0) < 1e-7
+    assert abs(eval_point["data"]["result"][0] - 1.0) < 1e-7
+    assert abs(eval_point["data"]["result"][1] - 1.0) < 1e-7
 
 
 def test_composition_tools():
@@ -282,12 +282,12 @@ def test_composition_tools():
         "map_ref_2": "map2",
         "name": "map_comp",
     })
-    comp_data = comp_res["data"]
+    comp_data = comp_res["data"]["result"]
     assert comp_data["ref"] == "map_comp"
 
     eval_val = evaluate_taylor_map.invoke({"map_ref": "map_comp", "point": [1.0, 2.0]})
-    assert abs(eval_val["data"][0] - 4.0) < 1e-7  # (1+1)**2
-    assert abs(eval_val["data"][1] - 2.0) < 1e-7
+    assert abs(eval_val["data"]["result"][0] - 4.0) < 1e-7  # (1+1)**2
+    assert abs(eval_val["data"]["result"][1] - 2.0) < 1e-7
 
     # MTF Composition
     # f = x1**2 + x2
@@ -310,11 +310,11 @@ def test_composition_tools():
         "inner_mtf_refs": {"1": "g1"},
         "name": "f_composed",
     })
-    comp_mtf_data = comp_mtf_res["data"]
+    comp_mtf_data = comp_mtf_res["data"]["result"]
     assert comp_mtf_data["ref"] == "f_composed"
 
     val = evaluate_mtf.invoke({"mtf_ref": "f_composed", "point": [1.0, 2.0]})
-    assert abs(val["data"] - 6.0) < 1e-7  # (1+1)**2 + 2 = 6
+    assert abs(val["data"]["result"] - 6.0) < 1e-7  # (1+1)**2 + 2 = 6
 
 
 def test_arithmetic_tools():
@@ -338,10 +338,10 @@ def test_arithmetic_tools():
         "mtf_ref_2": "f2",
         "name": "f3",
     })
-    data = res["data"]
+    data = res["data"]["result"]
     assert data["ref"] == "f3"
     val = evaluate_mtf.invoke({"mtf_ref": "f3", "point": [1.5, 2.5]})
-    assert abs(val["data"] - 4.0) < 1e-14
+    assert abs(val["data"]["result"] - 4.0) < 1e-14
 
     # f1 * 3.0 (scalar)
     res_mul = perform_mtf_arithmetic.invoke({
@@ -351,7 +351,7 @@ def test_arithmetic_tools():
         "name": "f_mul",
     })
     val_mul = evaluate_mtf.invoke({"mtf_ref": "f_mul", "point": [1.5, 2.5]})
-    assert abs(val_mul["data"] - 4.5) < 1e-14
+    assert abs(val_mul["data"]["result"] - 4.5) < 1e-14
 
 
 def test_complex_operations():
@@ -369,10 +369,10 @@ def test_complex_operations():
         "mtf_ref": "z",
         "name": "z_conj",
     })
-    conj_data = conj_res["data"]
+    conj_data = conj_res["data"]["result"]
     assert conj_data["ref"] == "z_conj"
     val_conj = evaluate_mtf.invoke({"mtf_ref": "z_conj", "point": [1.0, 0.0]})
-    assert abs(val_conj["data"] - (1 - 2j)) < 1e-14
+    assert abs(val_conj["data"]["result"] - (1 - 2j)) < 1e-14
 
     # Real part
     real_res = perform_complex_operation.invoke({
@@ -380,10 +380,10 @@ def test_complex_operations():
         "mtf_ref": "z",
         "name": "z_real",
     })
-    real_data = real_res["data"]
+    real_data = real_res["data"]["result"]
     assert real_data["ref"] == "z_real"
     val_real = evaluate_mtf.invoke({"mtf_ref": "z_real", "point": [2.0, 0.0]})
-    assert abs(val_real["data"] - 2.0) < 1e-14
+    assert abs(val_real["data"]["result"] - 2.0) < 1e-14
 
 
 def test_info_tools():
@@ -394,8 +394,8 @@ def test_info_tools():
         "name": "f",
     })
     info_str = mtf_info.invoke({"mtf_ref": "f"})
-    assert "Exponents" in info_str["data"]
-    assert "(2, 0)" in info_str["data"]
+    assert "Exponents" in info_str["data"]["result"]
+    assert "(2, 0)" in info_str["data"]["result"]
 
     create_taylor_map.invoke({
         "expressions": ["x1", "x2"],
@@ -404,7 +404,7 @@ def test_info_tools():
         "name": "map",
     })
     map_str = taylor_map_info.invoke({"map_ref": "map"})
-    assert "TaylorMap with 2 components" in map_str["data"]
+    assert "TaylorMap with 2 components" in map_str["data"]["result"]
 
 
 def test_advanced_agent_tools():
@@ -421,11 +421,11 @@ def test_advanced_agent_tools():
         "value": 3.0,
         "name": "f_sub",
     })
-    sub_data = sub_res["data"]
+    sub_data = sub_res["data"]["result"]
     assert sub_data["ref"] == "f_sub"
     # Result is constant 9 + x2. Evaluate at x2=2 -> 11
     val = evaluate_mtf.invoke({"mtf_ref": "f_sub", "point": [0.0, 2.0]})
-    assert abs(val["data"] - 11.0) < 1e-14
+    assert abs(val["data"]["result"] - 11.0) < 1e-14
 
     # 2. TaylorMap substitution (partial)
     create_taylor_map.invoke({
@@ -439,24 +439,24 @@ def test_advanced_agent_tools():
         "variable_map": {"2": 2.0},
         "name": "map_A_sub",
     })
-    sub_map_data = sub_map_res["data"]
+    sub_map_data = sub_map_res["data"]["result"]
     assert sub_map_data["ref"] == "map_A_sub"
     # Result map is [x1 + 4, 2]. Evaluate at x1=1 -> [5, 2]
     eval_val = evaluate_taylor_map.invoke({"map_ref": "map_A_sub", "point": [1.0, 0.0]})
-    assert abs(eval_val["data"][0] - 5.0) < 1e-14
-    assert abs(eval_val["data"][1] - 2.0) < 1e-14
+    assert abs(eval_val["data"]["result"][0] - 5.0) < 1e-14
+    assert abs(eval_val["data"]["result"][1] - 2.0) < 1e-14
 
     # 3. TaylorMap substitution (full)
     sub_full_res = substitute_in_taylor_map.invoke({
         "map_ref": "map_A",
         "variable_map": {"1": 1.0, "2": 2.0},
     })
-    sub_full_data = sub_full_res["data"]
+    sub_full_data = sub_full_res["data"]["result"]
     assert sub_full_data["result"] == [5.0, 2.0]
 
     # 4. Get coefficient
     coeff_res = get_mtf_coefficient.invoke({"mtf_ref": "f", "exponents": [2, 0]})
-    coeff_data = coeff_res["data"]
+    coeff_data = coeff_res["data"]["result"]
     assert coeff_data["exponents"] == [2, 0]
     assert float(coeff_data["coefficient"]) == 1.0
 
@@ -468,7 +468,7 @@ def test_advanced_agent_tools():
         "name": "f_high",
     })
     trunc_res = truncate_object.invoke({"ref": "f_high", "order": 2, "name": "f_low"})
-    trunc_data = trunc_res["data"]
+    trunc_data = trunc_res["data"]["result"]
     assert trunc_data["ref"] == "f_low"
     assert "x1**3" not in trunc_data["info"]  # Should be truncated away
 
@@ -480,7 +480,7 @@ def test_advanced_agent_tools():
         "name": "map_non_inv",
     })
     analysis_res = analyze_taylor_map.invoke({"map_ref": "map_non_inv"})
-    analysis_data = analysis_res["data"]
+    analysis_data = analysis_res["data"]["result"]
     # trace = 2 + 1 = 3
     assert complex(analysis_data["trace"]) == 3.0
     assert analysis_data["invertible"] is True
@@ -548,7 +548,7 @@ def test_batch_evaluation_tools():
     # Batch evaluate MTF
     pts = [[1.0, 2.0], [3.0, 4.0], [0.0, 0.0]]
     res = evaluate_mtf_batch.invoke({"mtf_ref": "f_batch", "points": pts})
-    assert res["data"] == [3.0, 13.0, 0.0]
+    assert res["data"]["result"] == [3.0, 13.0, 0.0]
 
     # Create TaylorMap and register it
     create_taylor_map.invoke({
@@ -560,7 +560,7 @@ def test_batch_evaluation_tools():
 
     # Batch evaluate TaylorMap
     res_map = evaluate_taylor_map_batch.invoke({"map_ref": "map_batch", "points": pts})
-    assert res_map["data"] == [[3.0, -1.0], [7.0, -1.0], [0.0, 0.0]]
+    assert res_map["data"]["result"] == [[3.0, -1.0], [7.0, -1.0], [0.0, 0.0]]
 
 
 def test_analyze_mtf_diagnostics():
@@ -573,7 +573,7 @@ def test_analyze_mtf_diagnostics():
 
     # Analyze diagnostics
     res_diag = analyze_mtf_diagnostics.invoke({"mtf_ref": "f_diag"})
-    data = res_diag["data"]
+    data = res_diag["data"]["result"]
     assert "norm" in data
     assert data["norm"] > 0
     assert "implementation" in data
@@ -610,10 +610,10 @@ def test_advanced_da_capabilities():
     })
 
     if _COSY_AVAILABLE:
-        pb_data = pb_res["data"]
+        pb_data = pb_res["data"]["result"]
         assert pb_data["ref"] == "f_pb"
         pb_val = evaluate_mtf.invoke({"mtf_ref": "f_pb", "point": [3.0, 0.0]})
-        assert abs(pb_val["data"] - 6.0) < 1e-14
+        assert abs(pb_val["data"]["result"] - 6.0) < 1e-14
     else:
         assert pb_res["status"] == "error"
 
@@ -630,13 +630,13 @@ def test_advanced_da_capabilities():
         "scaling_factors": [2.0, 1.0],
         "name": "map_sens",
     })
-    sens_data = sens_res["data"]
+    sens_data = sens_res["data"]["result"]
     assert sens_data["ref"] == "map_sens"
     sens_val = evaluate_taylor_map.invoke({"map_ref": "map_sens", "point": [1.0, 2.0]})
     # new_map_x1: 2*(2.0*x1) + (1.0*x2)**2 = 4*x1 + x2**2 -> 4(1) + 4 = 8
     # new_map_x2: 3*(1.0*x2) = 3*x2 -> 3(2) = 6
-    assert abs(sens_val["data"][0] - 8.0) < 1e-14
-    assert abs(sens_val["data"][1] - 6.0) < 1e-14
+    assert abs(sens_val["data"]["result"][0] - 8.0) < 1e-14
+    assert abs(sens_val["data"]["result"][1] - 6.0) < 1e-14
 
     # 3. Extract Map Component
     ext_res = extract_map_component.invoke({
@@ -644,8 +644,8 @@ def test_advanced_da_capabilities():
         "index": 0,
         "name": "comp_0",
     })
-    ext_data = ext_res["data"]
+    ext_data = ext_res["data"]["result"]
     assert ext_data["ref"] == "comp_0"
     comp_val = evaluate_mtf.invoke({"mtf_ref": "comp_0", "point": [1.0, 2.0]})
     # 2*(1) + 2**2 = 6
-    assert abs(comp_val["data"] - 6.0) < 1e-14
+    assert abs(comp_val["data"]["result"] - 6.0) < 1e-14
