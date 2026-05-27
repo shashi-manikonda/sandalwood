@@ -56,6 +56,8 @@ test = [
     "sympy",
     "jupyter",
     "psutil",
+    "langchain-core",
+    "mcp",
 ]
 docs = [
     "sphinx",
@@ -88,6 +90,8 @@ dev = [
     "build",
     "twine",
     "jupyter",
+    "langchain-core",
+    "mcp",
 ]
    
 
