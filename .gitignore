@@ -251,5 +251,5 @@ local_readme.md
 *.toc
 *.synctex.gz
 
-# Antigravity CLI metadata
+# Antigravity CLI
 .antigravitycli/

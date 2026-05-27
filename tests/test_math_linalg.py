@@ -2,7 +2,10 @@ import numpy as np
 import pytest
 
 from sandalwood import taylor_function as taylor
-from sandalwood.backends.cosy import cosy_backend
+try:
+    from sandalwood.backends.cosy import cosy_backend
+except ImportError:
+    cosy_backend = None
 
 
 @pytest.fixture(autouse=True)
@@ -30,8 +33,9 @@ def test_linear_combination(implementation):
         assert res.extract_coefficient((0,)) == 3.0
         return
 
-    if implementation == "cosy" and not taylor._COSY_BACKEND_AVAILABLE:
-        pytest.skip("COSY backend not available")
+    if implementation == "cosy":
+        if not taylor._COSY_BACKEND_AVAILABLE or cosy_backend is None:
+            pytest.skip("COSY backend not available")
 
     # Setup
     cosy_backend.CosyBackend.initialize(order=1, dim=1)
@@ -98,7 +102,7 @@ def test_matrix_inversion(implementation):
         return
 
     if implementation == "cosy":
-        if not taylor._COSY_BACKEND_AVAILABLE:
+        if not taylor._COSY_BACKEND_AVAILABLE or cosy_backend is None:
             pytest.skip("COSY backend not available")
 
         # Matrix A = [[4, 7], [2, 6]]

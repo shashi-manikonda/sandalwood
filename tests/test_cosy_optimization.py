@@ -7,6 +7,7 @@ import pytest
 # Ensure we can import sandalwood
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
+pytest.importorskip("sandalwood.backends.cosy")
 from sandalwood.backends.cosy.cosy_backend import CosyBackend, CosyDA, CosyMtfData
 from sandalwood.taylor_function import _COSY_BACKEND_AVAILABLE
 
