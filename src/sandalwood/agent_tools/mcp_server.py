@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+
 from sandalwood.agent_tools import functions
 from sandalwood.agent_tools.registry import _registry
 
@@ -32,6 +33,7 @@ mcp.tool()(functions.compute_poisson_bracket)
 mcp.tool()(functions.compute_map_sensitivity)
 mcp.tool()(functions.extract_map_component)
 
+
 @mcp.prompt("sandalwood-da-expert")
 def sandalwood_da_expert() -> str:
     """Provides expert system instructions on utilizing Sandalwood for differential algebra tasks."""
@@ -63,6 +65,7 @@ def sandalwood_da_expert() -> str:
 def list_variables() -> str:
     """List all registered MultivariateTaylorFunctions and TaylorMaps in the current session."""
     import json
+
     vars_info = {}
     for name, obj in _registry.items():
         if hasattr(obj, "components") and len(obj.components) > 0:
@@ -71,17 +74,16 @@ def list_variables() -> str:
             dim = obj.dimension
         else:
             dim = None
-            
-        vars_info[name] = {
-            "type": type(obj).__name__,
-            "dimension": dim
-        }
+
+        vars_info[name] = {"type": type(obj).__name__, "dimension": dim}
     return json.dumps(vars_info, indent=2)
+
 
 @mcp.resource("registry://variable/{name}")
 def get_variable(name: str) -> str:
     """Get the detailed tabular representation of a registered variable by name."""
     from sandalwood import MultivariateTaylorFunction, TaylorMap
+
     if name not in _registry:
         return f"Variable '{name}' not found in session registry."
     obj = _registry[name]
@@ -92,8 +94,10 @@ def get_variable(name: str) -> str:
     else:
         return str(obj)
 
+
 def main():
     mcp.run()
+
 
 if __name__ == "__main__":
     main()
