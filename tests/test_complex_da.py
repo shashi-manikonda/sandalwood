@@ -76,8 +76,8 @@ def test_complex_real_power():
     assert np.allclose(coeffs[0], 0.0 + 2.0j)
 
     # Sqrt(i) = e^(i pi/4) = (1+i)/sqrt(2)
-    I = mtf.from_constant(1.0j, dimension=2)
-    S = I**0.5
+    i_cst = mtf.from_constant(1.0j, dimension=2)
+    S = i_cst**0.5
     expected = (1.0 + 1.0j) / np.sqrt(2)
     coeffs_s = S.to_dict()["coeffs"]
     assert np.allclose(coeffs_s[0], expected)
