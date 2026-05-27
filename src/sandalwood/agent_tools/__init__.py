@@ -21,6 +21,9 @@ from .langchain_tools import (
     evaluate_mtf_batch,
     evaluate_taylor_map_batch,
     analyze_mtf_diagnostics,
+    compute_poisson_bracket,
+    compute_map_sensitivity,
+    extract_map_component,
 )
 from .parser import expression_to_mtf
 from .registry import (
@@ -53,6 +56,9 @@ __all__ = [
     "evaluate_mtf_batch",
     "evaluate_taylor_map_batch",
     "analyze_mtf_diagnostics",
+    "compute_poisson_bracket",
+    "compute_map_sensitivity",
+    "extract_map_component",
     # Helper Parser
     "expression_to_mtf",
     # Registry Functions

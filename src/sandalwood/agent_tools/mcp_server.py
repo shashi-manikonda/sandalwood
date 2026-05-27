@@ -28,6 +28,9 @@ mcp.tool()(functions.analyze_taylor_map)
 mcp.tool()(functions.evaluate_mtf_batch)
 mcp.tool()(functions.evaluate_taylor_map_batch)
 mcp.tool()(functions.analyze_mtf_diagnostics)
+mcp.tool()(functions.compute_poisson_bracket)
+mcp.tool()(functions.compute_map_sensitivity)
+mcp.tool()(functions.extract_map_component)
 
 @mcp.prompt("sandalwood-da-expert")
 def sandalwood_da_expert() -> str:
@@ -41,13 +44,13 @@ def sandalwood_da_expert() -> str:
         "Guidelines for solving tasks:\n"
         "- Initialization: Always call `initialize_sandalwood` before performing any operations if settings (dimension, order, backend implementation) need to be adjusted. By default, Sandalwood operates on the selected backend (e.g. COSY backend supports advanced diagnostics).\n"
         "- Expression Parsing: Use `parse_expression_to_mtf` to convert mathematical expression strings (e.g. 'x1**2 + sin(x2)') into MTFs. You can use common math functions like sin, cos, tan, exp, log, sinh, cosh, tanh, sqrt, arcsin (asin), arccos (acos), arctan (atan), erf, and specialty functions: gaussian, isqrt, inv_cbrt, inv_pow_3_2.\n"
-        "- Taylor Maps: Combine multiple expressions or components using `create_taylor_map`.\n"
+        "- Taylor Maps: Combine multiple expressions or components using `create_taylor_map`. Extract individual components back out using `extract_map_component`.\n"
         "- Evaluation:\n"
         "  - For single points, use `evaluate_mtf` or `evaluate_taylor_map`.\n"
         "  - For high-performance vectorized evaluation on multiple points, use `evaluate_mtf_batch` or `evaluate_taylor_map_batch`.\n"
         "- Arithmetic & Operations: Perform MTF algebra with `perform_mtf_arithmetic` or complex number functions with `perform_complex_operation`.\n"
-        "- Calculus: Use `compute_partial_derivative` and `integrate_mtf`.\n"
-        "- Diagnostics: Use `analyze_mtf_diagnostics` to get functions' norm, weighted norm, and stability estimates, and `analyze_taylor_map` to check for invertibility and compute traces.\n"
+        "- Calculus & DA: Use `compute_partial_derivative`, `integrate_mtf`, and `compute_poisson_bracket`.\n"
+        "- Diagnostics & Sensitivity: Use `analyze_mtf_diagnostics` to get functions' norm, weighted norm, and stability estimates. Use `analyze_taylor_map` to check for invertibility and compute traces. Use `compute_map_sensitivity` to scale map coefficients for sensitivity analysis.\n"
         "- Composition: Compose maps or functions using `compose_taylor_maps` and `compose_mtfs`.\n"
         "- Substitutions: Substitute variables using `substitute_variable_in_mtf` or `substitute_in_taylor_map`.\n"
         "- Truncation: Restrict maximum order using `truncate_object`.\n\n"

@@ -684,3 +684,76 @@ def analyze_mtf_diagnostics(
         }, indent=2)
     except Exception as e:
         return f"Error analyzing MTF diagnostics: {str(e)}"
+
+def compute_poisson_bracket(mtf_ref_1: str, mtf_ref_2: str, name: Optional[str] = None) -> str:
+    """
+    Computes the Poisson bracket of two MultivariateTaylorFunctions.
+    
+    Args:
+        mtf_ref_1: The registry reference name or JSON of the first MTF.
+        mtf_ref_2: The registry reference name or JSON of the second MTF.
+        name: Optional name for the resulting MTF in the registry.
+        
+    Returns:
+        A JSON string containing the reference name of the new MTF, or an error string.
+    """
+    try:
+        func1 = get_object(mtf_ref_1, MultivariateTaylorFunction)
+        func2 = get_object(mtf_ref_2, MultivariateTaylorFunction)
+        result = func1.poisson_bracket(func2)
+        ref_name = register_object(result, name)
+        return json.dumps({
+            "ref": ref_name,
+            "message": f"Successfully computed Poisson bracket. Saved as '{ref_name}'."
+        }, indent=2)
+    except Exception as e:
+        return f"Error computing Poisson bracket: {str(e)}"
+
+def compute_map_sensitivity(map_ref: str, scaling_factors: list[float], name: Optional[str] = None) -> str:
+    """
+    Computes the sensitivity of a TaylorMap given a list of scaling factors.
+    Returns a new TaylorMap with scaled coefficients.
+    
+    Args:
+        map_ref: The registry reference name or JSON of the TaylorMap.
+        scaling_factors: A list of floats representing the scaling factors (must match input dimension).
+        name: Optional name for the resulting TaylorMap in the registry.
+        
+    Returns:
+        A JSON string containing the reference name of the new TaylorMap, or an error string.
+    """
+    try:
+        tmap = get_object(map_ref, TaylorMap)
+        new_map = tmap.map_sensitivity(scaling_factors)
+        ref_name = register_object(new_map, name)
+        return json.dumps({
+            "ref": ref_name,
+            "message": f"Successfully computed map sensitivity. Saved as '{ref_name}'."
+        }, indent=2)
+    except Exception as e:
+        return f"Error computing map sensitivity: {str(e)}"
+
+def extract_map_component(map_ref: str, index: int, name: Optional[str] = None) -> str:
+    """
+    Extracts a specific MultivariateTaylorFunction component from a TaylorMap by index.
+    
+    Args:
+        map_ref: The registry reference name or JSON of the TaylorMap.
+        index: The 0-based index of the component to extract.
+        name: Optional name for the resulting MTF in the registry.
+        
+    Returns:
+        A JSON string containing the reference name of the extracted MTF, or an error string.
+    """
+    try:
+        tmap = get_object(map_ref, TaylorMap)
+        if index < 0 or index >= tmap.map_dim:
+            raise ValueError(f"Index {index} out of bounds for TaylorMap with dimension {tmap.map_dim}.")
+        component = tmap.get_component(index)
+        ref_name = register_object(component, name)
+        return json.dumps({
+            "ref": ref_name,
+            "message": f"Successfully extracted component {index}. Saved as '{ref_name}'."
+        }, indent=2)
+    except Exception as e:
+        return f"Error extracting map component: {str(e)}"

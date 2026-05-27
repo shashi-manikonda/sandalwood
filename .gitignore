@@ -249,3 +249,6 @@ scripts/benchmarks/COSY.fox
 *.out
 *.toc
 *.synctex.gz
+
+# Antigravity CLI
+.antigravitycli/

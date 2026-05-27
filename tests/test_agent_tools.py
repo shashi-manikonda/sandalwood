@@ -24,6 +24,9 @@ from sandalwood.agent_tools import (
     evaluate_mtf_batch,
     evaluate_taylor_map_batch,
     analyze_mtf_diagnostics,
+    compute_poisson_bracket,
+    compute_map_sensitivity,
+    extract_map_component,
     expression_to_mtf,
     register_object,
     get_object,
@@ -377,3 +380,33 @@ def test_mcp_prompt():
     assert "MultivariateTaylorFunction" in prompt_str
     assert "evaluate_mtf_batch" in prompt_str
 
+def test_advanced_da_capabilities():
+    # 1. Poisson bracket
+    # [x1**2, x2] = (dx1**2/dx1)*(dx2/dx2) - (dx1**2/dx2)*(dx2/dx1) = 2*x1 * 1 - 0 = 2*x1
+    parse_expression_to_mtf.invoke({"expression": "x1**2", "dimension": 2, "max_order": 2, "name": "f_p1"})
+    parse_expression_to_mtf.invoke({"expression": "x2", "dimension": 2, "max_order": 2, "name": "f_p2"})
+    pb_res = compute_poisson_bracket.invoke({"mtf_ref_1": "f_p1", "mtf_ref_2": "f_p2", "name": "f_pb"})
+    pb_data = json.loads(pb_res)
+    assert pb_data["ref"] == "f_pb"
+    pb_val = evaluate_mtf.invoke({"mtf_ref": "f_pb", "point": [3.0, 0.0]})
+    assert abs(pb_val - 6.0) < 1e-14
+    
+    # 2. Map Sensitivity
+    create_taylor_map.invoke({"expressions": ["2*x1 + x2**2", "3*x2"], "dimension": 2, "max_order": 2, "name": "map_base"})
+    # Scale by [2.0, 1.0]
+    sens_res = compute_map_sensitivity.invoke({"map_ref": "map_base", "scaling_factors": [2.0, 1.0], "name": "map_sens"})
+    sens_data = json.loads(sens_res)
+    assert sens_data["ref"] == "map_sens"
+    sens_val = evaluate_taylor_map.invoke({"map_ref": "map_sens", "point": [1.0, 2.0]})
+    # new_map_x1: 2*(2.0*x1) + (1.0*x2)**2 = 4*x1 + x2**2 -> 4(1) + 4 = 8
+    # new_map_x2: 3*(1.0*x2) = 3*x2 -> 3(2) = 6
+    assert abs(sens_val[0] - 8.0) < 1e-14
+    assert abs(sens_val[1] - 6.0) < 1e-14
+    
+    # 3. Extract Map Component
+    ext_res = extract_map_component.invoke({"map_ref": "map_base", "index": 0, "name": "comp_0"})
+    ext_data = json.loads(ext_res)
+    assert ext_data["ref"] == "comp_0"
+    comp_val = evaluate_mtf.invoke({"mtf_ref": "comp_0", "point": [1.0, 2.0]})
+    # 2*(1) + 2**2 = 6
+    assert abs(comp_val - 6.0) < 1e-14

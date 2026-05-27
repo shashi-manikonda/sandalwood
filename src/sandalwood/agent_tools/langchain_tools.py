@@ -23,4 +23,6 @@ analyze_taylor_map = tool(functions.analyze_taylor_map)
 evaluate_mtf_batch = tool(functions.evaluate_mtf_batch)
 evaluate_taylor_map_batch = tool(functions.evaluate_taylor_map_batch)
 analyze_mtf_diagnostics = tool(functions.analyze_mtf_diagnostics)
-
+compute_poisson_bracket = tool(functions.compute_poisson_bracket)
+compute_map_sensitivity = tool(functions.compute_map_sensitivity)
+extract_map_component = tool(functions.extract_map_component)
