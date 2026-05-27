@@ -150,7 +150,7 @@ For detailed system requirements, compiler options, and step-by-step instruction
 
 Sandalwood includes a built-in `agent_tools` module that provides a comprehensive integration layer for autonomous AI agents to natively use Differential Algebra (DA) capabilities.
 
-The tools are built with a **Stateful Session Registry** to prevent LLM context window bloat. Instead of returning massive JSONs with thousands of coefficients, the tools return lightweight reference strings (e.g., `{"ref": "mtf_0"}`) which the LLM passes in subsequent tool calls.
+The tools are built with a **Stateful Session Registry** to prevent LLM context window bloat. Instead of returning massive JSONs with thousands of coefficients, the tools return lightweight reference strings (e.g., `{"ref": "mtf_0"}`) inside a standardized response envelope which the LLM passes in subsequent tool calls.
 
 ### Using via Model Context Protocol (MCP)
 
