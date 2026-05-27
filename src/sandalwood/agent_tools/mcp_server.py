@@ -67,7 +67,8 @@ def list_variables() -> str:
     import json
 
     vars_info = {}
-    for name, obj in _registry.items():
+    session_registry = _registry.get("default", {})
+    for name, obj in session_registry.items():
         if hasattr(obj, "components") and len(obj.components) > 0:
             dim = obj.components[0].dimension
         elif hasattr(obj, "dimension"):
@@ -84,9 +85,10 @@ def get_variable(name: str) -> str:
     """Get the detailed tabular representation of a registered variable by name."""
     from sandalwood import MultivariateTaylorFunction, TaylorMap
 
-    if name not in _registry:
+    session_registry = _registry.get("default", {})
+    if name not in session_registry:
         return f"Variable '{name}' not found in session registry."
-    obj = _registry[name]
+    obj = session_registry[name]
     if isinstance(obj, MultivariateTaylorFunction):
         return obj.get_tabular_dataframe().to_string(index=False)
     elif isinstance(obj, TaylorMap):

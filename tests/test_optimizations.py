@@ -1,7 +1,8 @@
-import numpy as np
-import pytest
 import threading
 from unittest.mock import patch
+
+import numpy as np
+import pytest
 
 import sandalwood.taylor_function as tf
 from sandalwood import mtf

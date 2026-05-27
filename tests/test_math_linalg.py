@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from sandalwood import taylor_function as taylor
+
 try:
     from sandalwood.backends.cosy import cosy_backend
 except ImportError:

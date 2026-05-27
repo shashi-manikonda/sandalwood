@@ -1,25 +1,34 @@
 import json
 import threading
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar
 
 from sandalwood import MultivariateTaylorFunction, TaylorMap
 
 T = TypeVar("T", MultivariateTaylorFunction, TaylorMap)
 
-_registry: dict[str, Any] = {}
-_counter: int = 0
+_registry: Dict[str, Dict[str, Any]] = {}
+_counter: Dict[str, int] = {}
 _lock = threading.Lock()
 
 
 def clear_registry():
-    """Clears the session registry and resets the counter."""
-    global _counter
+    """Clears the entire session registry for all sessions and resets counters."""
+    global _counter, _registry
     with _lock:
         _registry.clear()
-        _counter = 0
+        _counter.clear()
 
 
-def register_object(obj: Any, name: Optional[str] = None) -> str:
+def prune_registry(session_id: str):
+    """Clears the registry for a specific session."""
+    with _lock:
+        if session_id in _registry:
+            del _registry[session_id]
+        if session_id in _counter:
+            del _counter[session_id]
+
+
+def register_object(obj: Any, name: Optional[str] = None, session_id: str = "default") -> str:
     """
     Registers a Sandalwood object (MTF or TaylorMap) in the session registry.
 
@@ -28,6 +37,7 @@ def register_object(obj: Any, name: Optional[str] = None) -> str:
         name: An optional user-specified variable name (e.g. 'f1', 'map_A').
               If name is not provided, a unique name is generated automatically
               (e.g., 'mtf_0', 'map_0').
+        session_id: The session namespace.
 
     Returns:
         str: The registered lookup key/name.
@@ -39,19 +49,23 @@ def register_object(obj: Any, name: Optional[str] = None) -> str:
         )
 
     with _lock:
+        if session_id not in _registry:
+            _registry[session_id] = {}
+            _counter[session_id] = 0
+
         if name is None:
             prefix = "map" if isinstance(obj, TaylorMap) else "mtf"
             # Generate a unique name
             while True:
-                name = f"{prefix}_{_counter}"
-                _counter += 1
-                if name not in _registry:
+                name = f"{prefix}_{_counter[session_id]}"
+                _counter[session_id] += 1
+                if name not in _registry[session_id]:
                     break
-        _registry[name] = obj
+        _registry[session_id][name] = obj
         return name
 
 
-def get_object(ref: str, expected_type: Type[T]) -> T:
+def get_object(ref: str, expected_type: Type[T], session_id: str = "default") -> T:
     """
     Resolves an object reference which can be either a registered variable name
     or a raw JSON string.
@@ -59,6 +73,7 @@ def get_object(ref: str, expected_type: Type[T]) -> T:
     Args:
         ref: The lookup name or the raw JSON representation.
         expected_type: The expected type of the object (MultivariateTaylorFunction or TaylorMap).
+        session_id: The session namespace.
 
     Returns:
         The resolved object of the expected type.
@@ -82,12 +97,12 @@ def get_object(ref: str, expected_type: Type[T]) -> T:
 
     # Otherwise, perform registry lookup
     with _lock:
-        if ref_stripped not in _registry:
+        if session_id not in _registry or ref_stripped not in _registry[session_id]:
             raise ValueError(
-                f"Reference '{ref_stripped}' not found in registry. "
+                f"Reference '{ref_stripped}' not found in registry for session '{session_id}'. "
                 "Ensure it has been created/registered first or is a valid JSON string."
             )
-        obj = _registry[ref_stripped]
+        obj = _registry[session_id][ref_stripped]
 
     # Validate type
     if not isinstance(obj, expected_type):
