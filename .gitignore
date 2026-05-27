@@ -250,3 +250,6 @@ local_readme.md
 *.out
 *.toc
 *.synctex.gz
+
+# Antigravity CLI metadata
+.antigravitycli/
