@@ -897,7 +897,9 @@ def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
             data={
                 "result": {
                     "trace": trace_val,
-                    "trace_error": None if trace_val is not None else "Trace calculation failed (dimensions might not match)",
+                    "trace_error": None
+                    if trace_val is not None
+                    else "Trace calculation failed (dimensions might not match)",
                     "invertible": invertible,
                     "reason": reason,
                     "dimensions": {

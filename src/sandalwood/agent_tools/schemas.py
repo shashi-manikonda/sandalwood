@@ -230,8 +230,12 @@ class ExtractMapComponentInput(BaseModel):
 
 
 class ListSessionInput(BaseModel):
-    session_id: str = Field("default", description="Session isolation namespace to inspect.")
+    session_id: str = Field(
+        "default", description="Session isolation namespace to inspect."
+    )
 
 
 class ClearSessionInput(BaseModel):
-    session_id: str = Field("default", description="Session isolation namespace to clear.")
+    session_id: str = Field(
+        "default", description="Session isolation namespace to clear."
+    )
