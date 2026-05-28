@@ -252,3 +252,6 @@ scripts/benchmarks/COSY.fox
 
 # Antigravity CLI
 .antigravitycli/
+
+# local readme for agent
+local_readme.md

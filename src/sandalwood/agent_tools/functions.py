@@ -5,7 +5,12 @@ import numpy as np
 
 from sandalwood import MultivariateTaylorFunction, TaylorMap, mtf
 from sandalwood.agent_tools.parser import expression_to_mtf
-from sandalwood.agent_tools.registry import get_object, register_object
+from sandalwood.agent_tools.registry import (
+    get_object,
+    list_session_variables,
+    prune_registry,
+    register_object,
+)
 from sandalwood.agent_tools.schemas import (
     ToolErrorCode,
     ToolErrorResponse,
@@ -195,6 +200,9 @@ def evaluate_mtf(mtf_ref: str, point: list[float], session_id: str = "default") 
         val = func(point)
         if hasattr(val, "item"):
             val = val.item()
+        # Strip negligible imaginary part for cleaner output
+        if isinstance(val, complex) and abs(val.imag) < 1e-14:
+            val = val.real
         return ToolSuccessResponse(
             data={"result": val, "metadata": {"operation": "evaluate_mtf"}}
         ).model_dump()
@@ -494,6 +502,10 @@ def perform_mtf_arithmetic(
             res = obj1 / obj2
         elif op == "**":
             res = obj1**obj2
+        else:
+            raise ValueError(
+                f"Unsupported operator '{op}'. Must be one of '+', '-', '*', '/', '**'"
+            )
         ref = register_object(res, name, session_id=session_id)
         df = res.get_tabular_dataframe()
         return ToolSuccessResponse(
@@ -784,12 +796,19 @@ def truncate_object(
         A JSON string containing the registry 'ref' name, a summary of the truncated object, and its JSON representation.
     """
     try:
-        try:
-            obj = get_object(ref, MultivariateTaylorFunction, session_id=session_id)
-            is_mtf = True
-        except TypeError:
-            obj = get_object(ref, TaylorMap, session_id=session_id)
-            is_mtf = False
+        # Resolve the object and determine its type explicitly using the registry
+        session_vars = list_session_variables(session_id)
+        if ref in session_vars:
+            obj = session_vars[ref]
+            is_mtf = isinstance(obj, MultivariateTaylorFunction)
+        else:
+            # ref may be a JSON string — try MTF first, then TaylorMap
+            try:
+                obj = get_object(ref, MultivariateTaylorFunction, session_id=session_id)
+                is_mtf = True
+            except (ValueError, TypeError):
+                obj = get_object(ref, TaylorMap, session_id=session_id)
+                is_mtf = False
         truncated = obj.truncate(order)
         new_ref = register_object(truncated, name, session_id=session_id)
         if is_mtf:
@@ -807,7 +826,7 @@ def truncate_object(
                 "metadata": {"operation": "truncate_object"},
             }
         ).model_dump()
-    except (ValueError, TypeError, SyntaxError) as e:
+    except (ValueError, SyntaxError) as e:
         return ToolErrorResponse(
             error_code=ToolErrorCode.INVALID_INPUT, message=str(e)
         ).model_dump()
@@ -834,11 +853,11 @@ def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
             trace_val = tmap.trace()
             if hasattr(trace_val, "item"):
                 trace_val = trace_val.item()
-            trace_str = str(trace_val)
+            # Return as float if imaginary part is negligible
+            if isinstance(trace_val, complex) and abs(trace_val.imag) < 1e-14:
+                trace_val = trace_val.real
         except Exception as te:
-            trace_str = (
-                f"Trace calculation failed (dimensions might not match): {str(te)}"
-            )
+            trace_val = None
         invertible = False
         reason = ""
         try:
@@ -877,7 +896,8 @@ def analyze_taylor_map(map_ref: str, session_id: str = "default") -> dict:
         return ToolSuccessResponse(
             data={
                 "result": {
-                    "trace": trace_str,
+                    "trace": trace_val,
+                    "trace_error": None if trace_val is not None else "Trace calculation failed (dimensions might not match)",
                     "invertible": invertible,
                     "reason": reason,
                     "dimensions": {
@@ -924,9 +944,16 @@ def evaluate_mtf_batch(
             )
         pts_arr = np.array(points, dtype=np.float64)
         res = func.neval(pts_arr)
+        results = []
+        for r in res:
+            v = r.item()
+            # Strip negligible imaginary part for cleaner output
+            if isinstance(v, complex) and abs(v.imag) < 1e-14:
+                v = v.real
+            results.append(v)
         return ToolSuccessResponse(
             data={
-                "result": [r.item() for r in res],
+                "result": results,
                 "metadata": {"operation": "evaluate_mtf_batch"},
             }
         ).model_dump()
@@ -1167,4 +1194,74 @@ def extract_map_component(
     except Exception as e:
         return ToolErrorResponse(
             error_code=ToolErrorCode.COMPUTATION_ERROR, message=str(e)
+        ).model_dump()
+
+
+def list_session(session_id: str = "default") -> dict:
+    """
+    Lists all registered MultivariateTaylorFunction and TaylorMap objects in the current session.
+    Use this to inspect what variables have been created so far, including their names and types.
+
+    Args:
+        session_id: The session namespace to inspect.
+
+    Returns:
+        A JSON object mapping registered variable names to their type and dimension metadata.
+    """
+    try:
+        session_vars = list_session_variables(session_id)
+        vars_info = {}
+        for name, obj in session_vars.items():
+            if isinstance(obj, TaylorMap):
+                dim = obj.components[0].dimension if obj.map_dim > 0 else 0
+                vars_info[name] = {
+                    "type": "TaylorMap",
+                    "input_dimension": dim,
+                    "output_dimension": obj.map_dim,
+                }
+            elif isinstance(obj, MultivariateTaylorFunction):
+                vars_info[name] = {
+                    "type": "MultivariateTaylorFunction",
+                    "dimension": obj.dimension,
+                }
+            else:
+                vars_info[name] = {"type": type(obj).__name__}
+        return ToolSuccessResponse(
+            data={
+                "result": {
+                    "session_id": session_id,
+                    "count": len(vars_info),
+                    "variables": vars_info,
+                },
+                "metadata": {"operation": "list_session"},
+            }
+        ).model_dump()
+    except Exception as e:
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.SYSTEM_ERROR, message=str(e)
+        ).model_dump()
+
+
+def clear_session(session_id: str = "default") -> dict:
+    """
+    Clears all registered objects in the specified session, freeing memory.
+    Use this to reset the working session after completing a computation or before starting a new workflow.
+
+    Args:
+        session_id: The session namespace to clear.
+
+    Returns:
+        A confirmation message indicating the session has been cleared.
+    """
+    try:
+        prune_registry(session_id)
+        return ToolSuccessResponse(
+            data={
+                "result": f"Session '{session_id}' has been cleared. All registered variables have been removed.",
+                "metadata": {"operation": "clear_session"},
+            }
+        ).model_dump()
+    except Exception as e:
+        return ToolErrorResponse(
+            error_code=ToolErrorCode.SYSTEM_ERROR, message=str(e)
         ).model_dump()

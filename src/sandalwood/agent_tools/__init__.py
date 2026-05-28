@@ -1,6 +1,7 @@
 from .langchain_tools import (
     analyze_mtf_diagnostics,
     analyze_taylor_map,
+    clear_session,
     compose_mtfs,
     compose_taylor_maps,
     compute_map_sensitivity,
@@ -16,6 +17,7 @@ from .langchain_tools import (
     initialize_sandalwood,
     integrate_mtf,
     invert_taylor_map,
+    list_session,
     mtf_info,
     parse_expression_to_mtf,
     perform_complex_operation,
@@ -29,6 +31,7 @@ from .parser import expression_to_mtf
 from .registry import (
     clear_registry,
     get_object,
+    prune_registry,
     register_object,
 )
 
@@ -59,10 +62,13 @@ __all__ = [
     "compute_poisson_bracket",
     "compute_map_sensitivity",
     "extract_map_component",
+    "list_session",
+    "clear_session",
     # Helper Parser
     "expression_to_mtf",
     # Registry Functions
     "register_object",
     "get_object",
     "clear_registry",
+    "prune_registry",
 ]

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -102,7 +102,10 @@ class ComposeTaylorMapsInput(BaseModel):
 
 class ComposeMtfsInput(BaseModel):
     mtf_ref: str = Field(..., description="Registry reference of the outer MTF.")
-    inner_mtf_refs: dict = Field(..., description="Dict of inner MTF refs.")
+    inner_mtf_refs: Dict[str, str] = Field(
+        ...,
+        description="Dict mapping 1-based variable index (as string, e.g. '1') to inner MTF registry reference (e.g. 'mtf_0').",
+    )
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
 
@@ -146,8 +149,9 @@ class SubstituteVariableInMtfInput(BaseModel):
 
 class SubstituteInTaylorMapInput(BaseModel):
     map_ref: str = Field(..., description="Registry reference of the TaylorMap.")
-    variable_map: dict = Field(
-        ..., description="Dict mapping string indices to numeric values."
+    variable_map: Dict[str, float] = Field(
+        ...,
+        description="Dict mapping 1-based variable indices (as strings, e.g. '1') to numeric float values to substitute.",
     )
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
@@ -189,6 +193,18 @@ class EvaluateTaylorMapBatchInput(BaseModel):
 
 class AnalyzeMtfDiagnosticsInput(BaseModel):
     mtf_ref: str = Field(..., description="Registry reference of the MTF.")
+    weight: Optional[List[float]] = Field(
+        None,
+        description="Optional list of per-variable weights for computing the weighted norm (COSY backend only). Length must match the MTF dimension.",
+    )
+    stability_var_id: Optional[int] = Field(
+        None,
+        description="Optional 1-based variable index to estimate stability/order decay for (COSY backend only).",
+    )
+    stability_order: Optional[int] = Field(
+        None,
+        description="Optional maximum order to compute stability estimates up to (COSY backend only).",
+    )
     session_id: str = Field("default", description="Session isolation namespace.")
 
 
@@ -211,3 +227,11 @@ class ExtractMapComponentInput(BaseModel):
     index: int = Field(..., description="Component index to extract (0-indexed).")
     name: Optional[str] = Field(None, description="Optional custom registry name.")
     session_id: str = Field("default", description="Session isolation namespace.")
+
+
+class ListSessionInput(BaseModel):
+    session_id: str = Field("default", description="Session isolation namespace to inspect.")
+
+
+class ClearSessionInput(BaseModel):
+    session_id: str = Field("default", description="Session isolation namespace to clear.")

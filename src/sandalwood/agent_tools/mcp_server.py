@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 
 from sandalwood.agent_tools import functions
-from sandalwood.agent_tools.registry import _registry
+from sandalwood.agent_tools.registry import list_all_sessions, list_session_variables
 
 # Create the MCP Server
 mcp = FastMCP("sandalwood-agent-tools")
@@ -32,6 +32,8 @@ mcp.tool()(functions.analyze_mtf_diagnostics)
 mcp.tool()(functions.compute_poisson_bracket)
 mcp.tool()(functions.compute_map_sensitivity)
 mcp.tool()(functions.extract_map_component)
+mcp.tool()(functions.list_session)
+mcp.tool()(functions.clear_session)
 
 
 @mcp.prompt("sandalwood-da-expert")
@@ -63,20 +65,26 @@ def sandalwood_da_expert() -> str:
 # Expose session registry variables as read-only resources
 @mcp.resource("registry://variables")
 def list_variables() -> str:
-    """List all registered MultivariateTaylorFunctions and TaylorMaps in the current session."""
+    """List all registered MultivariateTaylorFunctions and TaylorMaps across all active sessions."""
     import json
 
+    all_sessions = list_all_sessions()
     vars_info = {}
-    session_registry = _registry.get("default", {})
-    for name, obj in session_registry.items():
-        if hasattr(obj, "components") and len(obj.components) > 0:
-            dim = obj.components[0].dimension
-        elif hasattr(obj, "dimension"):
-            dim = obj.dimension
-        else:
-            dim = None
-
-        vars_info[name] = {"type": type(obj).__name__, "dimension": dim}
+    for session_id, session_vars in all_sessions.items():
+        for name, obj in session_vars.items():
+            if hasattr(obj, "components") and len(obj.components) > 0:
+                dim = obj.components[0].dimension
+            elif hasattr(obj, "dimension"):
+                dim = obj.dimension
+            else:
+                dim = None
+            # Key entries by session/name for clarity when multiple sessions exist
+            key = name if session_id == "default" else f"{session_id}/{name}"
+            vars_info[key] = {
+                "type": type(obj).__name__,
+                "dimension": dim,
+                "session": session_id,
+            }
     return json.dumps(vars_info, indent=2)
 
 
@@ -85,7 +93,7 @@ def get_variable(name: str) -> str:
     """Get the detailed tabular representation of a registered variable by name."""
     from sandalwood import MultivariateTaylorFunction, TaylorMap
 
-    session_registry = _registry.get("default", {})
+    session_registry = list_session_variables("default")
     if name not in session_registry:
         return f"Variable '{name}' not found in session registry."
     obj = session_registry[name]

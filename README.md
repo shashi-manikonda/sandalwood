@@ -13,6 +13,28 @@ A Python library for creating, manipulating, and composing Multivariate Taylor F
 ![Fortran Compiler](https://img.shields.io/badge/compiler-gfortran%20%7C%20ifx-green)
 ![Numba Accelerated](https://img.shields.io/badge/accel-numba-orange)
 
+## Table of Contents
+- [🚀 Key Features](#key-features)
+- [Installation](#installation)
+  - [Installation from Source](#installation-from-source)
+- [Quick Start](#quick-start)
+- [JSON Serialization](#json-serialization)
+- [Platform Support](#platform-support)
+  - [COSY Backend (Side-Load)](#cosy-backend-side-load)
+- [🤖 AI Agent Tools (MCP & LangChain)](#ai-agent-tools-mcp--langchain)
+  - [Using via Model Context Protocol (MCP)](#using-via-model-context-protocol-mcp)
+  - [Using via Gradio Web Dashboard](#using-via-gradio-web-dashboard)
+  - [Using via LangChain](#using-via-langchain)
+- [🏗️ Architecture](#architecture)
+- [⚙️ Performance Tuning](#performance-tuning)
+- [Running Tests](#running-tests)
+  - [Running Demo Tests](#running-demo-tests)
+- [Code Quality & Pre-commit Hooks](#code-quality--pre-commit-hooks)
+  - [Installation & Setup](#installation--setup)
+  - [Manual Run](#manual-run)
+  - [Release and Publishing](#release-and-publishing)
+- [License](#license)
+
 ## 🚀 Key Features
 
 *   **Hybrid Backend**: Seamlessly switch between a pure Python/Numba backend for portability and a compiled Fortran (COSY Infinity) backend for maximum performance, utilizing a direct Fortran `POLVAL` memory bridge for high-performance real-valued map compositions.
@@ -184,6 +206,15 @@ The MCP server provides:
 * **Tools**: Over 20 tools for initializing DA variables, building functions via string expressions (`parse_expression_to_mtf`), computing derivatives, poisson brackets, compose maps, and tracking particles.
 * **Prompts**: Access the `@mcp.prompt("sandalwood-da-expert")` prompt for optimized system instructions when reasoning about DA.
 * **Resources**: Read the current state of variables in the agent session registry via the `registry://variables` resource.
+
+### Using via Gradio Web Dashboard
+
+Sandalwood includes a complete, side-by-side Gradio web interface that allows you to chat with a Gemini agent and inspect the stateful session registry in real-time.
+
+To launch the dashboard, run:
+```bash
+uv run python demos/mcp_dashboard/app.py
+```
 
 ### Using via LangChain
 

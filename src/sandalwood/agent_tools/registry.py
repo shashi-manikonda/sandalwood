@@ -28,6 +28,31 @@ def prune_registry(session_id: str):
             del _counter[session_id]
 
 
+def list_session_variables(session_id: str = "default") -> Dict[str, Any]:
+    """
+    Returns a shallow copy of the registry contents for a given session.
+
+    Args:
+        session_id: The session namespace to inspect.
+
+    Returns:
+        Dict mapping registered names to their objects.
+    """
+    with _lock:
+        return dict(_registry.get(session_id, {}))
+
+
+def list_all_sessions() -> Dict[str, Dict[str, Any]]:
+    """
+    Returns all sessions and their registered variables.
+
+    Returns:
+        Dict mapping session_id → {name → object}.
+    """
+    with _lock:
+        return {sid: dict(objs) for sid, objs in _registry.items()}
+
+
 def register_object(
     obj: Any, name: Optional[str] = None, session_id: str = "default"
 ) -> str:

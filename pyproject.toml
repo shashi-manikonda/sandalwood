@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sandalwood"
-version = "0.1.4"
+version = "0.2.0"
 authors = [
     { name="Shashikant Manikonda", email="manikonda@outlook.com" },
 ]
@@ -32,6 +32,11 @@ agents = [
     "sympy",
     "langchain-core",
     "mcp",
+]
+gui = [
+    "gradio>=6.0",
+    "google-genai",
+    "python-dotenv",
 ]
 accel = ["numba>=0.57"]
 torch = ["torch"]
@@ -92,6 +97,9 @@ dev = [
     "jupyter",
     "langchain-core",
     "mcp",
+    "gradio>=6.0",
+    "google-genai",
+    "python-dotenv",
 ]
    
 
