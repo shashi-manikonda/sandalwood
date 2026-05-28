@@ -20,13 +20,13 @@ objects. Each function in the list becomes a component of the map.
 
 .. code-block:: python
 
-   from sandalwood import MultivariateTaylorFunction, TaylorMap, Var
+   from sandalwood import mtf, TaylorMap
 
    # Initialize for 2 variables, up to order 3
-   MultivariateTaylorFunction.initialize_mtf(max_order=3, max_dimension=2)
+   mtf.initialize_mtf(max_order=3, max_dimension=2)
 
    # Define variables
-   x, y = Var(1), Var(2)
+   x, y = mtf.var(1), mtf.var(2)
 
    # Define component functions
    f1 = x + y**2
@@ -82,7 +82,7 @@ maps. If you have two maps, `F` and `G`, you can compute the composition
 .. code-block:: python
 
    # Create another map G(a, b) = [a*b, a]
-   a, b = Var(1), Var(2)
+   a, b = mtf.var(1), mtf.var(2)
    g1 = a * b
    g2 = a
    G = TaylorMap([g1, g2])

@@ -155,14 +155,16 @@ A configuration file is provided at ``src/sandalwood/backends/cosy/cosy_config.e
 * **COSY_LNO**: Maximum supported Taylor order (Default: 99).
 * **COSY_LNV**: Maximum number of variables (Default: 40).
 
-### Compiler Support (Linux)
+Compiler Support (Linux)
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Sandalwood supports two main Fortran compilers on Linux:
 
 *   **Intel Fortran (ifx)**: **The recommended default.** Recommended for maximum performance on Intel hardware. It provides superior auto-vectorization and highly optimized OpenMP performance.
 *   **GNU Fortran (gfortran)**: The standard open-source fallback. Robust and widely available.
 
-### Intel oneAPI Integration
+Intel oneAPI Integration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 If using `ifx`, you must ensure the Intel environment variables are loaded in your current shell before building. This is typically done by sourcing the ``setvars.sh`` script (Linux) or using the "Intel oneAPI Command Prompt" (Windows).
 
@@ -171,7 +173,8 @@ If using `ifx`, you must ensure the Intel environment variables are loaded in yo
    # Linux example (run in shell or add to .bashrc)
    source /opt/intel/oneapi/setvars.sh
 
-### Building the Backend
+Building the Backend
+~~~~~~~~~~~~~~~~~~~~
 
 There are three ways to build the COSY backend components:
 

@@ -73,7 +73,8 @@ docs = [
     "pandas",
     "torch",
     "ipython",
-    "nbconvert"
+    "nbconvert",
+    "nbsphinx"
 ]
 dev = [
     "pytest",
@@ -100,6 +101,7 @@ dev = [
     "gradio>=6.0",
     "google-genai",
     "python-dotenv",
+    "nbsphinx",
 ]
    
 

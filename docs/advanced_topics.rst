@@ -110,7 +110,8 @@ This section outlines potential future directions for `sandalwood`, ranging from
 incremental improvements to more ambitious features.
 
 
-### Expanded Functionality
+Expanded Functionality
+~~~~~~~~~~~~~~~~~~~~~~
 
 * **Automatic Differentiation (AD):** Implement support for AD to allow for
   the computation of gradients, Jacobians, and Hessians of Taylor maps.
@@ -121,7 +122,8 @@ incremental improvements to more ambitious features.
   non-linear equations using Taylor series methods (e.g., Newton's method
   with high-order corrections).
 
-### Improved User Experience
+Improved User Experience
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **Symbolic API:** Develop a more intuitive API for creating and
   manipulating Taylor maps, perhaps with a more "symbolic" feel.
