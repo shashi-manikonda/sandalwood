@@ -28,6 +28,7 @@ STYS=(
     "xcolor.sty"
     "etoolbox.sty"
     "etoolbox.def"
+    "booktabs.sty"
 )
 
 # Function to download and extract CTAN packages
@@ -98,6 +99,19 @@ prepare_dependencies() {
         python3 -c "import zipfile; zipfile.ZipFile('etoolbox.zip').extractall('etoolbox_extracted')"
         cp etoolbox_extracted/etoolbox/etoolbox.sty etoolbox_extracted/etoolbox/etoolbox.def .
         rm -rf etoolbox.zip etoolbox_extracted
+    fi
+
+    # 6. booktabs
+    if [ ! -f "booktabs.sty" ]; then
+        echo "Downloading booktabs from CTAN..."
+        curl -L -o booktabs.zip https://mirrors.ctan.org/macros/latex/contrib/booktabs.zip
+        python3 -c "import zipfile; zipfile.ZipFile('booktabs.zip').extractall('booktabs_extracted')"
+        (
+            cd booktabs_extracted/booktabs
+            tex booktabs.ins
+        )
+        cp booktabs_extracted/booktabs/booktabs.sty .
+        rm -rf booktabs.zip booktabs_extracted
     fi
 }
 

@@ -238,8 +238,7 @@ src/sandalwood/backends/cosy/cosy_src/
 # Benchmark COSY source files
 scripts/benchmarks/COSY.fox
 
-# Local development files
-local_readme.md
+
 
 # LaTeX
 *.aux

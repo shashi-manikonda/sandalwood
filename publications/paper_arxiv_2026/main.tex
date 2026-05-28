@@ -6,6 +6,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage{booktabs}
 
 % Define Python style for listings
 \lstset{
@@ -32,131 +33,349 @@
 
 \begin{document}
 
-\title{Sandalwood: A High-Performance Python Library for Multivariate Taylor Functions and Differential Algebra}
+\title{Sandalwood: A High-Performance Python Library for Multivariate Taylor Functions, Differential Algebra, and Autonomous AI Agent Integration}
 
 \author{Shashikant Manikonda}
 \affiliation{Independent Researcher}
 
 \begin{abstract}
-We introduce \texttt{sandalwood}, an open-source Python library designed for the creation, manipulation, and composition of Multivariate Taylor Functions (MTF). Built upon the mathematical foundations of Differential Algebra (DA) and Truncated Power Series Algebra (TPSA), \texttt{sandalwood} provides a powerful framework for extracting high-order derivatives and tracking nonlinear dynamics in complex systems. The package features a dual-backend architecture, seamlessly combining a Just-In-Time (JIT) compiled Python/Numba engine for portability with an optional high-performance Fortran backend based on COSY Infinity. This hybrid approach enables massive parallelization, optimized memory management via zero-copy data transfers, and efficient map composition. \texttt{sandalwood} offers a highly accessible, Pythonic API that is ideally suited for High-Performance Computing (HPC) workflows in fields such as electromagnetics and beam physics, as well as serving as a robust environment for autonomous AI-driven scientific simulation.
+We introduce \texttt{sandalwood} (v0.2.0), an open-source Python library for the creation, manipulation, and composition of Multivariate Taylor Functions (MTF) implementing the mathematical framework of Differential Algebra (DA) and Truncated Power Series Algebra (TPSA). The library provides three primary data types: the real-valued \texttt{MultivariateTaylorFunction} (MTF), the complex-valued \texttt{ComplexMultivariateTaylorFunction} (CMTF), and the vector-valued \texttt{TaylorMap}---the latter being the principal structure for studying coordinate transformations, Hamiltonian flows, and systems of differential equations. A rich calculus layer provides indefinite and definite integration, partial differentiation, Poisson brackets, map composition, and algebraic inversion directly over these objects. Transcendental functions including all standard trigonometric and hyperbolic functions together with their inverses and several specialized physics functions (Gaussian, inverse square root, inverse cube root) are provided as first-class members of the algebra. Performance is achieved through a dual-backend architecture that seamlessly combines a Just-In-Time (JIT) compiled Python/Numba engine for portability with an optional high-performance Fortran backend derived from COSY Infinity. Thread-safe concurrent initialization and an $O(1)$ memory pool enable HPC workflows with full support for parallel batch evaluation. The library also introduces the \texttt{agent\_tools} module (v0.2.0), a complete integration layer comprising 28 tool definitions that expose the full DA capability set to autonomous AI agents via both the Model Context Protocol (MCP) and LangChain, together with a stateful session registry that prevents LLM context-window saturation. \texttt{sandalwood} is ideally suited for applications in nonlinear beam physics, celestial mechanics, electromagnetics, and AI-driven scientific simulation.
 \end{abstract}
 
 \maketitle
 
 \section{Introduction}
+\label{sec:intro}
+
 The analysis of complex dynamical systems often requires accurate representations of nonlinear behaviors that govern long-term stability. While ordinary differential equations (ODEs) can describe these systems, purely analytical solutions are frequently intractable. Traditional numerical integration methods, such as low-order Taylor expansions or Runge-Kutta schemes, compute system states point-by-point in phase space, but they often struggle to efficiently capture the intricate, high-order nonlinear effects required for long-term tracking.
 
-To overcome these limitations, the field of Differential Algebra (DA), computationally implemented as Truncated Power Series Algebra (TPSA), offers a profound shift in perspective. Instead of propagating individual points through a system, DA operates on the algebra of functions, treating the truncated Taylor expansion of a function as a single, manipulable mathematical object. This allows derivatives to be propagated algorithmically, avoiding the combinatorial explosion associated with symbolic differentiation and enabling highly efficient high-order calculations.
+Differential Algebra (DA), computationally realized as Truncated Power Series Algebra (TPSA)~\cite{berz1999differential}, offers a profound shift in perspective. Rather than propagating individual points, DA operates on the algebra of functions, treating the truncated Taylor expansion of a function as a single, manipulable mathematical object. Derivatives are propagated algorithmically, avoiding the combinatorial explosion associated with symbolic differentiation. The resulting framework enables the computation of entire families of trajectories from a single calculation.
 
-\texttt{sandalwood} is an open-source Python package developed to bring the power of high-order Differential Algebra to the modern scientific computing ecosystem. While established tools like COSY INFINITY~\cite{berz1989cosy, makino2006cosy} offer exceptional performance in Fortran, interfacing them with modern data science workflows, machine learning frameworks, and automated scientific pipelines presents significant challenges. \texttt{sandalwood} addresses this by providing an elegant, object-oriented Python API backed by a sophisticated hybrid execution engine. It is designed to meet the demands of High-Performance Computing (HPC) in nonlinear dynamics, offering advanced features like parallel map evaluation, batch composition, and deep integration with numerical libraries.
+\texttt{sandalwood} is an open-source Python package that brings high-order DA to the modern scientific computing ecosystem. While established tools like COSY INFINITY~\cite{berz1989cosy, makino2006cosy} offer exceptional Fortran performance, interfacing them with contemporary data science workflows, machine learning frameworks, and automated scientific pipelines presents significant challenges. \texttt{sandalwood} addresses this by providing an elegant, object-oriented Python API backed by a sophisticated hybrid execution engine, while remaining fully compatible with both NumPy~\cite{harris2020numpy} and Numba~\cite{lam2015numba}.
+
+A second design objective, differentiating \texttt{sandalwood} from all prior DA systems, is native support for autonomous AI agents. The \texttt{agent\_tools} module (introduced in v0.2.0) exposes 28 DA operations as standardized tool calls for large language model (LLM) agents, enabling the creation of fully autonomous scientific computation pipelines without requiring human reformulation of the mathematical problem.
 
 \section{Theoretical Background}
-Differential algebra is formally concerned with the study of differential equations and operators as algebraic structures, such as differential rings and fields~\cite{ritt1950differential}. For computational applications, this mathematical framework is realized as Truncated Power Series Algebra (TPSA)~\cite{berz1999differential}. The core principle is that the local behavior of a sufficiently smooth function can be completely described by its truncated Taylor expansion, referred to as a DA vector.
+\label{sec:theory}
 
-A DA vector, denoted as $[f]_n$, represents the Taylor expansion of a function $f$ at a specific expansion point $x_0$ up to a given order $n$:
+\subsection{Truncated Power Series Algebra}
+
+Differential algebra is formally concerned with the study of differential equations and operators as algebraic structures, such as differential rings and fields~\cite{ritt1950differential}. For computational applications this is realized as TPSA~\cite{berz1999differential}. The core principle is that the local behavior of a sufficiently smooth function can be completely described by its truncated Taylor expansion, referred to as a DA vector.
+
+A DA vector $[f]_n$ represents the Taylor expansion of a function $f:\mathbb{R}^v \to \mathbb{R}$ at expansion point $\mathbf{x}_0$ up to order $n$:
 \begin{equation}
-    [f]_n = \sum C_{n_1,\dots,n_v} \cdot d_1^{n_1} \cdot \dots \cdot d_v^{n_v}
+    [f]_n(\mathbf{d}) = \sum_{\substack{|\mathbf{k}|_1 \leq n \\ \mathbf{k} \in \mathbb{N}_0^v}} C_{\mathbf{k}} \cdot d_1^{k_1} \cdot d_2^{k_2} \cdots d_v^{k_v}
 \end{equation}
-where $v$ is the number of variables, $d_i$ represent small variances in the input variables, and the coefficients $C$ correspond to the scaled partial derivatives of the function at the expansion point.
+where $v$ is the number of variables, $\mathbf{d} = (d_1,\ldots,d_v)$ represent small deviations from the expansion point, and the coefficients $C_{\mathbf{k}}$ are the scaled partial derivatives
+\begin{equation}
+    C_{\mathbf{k}} = \frac{1}{\mathbf{k}!} \frac{\partial^{|\mathbf{k}|} f}{\partial x_1^{k_1} \cdots \partial x_v^{k_v}}\bigg|_{\mathbf{x}_0}.
+\end{equation}
 
-By defining operations such as addition, multiplication, and differentiation on these vectors, TPSA allows us to compute the DA vector of complex composite functions. When a mathematical operation is applied to a DA vector, the result is a new DA vector containing the correct Taylor expansion of the resulting function.
+The total number of distinct monomials (and hence storage slots) for a DA vector of order $n$ in $v$ variables is
+\begin{equation}
+    N_{\text{terms}} = \binom{n+v}{v}.
+\end{equation}
+For large $n$ and $v$ this grows polynomially, making sparse storage of only non-zero coefficients necessary for practical high-order computation.
 
-Programmatically, \texttt{sandalwood} represents these mathematical constructs using two primary data types: dense and sparse representations. The dense approach stores all coefficients in a contiguous block of memory, ensuring fast SIMD-vectorized operations at lower orders. However, as the number of terms grows polynomially as $\binom{v+n}{n}$, the sparse representation---storing only non-zero coefficients---becomes a computational necessity for high-order work, exploiting the inherent symmetries and linearities present in many physical systems.
+\subsection{Taylor Maps and Hamiltonian Flows}
+
+A \emph{Taylor map} $\mathbf{M}: \mathbb{R}^n \to \mathbb{R}^m$ is a vector-valued function where each component $M_i$ is a DA vector. Taylor maps are the primary computational vehicle for representing the one-turn maps of particle accelerator lattices, the state-transition functions of nonlinear control systems, and the flow maps of Hamiltonian systems.
+
+For a Hamiltonian system with phase space coordinates $(q_i, p_i)$, the \emph{Poisson bracket} of two observables $F$ and $G$ is
+\begin{equation}
+    \{F, G\} = \sum_{i=1}^{n} \left(\frac{\partial F}{\partial q_i}\frac{\partial G}{\partial p_i} - \frac{\partial F}{\partial p_i}\frac{\partial G}{\partial q_i}\right),
+\end{equation}
+a fundamental operation for studying the evolution of observables and for constructing symplectic integrators. \texttt{sandalwood} exposes Poisson brackets as a first-class operation on MTF objects.
 
 \section{Software Architecture}
+\label{sec:architecture}
+
 \texttt{sandalwood} is designed around an intuitive object-oriented API that abstracts the underlying computational complexity.
 
-\subsection{Object-Oriented Design}
-The library exposes two core classes:
+\subsection{Core Data Types}
+
+The library exposes three primary data types, all sharing a unified coefficient storage model:
 \begin{itemize}
-    \item \texttt{MultivariateTaylorFunction (MTF)}: Represents a scalar-valued function of multiple variables. It encapsulates the DA vector and provides overloaded arithmetic operators (e.g., \texttt{+}, \texttt{*}, \texttt{**}) and transcendental functions (e.g., \texttt{sin}, \texttt{exp}).
-    \item \texttt{TaylorMap}: Represents a vector-valued function, essentially a collection of \texttt{MultivariateTaylorFunction} components. It is the primary structure for studying coordinate transformations, systems of equations, and the flow of differential equations.
+    \item \texttt{MultivariateTaylorFunction (MTF)}: A real-valued scalar DA vector. Coefficients are stored as a pair of parallel NumPy arrays: a 2D integer array \texttt{exponents} of shape $(N_{\text{terms}},v)$ containing multi-index exponents, and a 1D float64 array \texttt{coeffs} of the corresponding coefficient values. All standard arithmetic operators (\texttt{+}, \texttt{-}, \texttt{*}, \texttt{/}, \texttt{**}) and unary negation are overloaded.
+
+    \item \texttt{ComplexMultivariateTaylorFunction (CMTF)}: A subclass of MTF specialized for complex coefficients (dtype \texttt{complex128}). Provides additional operations \texttt{conjugate()}, \texttt{real\_part()}, and \texttt{imag\_part()} for extracting real and imaginary components as standard MTFs.
+
+    \item \texttt{TaylorMap}: A vector-valued function $\mathbb{R}^n \to \mathbb{R}^m$ represented as an ordered list of MTF components. Supports element-wise arithmetic (\texttt{+}, \texttt{-}, \texttt{*}), map composition, algebraic inversion, truncation, substitution, and sensitivity analysis.
 \end{itemize}
 
+Both MTF and CMTF support lazy synchronization with the backend: Python-side coefficient arrays are populated on demand from the Fortran backend representation, avoiding redundant copies during pure-backend operation chains.
+
 \subsection{Hybrid Execution Engine}
-To overcome the overhead commonly associated with Python, \texttt{sandalwood} employs a Layered Hybrid Strategy:
+
+To overcome the overhead commonly associated with Python, \texttt{sandalwood} employs a layered hybrid strategy selectable at initialization time:
+
 \begin{itemize}
-    \item \textbf{Native Python/Numba Backend}: The default backend utilizes Numba to Just-In-Time (JIT) compile dense algebraic kernels directly into machine code. It implements block-based reduction strategies and SIMD vectorization, processing evaluations in localized memory blocks to maximize CPU cache hit rates. This backend is highly portable and requires no compilation step.
-    \item \textbf{COSY Infinity Fortran Backend}: For massive batch operations or extremely high-order compositions, \texttt{sandalwood} can seamlessly dispatch calculations to a compiled Fortran core based on COSY Infinity. This is achieved via a Direct Memory Bridge using \texttt{ctypes} and Fortran's \texttt{ISO\_C\_BINDING}, allowing Python to manipulate Fortran-allocated static memory directly without serialization overhead.
+    \item \textbf{Native Python/Numba Backend} (\texttt{implementation="python"}): The default for portable deployments. Coefficient operations are implemented in pure NumPy with optional Numba~\cite{lam2015numba} JIT acceleration. The multiplication kernel (\texttt{multiply\_dense\_parallel}) implements a parallel map-reduce strategy with manual thread-chunk isolation over a precomputed dense multiplication table, enabling safe concurrent writes. A separate SIMD-friendly evaluation kernel (\texttt{evaluate\_dense\_kernel}) processes evaluation points in cache-resident blocks of 256 using precomputed power caches, maximizing L1/L2 cache hit rates. A composition kernel (\texttt{compose\_dense\_kernel}) parallelizes the outer-map substitution across Numba threads.
+
+    \item \textbf{COSY Infinity Fortran Backend} (\texttt{implementation="cosy"}): For maximum performance in batch operations and high-order compositions, \texttt{sandalwood} dispatches calculations to a compiled Fortran core. Python communicates with the Fortran-allocated static memory pool via a direct memory bridge using \texttt{ctypes} and Fortran's \texttt{ISO\_C\_BINDING}, allowing zero-copy data transfers. An $O(1)$ \texttt{CosyIndexPool} (object pool pattern) manages Fortran DA variable slots, completely eliminating allocation overhead during computation chains.
+\end{itemize}
+
+Backend selection is automatic: if the Fortran library is found at import time, the COSY backend is used by default; otherwise the Python/Numba backend is activated with a log warning.
+
+\subsection{Thread Safety}
+
+All class-level state mutations in \texttt{initialize\_mtf} are guarded by a module-level reentrant lock (\texttt{\_INIT\_LOCK: threading.RLock}). The Fortran index pool uses an independent \texttt{threading.RLock} over its \texttt{acquire}/\texttt{release} methods, preventing duplicate-index allocation races when multiple threads perform concurrent computation chains. This allows \texttt{sandalwood} to be safely used from multi-threaded LangGraph workflows and multi-worker HPC processes.
+
+\section{Mathematical Operations}
+\label{sec:operations}
+
+\subsection{Elementary Functions}
+
+The \texttt{mtf} and \texttt{cmtf} namespace objects expose 23 elementary functions as members of the Taylor algebra. All functions handle non-zero expansion points by factoring out the constant term before applying the zero-centered series, ensuring correctness for arbitrary argument values:
+
+\begin{itemize}
+    \item \textbf{Trigonometric}: \texttt{sin}, \texttt{cos}, \texttt{tan}, \texttt{arcsin}, \texttt{arccos}, \texttt{arctan}. The sine and cosine expansions use the addition identities $\sin(C+p) = \sin C\cos p + \cos C\sin p$ and analogously for cosine, with the zero-centered helper series computed from dynamic coefficient generators to arbitrary order.
+    \item \textbf{Hyperbolic}: \texttt{sinh}, \texttt{cosh}, \texttt{tanh}, \texttt{arctanh}.
+    \item \textbf{Exponential \& Logarithmic}: \texttt{exp} (uses $e^{C+p} = e^C\cdot e^p$), \texttt{log} (uses $\log(C+p) = \log C + \log(1 + p/C)$).
+    \item \textbf{Power}: \texttt{sqrt} ($\sqrt{C+p}$ via binomial series), \texttt{pow}.
+    \item \textbf{Physics Specialties}: \texttt{gaussian} ($e^{-x^2}$), \texttt{isqrt} ($1/\sqrt{C+p}$), \texttt{inv\_cbrt} ($1/(C+p)^{1/3}$), \texttt{inv\_pow\_3\_2} ($1/(C+p)^{3/2}$). These are required for Biot-Savart and beam optics applications where the denominator contains powers of the distance squared.
+\end{itemize}
+
+\subsection{Differential Calculus}
+
+\texttt{sandalwood} provides the full differential calculus layer of a DA system:
+
+\begin{itemize}
+    \item \textbf{Partial differentiation}: \texttt{derivative(f, var\_index)} computes $\partial f/\partial x_i$ by applying the standard monomial differentiation rule $\partial/\partial x_i\left(C_{\mathbf{k}}\prod x_j^{k_j}\right) = k_i C_{\mathbf{k}} \prod x_j^{k_j - \delta_{ij}}$ to all terms.
+    \item \textbf{Integration}: \texttt{integrate(f, var\_index, lower, upper)} performs both indefinite and definite integration with respect to $x_i$. Definite integration over $[a,b]$ evaluates the antiderivative at the bounds and returns the result as a constant MTF.
+    \item \textbf{Poisson Bracket}: \texttt{compute\_poisson\_bracket(F, G)} computes $\{F, G\} = \sum_i \partial_q F \partial_p G - \partial_p F \partial_q G$ over the canonical pairs $(q_i, p_i)$, assuming the standard interleaved-coordinate convention $(x_1=q_1, x_2=p_1, x_3=q_2, x_4=p_2, \ldots)$.
+    \item \textbf{Composition}: MTF objects support substitution of a set of MTFs into their variables via \texttt{f.compose(\{1: g1, 2: g2, ...\})}, computing the composite function $f(g_1(\mathbf{x}), g_2(\mathbf{x}), \ldots)$. The COSY backend uses optimized recursive substitution; the Numba backend uses the \texttt{compose\_dense\_kernel}.
+    \item \textbf{Truncation}: \texttt{f.truncate(order)} lowers the maximum order of any MTF or TaylorMap in-place, discarding all terms of total degree exceeding \texttt{order}.
+\end{itemize}
+
+\subsection{TaylorMap Operations}
+
+The \texttt{TaylorMap} class provides operations essential for nonlinear dynamics:
+
+\begin{itemize}
+    \item \textbf{Map Composition}: \texttt{M1.compose(M2)} computes $\mathbf{M}_1 \circ \mathbf{M}_2$, substituting each component of $\mathbf{M}_2$ into the variables of each component of $\mathbf{M}_1$. The COSY backend marshals the entire map for highly optimized recursive substitution.
+    \item \textbf{Algebraic Inversion}: \texttt{M.invert()} computes the algebraic inverse $\mathbf{M}^{-1}$ of an invertible linear-part map. The algorithm requires the linear part (Jacobian) to be invertible; a check via the Jacobian determinant is performed automatically.
+    \item \textbf{Batch Evaluation}: \texttt{M.neval(points)} evaluates the map at a 2D array of phase-space points simultaneously, dispatching to OpenMP-parallelized Fortran kernels (COSY) or the Numba \texttt{evaluate\_dense\_kernel} (Python).
+    \item \textbf{Sensitivity Analysis}: \texttt{M.map\_sensitivity(scaling\_factors)} scales map coefficients by user-specified factors for parametric sensitivity studies.
+    \item \textbf{Trace}: \texttt{M.trace()} computes the trace of the linear part (Jacobian) of the map, a key invariant for stability analysis of periodic orbits.
+    \item \textbf{Component Access}: Individual components are accessible via \texttt{M.components[i]}, and can be added (\texttt{add\_component}), removed (\texttt{remove\_component}), or extracted by index (\texttt{get\_component}).
+    \item \textbf{Variable Substitution}: \texttt{M.substitute(\{var\_id: value, ...\})} partially evaluates the map by fixing one or more variable coordinates to specified values.
+    \item \textbf{JSON Serialization}: Both MTF and TaylorMap support \texttt{to\_json()} and \texttt{from\_json()} for portable serialization, enabling persistence and network transmission of DA objects.
 \end{itemize}
 
 \section{Core Features and Usage}
-\texttt{sandalwood} is designed to be highly accessible. The following code snippet demonstrates the initialization of variables, definition of a Taylor series, and evaluation of a non-linear map.
+\label{sec:usage}
 
-\begin{lstlisting}[language=Python, caption=Defining and evaluating a Taylor Map in \texttt{sandalwood}]
-from sandalwood import MultivariateTaylorFunction, TaylorMap, mtf
+\texttt{sandalwood} is designed to be highly accessible. The following code example demonstrates initialization, symbolic variable definition, map construction, composition, and inversion---the fundamental operations of an accelerator lattice tracking study.
 
-# Initialize the global MTF environment
-# 2 variables (x, y), up to order 3
-MultivariateTaylorFunction.initialize_mtf(max_order=3, max_dimension=2)
+\begin{lstlisting}[language=Python, caption=Map composition and inversion in \texttt{sandalwood}]
+from sandalwood import MultivariateTaylorFunction as mtf, TaylorMap
 
-# Define symbolic variables
-x, y = mtf.var(1), mtf.var(2)
+# Initialize: 4 variables (x, px, y, py), up to order 5
+mtf.initialize_mtf(max_order=5, max_dimension=4)
 
-# Define a non-linear map F(x, y) = [x + y**2, y - x**2]
-F = TaylorMap([x + y**2, y - x**2])
+# Symbolic variables (1-indexed)
+x, px, y, py = mtf.var(1), mtf.var(2), mtf.var(3), mtf.var(4)
 
-# Create another map G(a, b) = [a*b, a]
-a, b = mtf.var(1), mtf.var(2)
-G = TaylorMap([a * b, a])
+# Define a non-linear one-turn map (thin-lens approximation)
+# F: (x, px, y, py) -> (x + px, px + 0.1*x**2, y + py, py)
+F = TaylorMap([x + px, px + 0.1 * x**2, y + py, py])
 
-# Compose the maps: H(x, y) = G(F(x, y))
+# Define a rotation map G (betatron phase advance)
+import math
+phi = math.pi / 4   # 45-degree phase advance
+G = TaylorMap([x * math.cos(phi) + px * math.sin(phi),
+               -x * math.sin(phi) + px * math.cos(phi), y, py])
+
+# One-turn map: H = G composed with F
 H = G.compose(F)
 
-# Compute the inverse map of F
-F_inv = F.invert()
+# Compute the algebraic inverse of H
+H_inv = H.invert()
+
+# Validate round-trip: H_inv(H(point)) should recover point
+point = [0.01, 0.001, 0.005, 0.0]
+H_at_point  = H.neval([point])[0]
+recovered   = H_inv.neval([H_at_point.tolist()])[0]
 \end{lstlisting}
 
-Map composition ($H(x) = G(F(x))$) is computationally demanding as it requires substituting high-order polynomials into one another. \texttt{sandalwood} optimizes this by marshaling the entire map to the Fortran backend (when available) to leverage highly optimized, recursive substitution algorithms, or by utilizing Numba-JIT compiled dense multiplication tables in the native backend.
+\subsection{Differential Calculus Examples}
+
+\begin{lstlisting}[language=Python, caption=Poisson bracket and definite integration]
+from sandalwood import mtf
+from sandalwood.elementary_functions import derivative, integrate
+
+mtf.initialize_mtf(max_order=4, max_dimension=2)
+q, p = mtf.var(1), mtf.var(2)
+
+# Harmonic oscillator Hamiltonian H = (p**2 + q**2) / 2
+H = (p**2 + q**2) / 2.0
+
+# Time evolution of q: dq/dt = {q, H} = dH/dp
+dqdt = derivative(H, 2)   # dH/dp = p
+
+# Definite integration: integrate q^2 dp from 0 to 1
+q_sq = q**2
+integral_val = integrate(q_sq, var_index=2, lower=0.0, upper=1.0)
+\end{lstlisting}
+
+Map composition ($\mathbf{H} = \mathbf{G} \circ \mathbf{F}$) is computationally demanding as it requires substituting high-order polynomials into one another. \texttt{sandalwood} optimizes this through Numba-parallelized dense multiplication tables in the native backend and optimized recursive substitution in the Fortran backend.
 
 \section{AI Agent Integration}
-As scientific discovery becomes increasingly automated, computational tools must be designed not only for human researchers but also for autonomous AI agents. \texttt{sandalwood}'s Pythonic API is uniquely positioned to serve as a high-fidelity environment for AI-driven scientific workflows, such as those governed by state-graph architectures. To natively support autonomous agents (such as \texttt{AIyaru}), we have implemented the \texttt{agent\_tools} module. This module provides a complete integration layer that exposes the full breadth of the library's capabilities via a highly optimized interface.
+\label{sec:agents}
+
+As scientific discovery becomes increasingly automated, computational tools must serve autonomous AI agents as well as human researchers. \texttt{sandalwood}'s \texttt{agent\_tools} module (v0.2.0) provides a complete integration layer that exposes the library's full capability set via a highly optimized, agent-friendly interface. This module is the first DA system designed from the ground up for LLM agent use.
 
 \subsection{Stateful Session Registry and Context Optimization}
-A major limitation of utilizing Large Language Models (LLMs) for numerical and symbolic tasks is the context window length and tokenization overhead. A high-order Multivariate Taylor Function (MTF) or a vector-valued \texttt{TaylorMap} can contain thousands of floating-point coefficients. Serializing these structures into the LLM conversation history quickly saturates the context window and increases API costs.
 
-To solve this problem, the \texttt{agent\_tools} module implements a stateful Session Registry pattern (\texttt{registry.py}). Under this architecture, when an agent creates, parses, or modifies a Differential Algebra (DA) object, the server registers the object and returns a lightweight JSON reference string containing a unique identifier (e.g., \texttt{\{"ref": "mtf\_0", "message": "..."\}}). The agent subsequently references these short strings in future tool calls (such as partial differentiation, composition, or batch evaluation) without ever needing to see or parse the raw coefficients. The registry state can be inspected via read-only resources, optimizing the agent's context and ensuring efficient execution.
+A major limitation of utilizing Large Language Models for numerical and symbolic tasks is context-window saturation. A high-order MTF or TaylorMap can contain thousands of floating-point coefficients; serializing these into an LLM conversation history immediately saturates the context window and drives up API costs.
+
+The \texttt{agent\_tools} module solves this with a \emph{stateful Session Registry} pattern (\texttt{registry.py}). When an agent creates, parses, or modifies a DA object, the server registers the object in an in-memory dictionary keyed by a \texttt{session\_id}, and returns a lightweight JSON reference string (e.g., \texttt{\{"ref": "mtf\_0", "message": "..."\}}). The agent subsequently references these short strings in all future tool calls---composition, differentiation, evaluation, inversion---without ever receiving or transmitting the raw coefficient data. The registry implements the following public API functions:
+
+\begin{itemize}
+    \item \texttt{register\_object(obj, name, session\_id)}: stores an object and returns its reference name.
+    \item \texttt{get\_object(ref, expected\_type, session\_id)}: retrieves and type-checks a registered object.
+    \item \texttt{list\_session\_variables(session\_id)}: returns a shallow copy of the session's registered objects.
+    \item \texttt{list\_all\_sessions()}: returns all sessions and their registered variables.
+    \item \texttt{prune\_registry(session\_id)}: clears all objects for a session, releasing memory.
+\end{itemize}
+
+All registry operations are protected by a \texttt{threading.Lock}, enabling concurrent agents to operate in isolated sessions without contention.
+
+\subsection{Tool Suite: 28 Operations}
+
+The \texttt{agent\_tools} module exposes 28 operations spanning the complete library capability:
+
+\begin{table*}
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Category} & \textbf{Tools} & \textbf{Count} \\
+\midrule
+Setup & \texttt{initialize\_sandalwood} & 1 \\
+Construction & \texttt{parse\_expression\_to\_mtf}, \texttt{create\_taylor\_map} & 2 \\
+Evaluation & \texttt{evaluate\_mtf}, \texttt{evaluate\_taylor\_map}, & 4 \\
+ & \texttt{evaluate\_mtf\_batch}, \texttt{evaluate\_taylor\_map\_batch} & \\
+Calculus & \texttt{compute\_partial\_derivative}, \texttt{integrate\_mtf}, & 3 \\
+ & \texttt{compute\_poisson\_bracket} & \\
+Arithmetic & \texttt{perform\_mtf\_arithmetic}, \texttt{perform\_complex\_operation} & 2 \\
+Composition & \texttt{compose\_taylor\_maps}, \texttt{compose\_mtfs} & 2 \\
+Substitution & \texttt{substitute\_variable\_in\_mtf}, \texttt{substitute\_in\_taylor\_map} & 2 \\
+Manipulation & \texttt{truncate\_object}, \texttt{extract\_map\_component}, & 2 \\
+ & \texttt{get\_mtf\_coefficient} & 1 \\
+Diagnostics & \texttt{analyze\_taylor\_map}, \texttt{invert\_taylor\_map}, & 5 \\
+ & \texttt{compute\_map\_sensitivity}, \texttt{analyze\_mtf\_diagnostics}, & \\
+ & \texttt{mtf\_info}, \texttt{taylor\_map\_info} & \\
+Session & \texttt{list\_session}, \texttt{clear\_session} & 2 \\
+\bottomrule
+\end{tabular}
+\caption{The 28 agent tools grouped by functional category.}
+\label{tab:tools}
+\end{table*}
+
+All tools return a standardized \texttt{ToolSuccessResponse} / \texttt{ToolErrorResponse} JSON envelope. Errors are caught internally and returned as structured JSON with an error code (\texttt{INVALID\_INPUT}, \texttt{COMPUTATION\_ERROR}, \texttt{REGISTRY\_ERROR}, \texttt{SYSTEM\_ERROR}), enabling the autonomous agent to observe the failure and perform dynamic self-correction within its reasoning loop without crashing the server.
 
 \subsection{Standard Protocols and Tool Wrappers}
+
 To achieve compatibility across diverse agentic frameworks, the \texttt{agent\_tools} module provides two primary interfaces:
 \begin{itemize}
-    \item \textbf{Model Context Protocol (MCP) Server}: The module implements an MCP server (\texttt{mcp\_server.py}) powered by FastMCP. It exposes 21 core differential algebra operations as standard MCP tools. It maps the session registry as a read-only resource (\texttt{registry://variables}), enabling LLMs to list and query registered variables on demand. It also features a specialized instruction template (\texttt{sandalwood-da-expert}) to guide the LLM's reasoning.
-    \item \textbf{LangChain Tools}: The library exposes the core functions wrapped in LangChain's \texttt{@tool} decorator (\texttt{langchain\_tools.py}) for out-of-the-box integration into LangGraph and other agentic graph frameworks.
+    \item \textbf{Model Context Protocol (MCP) Server}: \texttt{mcp\_server.py}, powered by FastMCP, exposes all 28 tools as MCP tool calls and maps the session registry as read-only resources (\texttt{registry://variables}, \texttt{registry://variable/\{name\}}), enabling LLMs to enumerate and query registered variables on demand. A specialized instruction template \texttt{sandalwood-da-expert} guides the LLM's reasoning about DA concepts. The \texttt{registry://variables} resource enumerates objects across all active sessions.
+    \item \textbf{LangChain Tools}: All 28 functions are wrapped with the LangChain \texttt{@tool} decorator (\texttt{langchain\_tools.py}), with Pydantic v2 input schemas (\texttt{schemas.py}) for out-of-the-box integration into LangGraph and other agentic graph frameworks.
 \end{itemize}
 
-\subsection{Robustness and Natural Language Parsing}
-AI agents frequently struggle with the precise array constructs and coordinate definitions required by numerical libraries. To bridge this gap, \texttt{sandalwood} provides a robust parser (\texttt{parser.py}) that enables agents to construct MTFs directly from natural mathematical strings (e.g., \texttt{"x1**2 + sin(x2)"}). The parser supports all standard trigonometric and hyperbolic functions, alongside specialized functions such as the inverse square root (\texttt{isqrt}) and specialized power series roots (\texttt{inv\_cbrt}, \texttt{inv\_pow\_3\_2}).
+\subsection{Natural Language Expression Parsing}
 
-Furthermore, the core tool implementations (\texttt{functions.py}) enforce strict typing and are equipped with safe exception boundaries. Instead of throwing segmentation faults or silent NaN values, exceptions are caught internally and returned to the LLM as detailed JSON-serialized error strings. This allows the autonomous agent to observe the failure, reason about the cause, and perform self-correction dynamically within its reasoning loop.
+AI agents frequently struggle with the precise array constructs required by numerical libraries. \texttt{sandalwood} provides a robust parser (\texttt{parser.py}) that enables agents to construct MTFs directly from natural mathematical strings (e.g., \texttt{"x1**2 + sin(x2)"}). The parser supports all 23 elementary functions in the library's algebra, variable substitution by name (\texttt{x1, x2, \ldots, xN}), and automatic dimension consistency checking.
+
+\subsection{Interactive Dashboard}
+
+A Gradio~\cite{abid2019gradio} web dashboard (\texttt{mcp\_dashboard/app.py}) connects a Google Gemini LLM agent to the Sandalwood MCP server in a side-by-side interface showing the chat history, tool calls, and a live registry inspector panel. The model is configurable via the \texttt{SANDALWOOD\_GEMINI\_MODEL} environment variable.
 
 \section{Performance and Optimization}
+\label{sec:performance}
+
 Achieving high performance in Python requires careful management of memory and loop execution. \texttt{sandalwood} introduces several critical optimizations:
+
 \begin{itemize}
-    \item \textbf{Structure of Arrays (SoA) Layout}: Specialized physics kernels, such as the Biot-Savart integrator, enforce SoA memory layouts, vastly improving cache locality and SIMD vectorization potential during batch processing.
-    \item \textbf{Parallel Evaluation}: Evaluating polynomials at millions of phase-space points is offloaded to OpenMP-parallelized Fortran kernels, resulting in speedups of up to $100\times$ compared to standard NumPy broadcasting.
-    \item \textbf{The \texttt{CosyScope} Context Manager}: When interfacing with the static memory pool of the Fortran backend, Python's dynamic garbage collector can cause severe fragmentation. \texttt{sandalwood} implements an $O(1)$ memory allocation tracker, \texttt{CosyScope}, which operates like a compiler stack frame, instantly freeing thousands of intermediate variables upon exiting a calculation block.
+    \item \textbf{Precomputed Dense Multiplication Tables}: At initialization, a dense multiplication table of shape $(N_{\text{terms}}, N_{\text{terms}})$ is precomputed for each dimension up to \texttt{max\_dimension}. The table stores the output index of the product of any two monomials, or $-1$ if the product exceeds the truncation order. This reduces each coefficient multiplication to a single table lookup, replacing the otherwise expensive binary search over sorted exponent tuples.
+
+    \item \textbf{Numba JIT Compilation with Parallel Map-Reduce}: The \texttt{multiply\_dense\_parallel} kernel partitions the outer operand's terms into per-thread chunks, accumulates products in thread-local buffers, and reduces at the end---ensuring thread safety without atomic operations. The evaluation kernel \texttt{evaluate\_dense\_kernel} processes points in blocks of 256, pre-computing power caches in a \texttt{(dim, max\_order+1, block\_size)} layout to maximize SIMD vectorization potential.
+
+    \item \textbf{$O(1)$ COSY Index Pool}: The Fortran backend manages DA variable indices through an object pool (\texttt{CosyIndexPool}) protected by a reentrant lock. Acquisition and release of Fortran memory slots are $O(1)$ operations, eliminating the scan-for-free-slot overhead of earlier designs.
+
+    \item \textbf{Zero-Copy Fortran Bridge}: Data transfer between Python and the Fortran static memory pool uses direct pointer access via \texttt{ctypes} and \texttt{ISO\_C\_BINDING}. This avoids serialization---no arrays are copied during a computation chain that remains entirely within the Fortran backend.
+
+    \item \textbf{OpenMP Parallel Batch Evaluation}: Evaluating a TaylorMap at millions of phase-space points is offloaded to an OpenMP-parallelized Fortran kernel via the \texttt{neval} interface, yielding speedups of up to $100\times$ compared to sequential NumPy broadcasting.
+
+    \item \textbf{Structure of Arrays (SoA) Layout}: Specialized physics kernels enforce SoA memory layouts, ensuring that all values for the same field component across many source elements are contiguous in memory, maximizing cache locality and SIMD vectorization during batch processing of electromagnetic field integrals.
 \end{itemize}
-Benchmark results for large-scale operations (e.g., 100,000 source segments in a Biot-Savart calculation) demonstrate that the SoA layout and Fast-Path JIT dispatch yield speedups exceeding $400\times$ compared to naive object-oriented Python implementations.
+
+Benchmark results for large-scale operations (e.g., 100,000-element Biot-Savart integrations) demonstrate that the SoA layout and fast-path JIT dispatch yield speedups exceeding $400\times$ compared to na\"ive object-oriented Python implementations.
+
+\section{Software Quality and Ecosystem}
+\label{sec:quality}
+
+\texttt{sandalwood} follows modern Python packaging and continuous integration best practices:
+
+\begin{itemize}
+    \item \textbf{Comprehensive Test Suite}: 389 unit and integration tests (3 skipped) covering all backends, all mathematical operations, thread safety under concurrent initialization, and the full 28-tool agent API. Tests are organized as \texttt{pytest} cases with markers distinguishing fast unit tests from slower demo-based integration tests.
+    \item \textbf{Static Analysis}: \texttt{ruff} enforces PEP 8 compliance and import hygiene; \texttt{mypy} enforces type annotations across the core library modules.
+    \item \textbf{Documentation}: Sphinx-generated HTML documentation is built automatically on ReadTheDocs, with inline doctest examples for all public functions.
+    \item \textbf{Optional Extras}: Dependencies are organized into optional extras (\texttt{agents}, \texttt{gui}, \texttt{accel}, \texttt{torch}, \texttt{demos}, \texttt{test}, \texttt{dev}) to minimize the mandatory install footprint for users who do not need GPU acceleration or the agent stack.
+    \item \textbf{Availability}: Source code, documentation, and installation instructions are available at \url{https://github.com/shashi-manikonda/sandalwood}. Documentation is hosted at \url{https://sandalwood.readthedocs.io}.
+\end{itemize}
 
 \section{Conclusion and Future Work}
-\texttt{sandalwood} provides a modern, robust, and high-performance Python interface for Multivariate Taylor Functions and Differential Algebra. By successfully bridging the ease-of-use of Python with the raw computational power of Numba and Fortran, it democratizes access to high-order DA methods for a broad scientific audience. The library is particularly well-suited for HPC applications in electromagnetics, beam physics, and celestial mechanics, while remaining fully compatible with automated, AI-driven discovery pipelines.
+\label{sec:conclusion}
 
-Future open-source development will focus on expanding native GPU acceleration (e.g., via CUDA and JAX), implementing advanced symplectic integration routines natively in Python, and further refining the AI-agent integration capabilities.
+\texttt{sandalwood} provides a modern, robust, and high-performance Python interface for Multivariate Taylor Functions, Complex Taylor Functions, and Taylor Maps, implementing the full mathematical framework of Differential Algebra. By successfully bridging the ease-of-use of Python with the raw computational power of Numba and Fortran---while simultaneously providing the first DA library with native autonomous AI agent support---it democratizes access to high-order nonlinear analysis methods for both human researchers and AI-driven scientific pipelines.
+
+The library is particularly well-suited for HPC applications in nonlinear beam optics (one-turn maps, normal forms, resonance analysis), electromagnetics (Biot-Savart integration, field quality analysis), celestial mechanics (transfer orbit sensitivity), and Hamiltonian dynamics (Poisson bracket flow). The AI agent integration pathway enables fully autonomous simulation campaigns where an LLM agent can iteratively build, compose, invert, and analyze Taylor maps without human involvement in the mathematical formulation.
+
+Future open-source development will focus on:
+\begin{itemize}
+    \item Expanding native GPU acceleration (e.g., via CUDA kernels and JAX~\cite{bradbury2018jax});
+    \item Implementing symplectic integrators and Lie transforms natively as agent tools;
+    \item Adding session time-to-live (TTL) and background garbage collection for long-running MCP server deployments;
+    \item Adding OpenAI and Anthropic Claude tool-call adapters alongside the existing LangChain and MCP interfaces;
+    \item A persistent registry backend (SQLite or Redis) for multi-process agent scenarios.
+\end{itemize}
+\begin{acknowledgments}
+The authors acknowledge the use of Gemini 3.5 Flash for assistance in writing the Python code, as well as for structuring the initial LaTeX formatting of this document. All generated code and output were verified by the human authors, who take full responsibility for the scientific integrity of the work.
+\end{acknowledgments}
 
 \bibliographystyle{apsrev4-2}
-\begin{thebibliography}{9}
+\begin{thebibliography}{99}
 
 \bibitem{ritt1950differential}
-J.~F. Ritt, \emph{Differential Algebra} (American Mathematical Society, 1950).
+J.~F. Ritt, \emph{Differential Algebra} (American Mathematical Society, New York, 1950).
 
 \bibitem{berz1999differential}
-M.~Berz, ``Differential algebraic foundations of nonlinear beam dynamics,'' in \emph{Nonlinear and Collective Phenomena in Beam Physics} (1999), pp. 1--42.
+M.~Berz, ``Differential algebraic foundations of nonlinear beam dynamics,''
+in \emph{Nonlinear and Collective Phenomena in Beam Physics}, AIP Conf. Proc.\ \textbf{496} (1999), pp.\ 1--42.
 
 \bibitem{berz1989cosy}
-M.~Berz, ``COSY INFINITY—A new general-purpose optics code for the design of particle accelerators,'' Particle Accelerators \textbf{24}, 109 (1989).
+M.~Berz, ``COSY INFINITY---A new general-purpose optics code for the design of particle accelerators,''
+Particle Accelerators \textbf{24}, 109--124 (1989).
 
 \bibitem{makino2006cosy}
-K.~Makino and M.~Berz, ``COSY INFINITY Version 9,'' in \emph{Proceedings of ICAP 2006} (2006), p. 229.
+K.~Makino and M.~Berz, ``COSY INFINITY Version 9,''
+in \emph{Proceedings of ICAP 2006} (Chamonix, 2006), p.\ 229.
+
+\bibitem{harris2020numpy}
+C.~R. Harris \textit{et al.}, ``Array programming with {NumPy},''
+Nature \textbf{585}, 357--362 (2020).
+
+\bibitem{lam2015numba}
+S.~K. Lam, A.~Pitrou, and S.~Seibert, ``Numba: A LLVM-based python JIT compiler,''
+in \emph{Proc.\ LLVM Compilation Infrastructure in HPC} (Austin, TX, 2015), pp.\ 1--6.
+
+\bibitem{abid2019gradio}
+A.~Abid, A.~Abdalla, A.~Abid, D.~Khan, A.~Alfozan, and J.~Zou, ``Gradio: Hassle-free sharing and testing of ML models in the wild,''
+\textit{arXiv:1906.02569} (2019).
+
+\bibitem{bradbury2018jax}
+J.~Bradbury \textit{et al.}, \emph{JAX: Composable transformations of Python+NumPy programs} (2018), software available at \url{http://github.com/google/jax}.
 
 \end{thebibliography}
 
