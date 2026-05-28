@@ -65,7 +65,7 @@ compose_mtfs = tool(
 perform_mtf_arithmetic = tool(
     "perform_mtf_arithmetic",
     args_schema=schemas.PerformMtfArithmeticInput,
-    description="Executes fundamental algebraic operations ('add', 'subtract', 'multiply', 'divide', 'power') between two MTFs, or between an MTF and a numerical scalar. The operands are resolved from the registry or parsed as scalars. Registers the arithmetic result and returns its reference.",
+    description="Executes fundamental algebraic operations between two MTFs, or between an MTF and a numerical scalar. The 'op' parameter must be one of the following operator symbols: '+' (add), '-' (subtract), '*' (multiply), '/' (divide), '**' (power). The operands are resolved from the registry or parsed as scalars. Registers the arithmetic result and returns its reference.",
 )(functions.perform_mtf_arithmetic)
 
 perform_complex_operation = tool(
@@ -131,7 +131,7 @@ evaluate_taylor_map_batch = tool(
 analyze_mtf_diagnostics = tool(
     "analyze_mtf_diagnostics",
     args_schema=schemas.AnalyzeMtfDiagnosticsInput,
-    description="Computes advanced mathematical diagnostics for an MTF, including its standard norm, weighted norm (if weight array is provided), and stability/order decay estimates. Returns a dictionary of these structural metrics.",
+    description="Computes advanced mathematical diagnostics for an MTF, including its standard norm, optional weighted norm (provide 'weight' as a list of floats matching the MTF dimension, COSY backend only), and optional stability/order decay estimates (provide 'stability_var_id' as a 1-based variable index and optionally 'stability_order', COSY backend only). Returns a dictionary of these structural metrics.",
 )(functions.analyze_mtf_diagnostics)
 
 compute_poisson_bracket = tool(
@@ -151,3 +151,15 @@ extract_map_component = tool(
     args_schema=schemas.ExtractMapComponentInput,
     description="Extracts a single scalar MTF representing a specific coordinate component from a vector-valued TaylorMap. The component index is 0-based. Registers the extracted MTF and returns its reference.",
 )(functions.extract_map_component)
+
+list_session = tool(
+    "list_session",
+    args_schema=schemas.ListSessionInput,
+    description="Lists all registered MultivariateTaylorFunction and TaylorMap objects in the current session. Returns variable names, types, and dimensions. Use this to inspect what objects are available before referencing them in other tools.",
+)(functions.list_session)
+
+clear_session = tool(
+    "clear_session",
+    args_schema=schemas.ClearSessionInput,
+    description="Clears all registered objects in the specified session, freeing memory. Use this to reset the working session after completing a workflow or when starting fresh computations.",
+)(functions.clear_session)

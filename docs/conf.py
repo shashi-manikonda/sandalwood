@@ -11,6 +11,9 @@ import sys
 sys.path.insert(0, os.path.abspath("../src"))
 
 
+import re
+from pathlib import Path
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -18,8 +21,12 @@ project = "sandalwood"
 copyright = "2025, Shashikant Manikonda"
 author = "Shashikant Manikonda"
 
-version = "0.1.4"
-release = "0.1.4"
+# Extract version dynamically from pyproject.toml
+pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+version_match = re.search(r'^version\s*=\s*[\'"]([^\'"]+)[\'"]', pyproject_path.read_text(encoding="utf-8"), re.M)
+
+version = version_match.group(1) if version_match else "unknown"
+release = version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

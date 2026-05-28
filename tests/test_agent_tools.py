@@ -7,6 +7,7 @@ from sandalwood.agent_tools import (
     analyze_mtf_diagnostics,
     analyze_taylor_map,
     clear_registry,
+    clear_session,
     compose_mtfs,
     compose_taylor_maps,
     compute_map_sensitivity,
@@ -24,10 +25,12 @@ from sandalwood.agent_tools import (
     initialize_sandalwood,
     integrate_mtf,
     invert_taylor_map,
+    list_session,
     mtf_info,
     parse_expression_to_mtf,
     perform_complex_operation,
     perform_mtf_arithmetic,
+    prune_registry,
     register_object,
     substitute_in_taylor_map,
     substitute_variable_in_mtf,
@@ -649,3 +652,101 @@ def test_advanced_da_capabilities():
     comp_val = evaluate_mtf.invoke({"mtf_ref": "comp_0", "point": [1.0, 2.0]})
     # 2*(1) + 2**2 = 6
     assert abs(comp_val["data"]["result"] - 6.0) < 1e-14
+
+
+def test_list_and_clear_session_tools():
+    """Tests the new list_session and clear_session agent tools."""
+    from sandalwood.agent_tools import clear_session, list_session
+
+    # Parse some objects into the default session
+    parse_expression_to_mtf.invoke({
+        "expression": "x1**2",
+        "dimension": 2,
+        "max_order": 2,
+        "name": "f_list_test",
+    })
+    create_taylor_map.invoke({
+        "expressions": ["x1", "x2"],
+        "dimension": 2,
+        "max_order": 2,
+        "name": "map_list_test",
+    })
+
+    # list_session should find both objects
+    ls_res = list_session.invoke({"session_id": "default"})
+    assert ls_res["status"] == "success"
+    ls_data = ls_res["data"]["result"]
+    assert ls_data["count"] >= 2
+    assert "f_list_test" in ls_data["variables"]
+    assert "map_list_test" in ls_data["variables"]
+    assert ls_data["variables"]["f_list_test"]["type"] == "MultivariateTaylorFunction"
+    assert ls_data["variables"]["map_list_test"]["type"] == "TaylorMap"
+
+    # clear_session should remove them
+    cs_res = clear_session.invoke({"session_id": "default"})
+    assert cs_res["status"] == "success"
+
+    # After clearing, list_session should show 0
+    ls_res2 = list_session.invoke({"session_id": "default"})
+    assert ls_res2["data"]["result"]["count"] == 0
+
+
+def test_imaginary_zero_stripped_from_evaluate_mtf():
+    """Tests that evaluate_mtf strips negligible imaginary parts from results."""
+    # x1**2 evaluated via the Python backend will return complex with 0j
+    parse_expression_to_mtf.invoke({
+        "expression": "x1**2",
+        "dimension": 2,
+        "max_order": 2,
+        "name": "f_real",
+    })
+    val_res = evaluate_mtf.invoke({"mtf_ref": "f_real", "point": [3.0, 0.0]})
+    val = val_res["data"]["result"]
+    # Result should be a plain float 9.0, not a complex (9+0j)
+    assert not isinstance(val, complex), f"Expected float but got complex: {val}"
+    assert abs(val - 9.0) < 1e-14
+
+
+def test_analyze_mtf_diagnostics_with_schema_fields():
+    """Tests that the new optional schema fields in AnalyzeMtfDiagnosticsInput are accepted."""
+    parse_expression_to_mtf.invoke({
+        "expression": "3.0*x1 + x2**2",
+        "dimension": 2,
+        "max_order": 2,
+        "name": "f_schema_diag",
+    })
+
+    # Test with weight parameter (even on python backend it should not crash)
+    res = analyze_mtf_diagnostics.invoke({
+        "mtf_ref": "f_schema_diag",
+        "weight": None,
+        "stability_var_id": None,
+        "stability_order": None,
+    })
+    assert res["status"] == "success"
+    assert "norm" in res["data"]["result"]
+
+
+def test_truncate_object_with_explicit_type_probing():
+    """Tests that truncate_object correctly identifies MTF vs TaylorMap without using except TypeError."""
+    # Truncate an MTF
+    parse_expression_to_mtf.invoke({
+        "expression": "x1**3 + x2**2",
+        "dimension": 2,
+        "max_order": 3,
+        "name": "f_trunc",
+    })
+    trunc_mtf = truncate_object.invoke({"ref": "f_trunc", "order": 2, "name": "f_trunc_2"})
+    assert trunc_mtf["status"] == "success"
+    assert trunc_mtf["data"]["result"]["ref"] == "f_trunc_2"
+
+    # Truncate a TaylorMap
+    create_taylor_map.invoke({
+        "expressions": ["x1**3 + x2", "x2**2"],
+        "dimension": 2,
+        "max_order": 3,
+        "name": "map_trunc",
+    })
+    trunc_map = truncate_object.invoke({"ref": "map_trunc", "order": 2, "name": "map_trunc_2"})
+    assert trunc_map["status"] == "success"
+    assert trunc_map["data"]["result"]["ref"] == "map_trunc_2"

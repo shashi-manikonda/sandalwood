@@ -22,7 +22,7 @@ print("=================================================================\n")
 print("1. Initializing Sandalwood Environment")
 print("--------------------------------------")
 init_res = initialize_sandalwood.invoke({"max_order": 4, "max_dimension": 2, "implementation": "python"})
-print(init_res)
+print(init_res["data"]["result"])
 print()
 
 # 2. Parse mathematical expressions to create stateful MTFs
@@ -35,7 +35,7 @@ f1_res = parse_expression_to_mtf.invoke({
     "max_order": 4,
     "name": "f1"
 })
-f1_data = json.loads(f1_res)
+f1_data = f1_res["data"]["result"]
 print(f"Registered ref: '{f1_data['ref']}'")
 print(f"MTF Terms:\n{f1_data['info']}\n")
 
@@ -46,7 +46,7 @@ f2_res = parse_expression_to_mtf.invoke({
     "max_order": 4,
     "name": "f2"
 })
-f2_data = json.loads(f2_res)
+f2_data = f2_res["data"]["result"]
 print(f"Registered ref: '{f2_data['ref']}'")
 print(f"MTF Terms:\n{f2_data['info']}\n")
 
@@ -59,7 +59,7 @@ f3_res = perform_mtf_arithmetic.invoke({
     "mtf_ref_2": "f2",
     "name": "f3"
 })
-f3_data = json.loads(f3_res)
+f3_data = f3_res["data"]["result"]
 print(f"Registered f3 ref: '{f3_data['ref']}'")
 print(f"MTF Terms (f(x1, x2) = x1**2 + sin(x2)):\n{f3_data['info']}\n")
 
@@ -71,7 +71,7 @@ deriv_res = compute_partial_derivative.invoke({
     "var_index": 1,
     "name": "df3_dx1"
 })
-deriv_data = json.loads(deriv_res)
+deriv_data = deriv_res["data"]["result"]
 print(f"Registered derivative ref: '{deriv_data['ref']}'")
 print(f"MTF Terms (df/dx1 = 2*x1):\n{deriv_data['info']}\n")
 
@@ -86,10 +86,11 @@ int_res = integrate_mtf.invoke({
     "upper_limit": 3.0,
     "name": "def_integral"
 })
-int_data = json.loads(int_res)
+int_data = int_res["data"]["result"]
 print(f"Registered integral ref: '{int_data['ref']}'")
 print(f"MTF Terms (Constant 8.0):\n{int_data['info']}")
-val = evaluate_mtf.invoke({"mtf_ref": "def_integral", "point": [0.0, 0.0]})
+val_res = evaluate_mtf.invoke({"mtf_ref": "def_integral", "point": [0.0, 0.0]})
+val = val_res["data"]["result"]
 print(f"Evaluated integral value: {val}\n")
 
 # 6. Complex Analysis (CMTF)
@@ -101,7 +102,7 @@ z_res = parse_expression_to_mtf.invoke({
     "max_order": 2,
     "name": "z"
 })
-z_data = json.loads(z_res)
+z_data = z_res["data"]["result"]
 print(f"Registered complex function ref: '{z_data['ref']}'")
 
 # Take the complex conjugate of z
@@ -110,9 +111,10 @@ conj_res = perform_complex_operation.invoke({
     "mtf_ref": "z",
     "name": "z_conj"
 })
-conj_data = json.loads(conj_res)
+conj_data = conj_res["data"]["result"]
 print(f"Registered conjugate ref: '{conj_data['ref']}'")
-eval_conj = evaluate_mtf.invoke({"mtf_ref": "z_conj", "point": [1.0, 0.0]})
+eval_conj_res = evaluate_mtf.invoke({"mtf_ref": "z_conj", "point": [1.0, 0.0]})
+eval_conj = eval_conj_res["data"]["result"]
 print(f"Conjugate evaluated at x1=1: {eval_conj}\n")
 
 # 7. Taylor Maps (Vector-Valued Functions) and Inversion
@@ -125,7 +127,7 @@ map_res = create_taylor_map.invoke({
     "max_order": 3,
     "name": "map_A"
 })
-map_data = json.loads(map_res)
+map_data = map_res["data"]["result"]
 print(f"Registered TaylorMap ref: '{map_data['ref']}'")
 print(f"Map structure:\n{map_data['info']}")
 
@@ -134,7 +136,7 @@ inv_res = invert_taylor_map.invoke({
     "map_ref": "map_A",
     "name": "map_A_inv"
 })
-inv_data = json.loads(inv_res)
+inv_data = inv_res["data"]["result"]
 print(f"Registered Inverse map ref: '{inv_data['ref']}'")
 print(f"Inverse map structure:\n{inv_data['info']}")
 
@@ -143,11 +145,13 @@ print("8. Multi-Step Validation")
 print("------------------------")
 start_point = [2.0, 1.0]
 # Forward map F([2, 1]) = [2 + 1, 1] = [3, 1]
-fwd_val = evaluate_taylor_map.invoke({"map_ref": "map_A", "point": start_point})
+fwd_val_res = evaluate_taylor_map.invoke({"map_ref": "map_A", "point": start_point})
+fwd_val = fwd_val_res["data"]["result"]
 print(f"Forward Map evaluated at {start_point} -> {fwd_val}")
 
 # Inverse map F_inv([3, 1]) = [3 - 1, 1] = [2, 1]
-bwd_val = evaluate_taylor_map.invoke({"map_ref": "map_A_inv", "point": fwd_val})
+bwd_val_res = evaluate_taylor_map.invoke({"map_ref": "map_A_inv", "point": fwd_val})
+bwd_val = bwd_val_res["data"]["result"]
 print(f"Inverse Map evaluated at {fwd_val} -> {bwd_val}")
 print(f"Does F_inv(F(x)) == x? {bwd_val == start_point}")
 print("\nDemo Completed Successfully!")

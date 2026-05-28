@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.4] - 2026-05-24
+## [0.2.0] - 2026-05-27
+
+### Added
+- **Agent Tools Integration** (`sandalwood.agent_tools`): A comprehensive 28-tool API enabling autonomous AI agents (LangChain, MCP, OpenAI-compatible) to perform Differential Algebra and TPSA computations.
+  - **28 Sandalwood tools** covering initialization, expression parsing, evaluation, calculus (differentiation, integration, Poisson bracket), arithmetic, composition, substitution, truncation, diagnostics, and sensitivity analysis.
+  - **Stateful Session Registry** (`registry.py`): Thread-safe, multi-session object store that returns lightweight reference names instead of serializing large coefficient arrays into LLM context windows.
+  - **LangChain Integration** (`langchain_tools.py`): All 28 tools exposed as `@tool`-decorated LangChain-compatible callables with rich, LLM-optimized descriptions and Pydantic v2 input schemas.
+  - **MCP Server** (`mcp_server.py`): FastMCP server exposing all tools and the `sandalwood-da-expert` system-prompt, plus read-only MCP resources (`registry://variables`, `registry://variable/{name}`) for registry introspection.
+  - **`list_session` tool**: Agents can inspect all registered variables in their session (name, type, dimension).
+  - **`clear_session` tool**: Agents can explicitly clean up their session registry to free memory.
+  - **`analyze_mtf_diagnostics`**: Now exposes `weight`, `stability_var_id`, and `stability_order` parameters through the tool schema (previously unreachable from LangChain/MCP).
+  - **Gradio Dashboard** (`demos/mcp_dashboard/app.py`): Interactive web UI connecting Google Gemini to the Sandalwood MCP server with a live registry inspector panel.
+  - **LLM Agent Demo** (`demos/mcp_client/llm_agent_demo.py`): Full MCP + Gemini agent loop with simulated mode (no API key required) and live mode.
+  - **MCP Client Demo** (`demos/mcp_client/client_demo.py`): Low-level MCP protocol walkthrough.
+  - **LangChain Demo** (`demos/agent_tools_demo.py`): Self-contained script demonstrating the full agent tools workflow.
+  - **Shared Demo Utilities** (`demos/utils.py`): `clean_schema()` and `get_gemini_model()` helpers for all demo scripts. Model configurable via `SANDALWOOD_GEMINI_MODEL` environment variable.
+  - **Pydantic Schemas** (`schemas.py`): `ToolSuccessResponse` / `ToolErrorResponse` response envelope with `ToolErrorCode` enum for structured agent error handling.
+  - **SymPy Expression Parser** (`parser.py`): Parses natural math strings into `MultivariateTaylorFunction` objects with support for 23 math functions including specialty functions (`gaussian`, `isqrt`, `inv_cbrt`, `inv_pow_3_2`).
+  - **Public Registry API**: `list_session_variables()`, `list_all_sessions()`, and `prune_registry()` now exported from the public `agent_tools` API.
+
+### Changed
+- **`mcp_server.py`**: Replaced private `_registry` import with the new public `list_session_variables()` / `list_all_sessions()` accessors. Resource `registry://variables` now enumerates across all active sessions (not just `default`).
+- **`analyze_taylor_map`**: Now returns `trace` as a numeric type (`float` or `complex`) instead of a string. Non-square or failed traces are reported in a separate `trace_error` field.
+- **`perform_mtf_arithmetic`**: Added explicit `else: raise ValueError` guard after operator dispatch to prevent theoretically-unbound `res` reference.
+- **`truncate_object`**: Replaced fragile `except TypeError` type-probing with explicit `isinstance` check via the new public `list_session_variables()` API.
+- **`langchain_tools.py`**: Fixed `perform_mtf_arithmetic` description to correctly document operator symbols (`+`, `-`, `*`, `/`, `**`) instead of word-form names.
+
+### Fixed
+- **Imaginary zero stripping**: `evaluate_mtf`, `evaluate_mtf_batch` now strip negligible imaginary components (< 1e-14) from results, so real-valued functions consistently return `float` instead of `complex`.
+- **`AnalyzeMtfDiagnosticsInput` schema**: The `weight`, `stability_var_id`, and `stability_order` parameters are now properly declared in the Pydantic schema and accessible via LangChain and MCP tool calls.
+- **`ComposeMtfsInput` / `SubstituteInTaylorMapInput` schemas**: Changed untyped `dict` fields to properly typed `Dict[str, str]` and `Dict[str, float]` respectively for improved validation and LLM tool-call fidelity.
+
 
 ### Added
 - **Thread-Local Index Pools**: Implemented thread-local index pools to enhance concurrent performance and stability.
